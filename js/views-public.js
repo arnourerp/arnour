@@ -541,6 +541,7 @@ APP.views['job-detail'] = function (ctx) {
     (co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm') + '<span>' + E(co.name) + '</span></a>') : '') +
     '<h1 class="jd-title">' + E(job.title) + APP.samplePill(job) + (!open ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h1>' +
     (APP.LIVE && job.sample ? '<p class="sample-note">Sample role, for illustration. Applications to sample roles are not sent to a real company.</p>' : '') +
+    (APP.modTools ? APP.modTools('job', job.id, !!(job.mine || (APP.db.session && job.companyId === APP.db.session.companyId)), true) : '') +
     '<div class="job-meta">' +
     '<span>' + APP.icon('briefcase') + E(job.employmentType) + '</span>' +
     '<span>' + APP.icon('pin') + E(APP.locText(job)) + (job.remote ? ' · Remote-friendly' : '') + '</span>' +
@@ -588,7 +589,7 @@ APP.views['talent-public'] = function (ctx) {
 
   return '<div class="narrow">' +
     '<div class="crumb"><a class="link" href="#/">← Home</a></div>' +
-    APP.consultantProfileHtml(c, { public: true, headActions: headActions }) +
+    APP.consultantProfileHtml(c, { public: true, headActions: headActions + (APP.modTools ? APP.modTools('profile', c.id, !!(s && s.consultantId === c.id)) : '') }) +
     share +
     '</div>';
 };
@@ -628,6 +629,7 @@ APP.views['company-public'] = function (ctx) {
     '<div class="co-id"><h2>' + APP.h(co.name) + APP.samplePill(co) + '</h2>' +
     '<p class="muted">' + APP.h(co.industry) + ' · ' + APP.h(co.size) + ' · ' + APP.icon('pin', 13) + ' ' + APP.h(APP.locText(co)) + (co.website ? ' · ' + APP.h(co.website) : '') + '</p></div>' +
     (co.contactName ? '<div class="co-contact muted small">' + APP.icon('users', 13) + ' ' + APP.h(co.contactName) + (co.contactTitle ? ' · ' + APP.h(co.contactTitle) : '') + '</div>' : '') +
+    (APP.modTools ? APP.modTools('company', co.id, !!(APP.db.session && APP.db.session.companyId === co.id), true) : '') +
     '</div></div>' +
 
     (co.about ? '<div class="card"><div class="card-h">About</div><p>' + APP.h(co.about) + '</p></div>' : '') +

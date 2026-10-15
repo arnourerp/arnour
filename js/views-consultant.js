@@ -589,6 +589,7 @@ APP.msgLayout = function (convId) {
     chatHtml =
       '<div class="chat-head"><button type="button" class="icon-btn chat-back" data-action="go" data-href="' + back + '" aria-label="Back to inbox">←</button>' +
       (cp ? cp.avatar + '<div>' + (cp.href ? '<a class="chat-who-link" href="' + APP.h(cp.href) + '">' + APP.h(cp.name) + '</a>' : '<strong>' + APP.h(cp.name) + '</strong>') + '<small class="muted">' + APP.h(cp.sub || '') + '</small></div>' : '') +
+      (APP.reportBtn ? APP.reportBtn('conversation', active.id, false) : '') +
       '<button type="button" class="icon-btn chat-x" data-action="go" data-href="' + back + '" title="Close" aria-label="Close conversation">' + APP.icon('x', 18) + '</button></div>' +
       roleBar +
       '<div class="chat-scroll" id="chat-scroll">' + APP.chatMessagesHtml(active, isC) + '</div>' +

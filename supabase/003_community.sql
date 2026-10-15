@@ -135,9 +135,9 @@ begin
           'upvotes', a.votes_base + (select count(*) from public.votes v where v.kind = 'a' and v.item_id = a.id),
           'upvotedBy', coalesce((select jsonb_agg(_pub_eid(v.voter)) from public.votes v where v.kind = 'a' and v.item_id = a.id), '[]'::jsonb)
         ) order by a.created_ts)
-        from public.answers a where a.question_id = q.id), '[]'::jsonb)
+        from public.answers a where a.question_id = q.id and public._visible(a.owner, a.sample)), '[]'::jsonb)
     ) as x
-    from public.questions q order by q.created_ts desc limit 300
+    from public.questions q where public._visible(q.owner, q.sample) order by q.created_ts desc limit 300
   ) s;
 
   select coalesce(jsonb_agg(x order by (x->>'createdTs')::bigint desc), '[]'::jsonb) into ars from (
@@ -153,9 +153,9 @@ begin
           'id', c.id, 'authorId', _pub_eid(c.author), 'body', c.body, 'createdTs', c.created_ts,
           'mine', c.owner is not distinct from me and me is not null
         ) order by c.created_ts)
-        from public.article_comments c where c.article_id = r.id), '[]'::jsonb)
+        from public.article_comments c where c.article_id = r.id and public._visible(c.owner, c.sample)), '[]'::jsonb)
     ) as x
-    from public.articles r order by r.created_ts desc limit 150
+    from public.articles r where public._visible(r.owner, r.sample) order by r.created_ts desc limit 150
   ) s;
 
   -- people who wrote something, so visitors who are not signed in can still see who it was

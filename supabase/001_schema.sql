@@ -114,14 +114,43 @@ create table if not exists public.notifications (
 );
 create index if not exists notif_key_idx on public.notifications(user_key, ts desc);
 
+-- ---------- admin controls (Release 3) -------------------------------------
+alter table public.profiles    add column if not exists suspended        boolean not null default false;
+alter table public.profiles    add column if not exists suspended_reason text    not null default '';
+alter table public.profiles    add column if not exists suspended_at     timestamptz;
+alter table public.consultants add column if not exists cert_revoked     boolean not null default false;
+create table if not exists public.site_settings (key text primary key, value jsonb not null default 'null'::jsonb);
+
 -- ---------- who am I --------------------------------------------------------
 create or replace function public.my_entity() returns text
-language sql stable security definer set search_path = public as
-$$ select entity_id from public.profiles where user_id = auth.uid() $$;
+language plpgsql stable security definer set search_path = public as
+$$
+declare pr record;
+begin
+  select entity_id, suspended into pr from public.profiles where user_id = auth.uid();
+  if pr.suspended then raise exception 'account suspended'; end if;
+  return pr.entity_id;
+end $$;
 
 create or replace function public.my_role() returns text
+language plpgsql stable security definer set search_path = public as
+$$
+declare pr record;
+begin
+  select role, suspended into pr from public.profiles where user_id = auth.uid();
+  if pr.suspended then raise exception 'account suspended'; end if;
+  return pr.role;
+end $$;
+
+-- hidden from everyone else: samples (when the admin hides them) and suspended people's content
+create or replace function public._hide_samples() returns boolean
 language sql stable security definer set search_path = public as
-$$ select role from public.profiles where user_id = auth.uid() $$;
+$$ select coalesce((select value = 'true'::jsonb from public.site_settings where key = 'hide_samples'), false) $$;
+
+create or replace function public._visible(p_owner uuid, p_sample boolean) returns boolean
+language sql stable security definer set search_path = public as
+$$ select not (coalesce(p_sample,false) and public._hide_samples())
+      and not coalesce((select suspended from public.profiles where user_id = p_owner), false) $$;
 
 -- two people have been introduced (accepted) => identities are visible to each other
 create or replace function public.is_revealed(p_cid text, p_eid text) returns boolean
@@ -154,12 +183,12 @@ end $$;
 create or replace function public._redact_consultant(c public.consultants) returns jsonb
 language sql immutable as
 $$ select (c.data - array['firstName','lastName','city','nationality','summary','linkedin','cv','photo','email','phone','savedJobIds'])
-          || jsonb_build_object('id', c.id, 'anon', true, 'firstName', '', 'lastName', '', 'sample', c.sample) $$;
+          || jsonb_build_object('id', c.id, 'anon', true, 'firstName', '', 'lastName', '', 'sample', c.sample, 'certRevoked', c.cert_revoked) $$;
 
 create or replace function public._full_consultant(c public.consultants, mine boolean) returns jsonb
 language sql immutable as
 $$ select (case when mine then c.data else c.data - 'savedJobIds' end)
-          || jsonb_build_object('id', c.id, 'anon', c.anon, 'sample', c.sample) $$;
+          || jsonb_build_object('id', c.id, 'anon', c.anon, 'sample', c.sample, 'certRevoked', c.cert_revoked) $$;
 
 create or replace function public._redact_company(co public.companies, as_id text) returns jsonb
 language sql immutable as
@@ -177,7 +206,7 @@ $$
 declare ent text := my_entity(); r text := my_role(); c public.consultants;
 begin
   if auth.uid() is null then return; end if;
-  for c in select * from public.consultants loop
+  for c in select * from public.consultants x where public._visible(x.owner, x.sample) or x.owner = auth.uid() loop
     if c.owner = auth.uid() then return next _full_consultant(c, true);
     elsif not c.anon then return next _full_consultant(c, false);
     elsif r = 'employer' and is_revealed(c.id, ent) then return next _full_consultant(c, false);
@@ -190,14 +219,14 @@ create or replace function public.get_public_profile(p_id text) returns jsonb
 language sql stable security definer set search_path = public as
 $$ select case when c.anon and coalesce(c.owner <> auth.uid(), true) then jsonb_build_object('id', c.id, 'private', true)
                else _full_consultant(c, c.owner is not distinct from auth.uid()) end
-   from public.consultants c where c.id = p_id $$;
+   from public.consultants c where c.id = p_id and (public._visible(c.owner, c.sample) or c.owner = auth.uid()) $$;
 
 create or replace function public.list_companies() returns setof jsonb
 language plpgsql stable security definer set search_path = public as
 $$
 declare co public.companies; jb public.jobs;
 begin
-  for co in select * from public.companies loop
+  for co in select * from public.companies x where public._visible(x.owner, x.sample) loop
     if not _co_hidden(co, null::public.jobs) then
       return next _full_company(co);
     else
@@ -205,7 +234,7 @@ begin
     end if;
   end loop;
   -- one anonymous stand-in per role that is confidential on its own
-  for jb in select * from public.jobs where confidential is true loop
+  for jb in select * from public.jobs j2 where j2.confidential is true and public._visible(j2.owner, j2.sample) loop
     select * into co from public.companies where id = jb.company_id;
     if _co_hidden(co, jb) then return next _redact_company(co, jb.alias); end if;
   end loop;
@@ -216,7 +245,7 @@ language sql stable security definer set search_path = public as
 $$ select case when public._co_hidden(co, null::public.jobs)
                then jsonb_build_object('id', co.alias, 'private', true)
                else _full_company(co) end
-   from public.companies co where co.id = p_id $$;
+   from public.companies co where co.id = p_id and (public._visible(co.owner, co.sample) or co.owner = auth.uid()) $$;
 
 create or replace function public.list_jobs() returns setof jsonb
 language plpgsql stable security definer set search_path = public as
@@ -224,9 +253,9 @@ $$
 declare jb public.jobs; co public.companies; ent text := my_entity(); out_co text;
 begin
   for jb in select * from public.jobs j
-            where j.status = 'open' or j.owner = auth.uid()
+            where public._visible(j.owner, j.sample) and (j.status = 'open' or j.owner = auth.uid()
                or exists (select 1 from public.applications a where a.job_id = j.id and a.consultant_id = ent)
-               or exists (select 1 from public.invites i where i.job_id = j.id and i.consultant_id = ent)
+               or exists (select 1 from public.invites i where i.job_id = j.id and i.consultant_id = ent))
   loop
     select * into co from public.companies where id = jb.company_id;
     if _co_hidden(co, jb) then
@@ -293,7 +322,7 @@ $$
 declare uid uuid := auth.uid(); r text := my_role(); eid text := my_entity();
 begin
   if uid is null or r is null then raise exception 'not signed in'; end if;
-  p_data := p_data - array['sample','mine','_anon'] || jsonb_build_object('id', eid);
+  p_data := p_data - array['sample','mine','_anon','certRevoked'] || jsonb_build_object('id', eid);
   if r = 'consultant' then
     update public.consultants set data = p_data, anon = coalesce((p_data->>'anon')::boolean, false), updated_at = now() where id = eid;
   else
@@ -476,7 +505,7 @@ language plpgsql security definer set search_path = public, auth as
 $$
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
-  delete from public.notifications where user_key = my_entity();
+  delete from public.notifications where user_key = (select entity_id from public.profiles where user_id = auth.uid());
   delete from auth.users where id = auth.uid();   -- cascades to profile, profile data, roles, messages
 end $$;
 

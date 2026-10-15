@@ -20,7 +20,7 @@
   var POLL_MS = 15000;
 
   /* ------------------------------ helpers ------------------------------ */
-  function clean(o) { var c = JSON.parse(JSON.stringify(o)); delete c._anon; delete c.sample; delete c.mine; return c; }
+  function clean(o) { var c = JSON.parse(JSON.stringify(o)); delete c._anon; delete c.sample; delete c.mine; delete c.certRevoked; return c; }
   function jobSig(j) {
     var c = JSON.parse(JSON.stringify(j));
     ['applicants', 'appliedTs', 'applyNotes', 'invited', 'postedTs', 'sample', 'mine'].forEach(function (k) { delete c[k]; });
@@ -33,8 +33,11 @@
     });
   }
   function rpc(fn, args) {
-    return B.sb.rpc(fn, args || {}).then(function (r) { if (r.error) throw r.error; return r.data; });
+    return B.sb.rpc(fn, args || {}).then(function (r) { if (r.error) { if (/account suspended/i.test(r.error.message || '')) B.onSuspended(); throw r.error; } return r.data; });
   }
+  B.rpc = rpc;
+  /* an account suspended while the page is open: reload so the notice shows */
+  B.onSuspended = function () { if (B._susp) return; B._susp = true; try { location.hash = '#/suspended'; } catch (e) { /* ignore */ } setTimeout(function () { location.reload(); }, 50); };
   function isTransient(e) {
     if (!e) return true;
     if (e.code && /^PGRST30[0-9]$/.test(e.code)) return true; /* expired login — refreshed on retry */
@@ -131,18 +134,28 @@
   };
 
   B.hydrate = function (session) {
-    B.user = session ? session.user : null; B.profile = null;
+    B.user = session ? session.user : null; B.profile = null; B.suspended = null; B.isAdmin = false;
     var db = B.emptyDb(), pub, priv = null;
-    return B.fetchPublic().then(function (x) {
-      pub = x;
-      if (!B.user) return null;
-      return B.sb.from('profiles').select('*').maybeSingle().then(function (r) {
-        if (r.error) throw r.error;
-        B.profile = r.data || null;
+    var first = B.user ? B.sb.from('profiles').select('*').maybeSingle() : Promise.resolve(null);
+    return first.then(function (r0) {
+      if (r0 && r0.error) throw r0.error;
+      var prof = r0 ? r0.data : null;
+      if (prof && prof.suspended) { /* suspended: nothing else is loaded, the person sees the notice */
+        B.suspended = { reason: prof.suspended_reason || '' };
+        APP.db = db; B.snap = B.makeSnap(); B.ready = true;
+        return 'suspended';
+      }
+      return Promise.all([B.fetchPublic(), B.user ? rpc('am_i_admin').catch(function () { return false; }) : false]).then(function (xs) {
+        pub = xs[0]; B.isAdmin = xs[1] === true;
+        if (!B.user) return null;
+        B.profile = prof || null;
         return B.profile ? B.fetchPrivate() : null;
+      }).then(function (p) {
+        priv = p;
+        return hydrateRest();
       });
-    }).then(function (p) {
-      priv = p;
+    });
+    function hydrateRest() {
       pub.companies.forEach(function (c) { db.companies[c.id] = c; });
       B.applyCommunity(db, pub.community);
       pub.jobs.forEach(function (j) { delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = []; db.jobs[j.id] = j; });
@@ -158,7 +171,7 @@
       APP.db = db;
       B.snap = B.makeSnap();
       B.ready = true;
-    });
+    }
   };
 
   /* what the server already has — compared against APP.db after every save */
@@ -356,7 +369,7 @@
   };
 
   B.poll = function () {
-    if (!B.profile || document.hidden || B.running || B.polling || B.pending()) return;
+    if (B.suspended || !B.profile || document.hidden || B.running || B.polling || B.pending()) return;
     B.polling = true; B.pollN++;
     var full = B.pollN % 5 === 0;
     var before = B.viewSig();
@@ -377,7 +390,7 @@
       B.applyPrivate(db, r[0]);
       B.snap = B.makeSnap();
       if (B.viewSig() !== before) B.softRefresh();
-    }).catch(function () { /* offline: next poll */ }).then(function () { B.polling = false; });
+    }).catch(function (e) { if (e && /account suspended/i.test(e.message || '')) B.onSuspended(); /* otherwise offline: next poll */ }).then(function () { B.polling = false; });
   };
   B.softRefresh = function () {
     var h = location.hash, active = document.activeElement;
@@ -441,7 +454,9 @@
 
   B.afterSignedIn = function () {
     var back = APP.state.afterAuth || ''; APP.state.afterAuth = '';
-    if (B.profile) APP.go(back || (B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'));
+    if (B.suspended) APP.go('#/suspended');
+    else if (B.profile) APP.go(back || (B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'));
+    else if (B.isAdmin) APP.go('#/admin');
     else APP.go(B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard');
   };
   B.metaRole = function () { var r = B.user && B.user.user_metadata && B.user.user_metadata.role; return r === 'employer' || r === 'e' ? 'e' : 'c'; };
@@ -504,8 +519,11 @@
   B.guard = function (route) {
     var v = route.view;
     if (B.recovery) return v === 'reset' ? null : '#/reset';
+    if (B.suspended) return (v === 'suspended' || v === 'terms' || v === 'privacy') ? null : '#/suspended';
+    if (v === 'suspended') return '#/';
+    if (v === 'admin' && !B.isAdmin) return B.user ? '#/' : '#/login';
     if (B.user && !B.profile) {
-      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset'];
+      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset'].concat(B.isAdmin ? ['admin'] : []);
       if (ok.indexOf(v) === -1) return B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard';
       if (v === 'wiz-c' && B.metaRole() === 'e') return '#/onboard-e';
       if (v === 'wiz-e' && B.metaRole() === 'c') return '#/onboard';
@@ -589,6 +607,16 @@
       '<label class="field"><span class="label">New password</span><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required>' + pwHint() + '</label>' +
       '<p class="field-error" id="live-err" role="alert"></p>' +
       '<button class="btn btn-primary btn-block" type="submit">Save password</button></form>');
+  };
+
+  APP.views.suspended = function () {
+    document.title = 'Account suspended — Arnour';
+    var why = B.suspended && B.suspended.reason ? '<p class="live-note warn"><strong>Reason:</strong> ' + esc(B.suspended.reason) + '</p>' : '';
+    return card('<h1>Your account is suspended</h1>' +
+      '<p class="muted center">Your profile, roles and messages are hidden from other members while the suspension is in place, and you cannot post or send messages.</p>' + why +
+      '<p class="center">If you think this is a mistake, write to <a href="mailto:contact@arnour.com?subject=Suspended%20account%20' + encodeURIComponent((B.user && B.user.email) || '') + '">contact@arnour.com</a> from the email address you signed up with and we will look at it.</p>' +
+      '<button class="btn btn-outline btn-block" data-action="sign-out">Sign out</button>' +
+      '<p class="center small mt16"><a href="#/terms">Terms</a> · <a href="#/privacy">Privacy</a></p>');
   };
 
   APP.views.account = function () {

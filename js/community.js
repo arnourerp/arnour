@@ -221,6 +221,7 @@ APP.views['community-q'] = function (ctx) {
     APP.commAuthorHtml(q.authorId, q.anonymous) +
     '<span class="grow"></span>' +
     '<span class="q-time">Asked ' + APP.timeAgo(q.createdTs) + '</span>' +
+    (APP.modTools ? APP.modTools('question', q.id, q.mine) : '') +
     '</div></article>';
 
   const share = APP.shareHtml({
@@ -247,7 +248,7 @@ APP.views['community-q'] = function (ctx) {
       APP.commUpvote(a, 'answer-upvote', { qid: q.id, aid: a.id }) +
       '</div>' +
       '<p class="a-body">' + APP.h(a.body) + '</p>' +
-      '<div class="a-actions"><span>' + APP.timeAgo(a.createdTs) + '</span>' +
+      '<div class="a-actions"><span>' + APP.timeAgo(a.createdTs) + '</span>' + (APP.modTools ? APP.modTools('answer', a.id, a.mine) : '') +
       (k === q.authorId ? '<button class="link" data-action="accept-answer" data-qid="' + q.id + '" data-aid="' + a.id + '">' + (a.accepted ? 'Unmark accepted' : '✓ Mark as accepted') + '</button>' : '') +
       '</div></div>';
   }).join('');
@@ -315,6 +316,7 @@ APP.commentsHtml = function (a) {
   const list = cs.map(c =>
     '<div class="a-item"><div class="a-head">' + APP.commAuthorHtml(c.authorId) + '<span class="grow"></span><span class="muted small">' + APP.timeAgo(c.createdTs) + '</span></div>' +
     '<p class="a-body">' + APP.h(c.body) + '</p>' +
+    (APP.modTools ? APP.modTools('comment', c.id, c.mine, true) : '') +
     (k && k === c.authorId ? '<div class="a-actions"><button class="link" type="button" data-action="comment-delete" data-aid="' + a.id + '" data-cid="' + c.id + '">Delete</button></div>' : '') +
     '</div>').join('');
   const draft = ((APP.commCmtDraft || {})[a.id] || {}).q || '';
@@ -359,6 +361,7 @@ APP.views['community-a'] = function (ctx) {
     APP.commAuthorHtml(a.authorId) +
     '<span class="grow"></span>' +
     '<span class="q-time">Shared ' + APP.timeAgo(a.createdTs) + '</span>' +
+    (APP.modTools ? APP.modTools('article', a.id, a.mine) : '') +
     (a.url ? '<a class="btn btn-outline btn-sm" href="' + APP.h(a.url) + '" target="_blank" rel="noopener">' + APP.icon('file', 14) + ' Read the source</a>' : '') +
     '</div></article>' +
     share +

@@ -1401,8 +1401,8 @@ APP.availHtml = function (a) {
 };
 /* Certified in at least one module. There is no identity verification yet, so the badge says so rather than "verified". */
 APP.certBadgeHtml = function (c) {
-  return (c.skills || []).some(k => k.certified)
-    ? '<span class="vbadge" title="SAP-certified in at least one module" aria-label="SAP-certified">' + APP.icon('check', 11) + '</span>'
+  return !c.certRevoked && (c.skills || []).some(k => k.certified)
+    ? '<span class="vbadge" title="' + (APP.LIVE ? 'Certified (self-declared) in at least one SAP module' : 'SAP-certified in at least one module') + '" aria-label="' + (APP.LIVE ? 'Certified, self-declared' : 'SAP-certified') + '">' + APP.icon('check', 11) + '</span>'
     : '';
 };
 APP.matchPillHtml = function (score) {
@@ -2121,6 +2121,7 @@ APP.navbar = function () {
       ? '<a class="menu-item" href="' + (APP.waitingForMe() ? '#/c/intros' : '#/c/applied') + '">My jobs' + (APP.waitingForMe() ? ' <span class="count-pill">' + APP.waitingForMe() + '</span>' : '') + '</a>'
       : '<a class="menu-item" href="' + (APP.pendingIntrosFor() ? '#/e/intros' : '#/e/jobs') + '">My roles' + ((APP.pendingIntrosFor() + APP.newApplicants(u)) ? ' <span class="count-pill">' + (APP.pendingIntrosFor() + APP.newApplicants(u)) + '</span>' : '') + '</a>') +
     '<button class="menu-item" data-action="sign-out">Sign out</button>' +
+    (APP.LIVE && APP.backend && APP.backend.isAdmin ? '<a class="menu-item" href="#/admin">Admin</a>' : '') +
     (APP.LIVE ? '<a class="menu-item" href="#/account">Account</a>' : '<button class="menu-item danger" data-action="reset-demo">Reset demo data</button>') +
     '</div></div>' +
     '</nav></div>' +
@@ -2446,6 +2447,8 @@ APP.routes = [
   { re: /^#\/reset$/, view: 'reset', auth: null },
   { re: /^#\/check-email$/, view: 'check-email', auth: null },
   { re: /^#\/account$/, view: 'account', auth: null },
+  { re: /^#\/suspended$/, view: 'suspended', auth: null },
+  { re: /^#\/admin(?:\/([a-z]+)(?:\/(.+))?)?$/, view: 'admin', auth: null },
   { re: /^#\/terms$/, view: 'terms', auth: null },
   { re: /^#\/privacy$/, view: 'privacy', auth: null },
   { re: /^#\/onboard$/, view: 'wiz-c', auth: null },
@@ -2625,13 +2628,15 @@ APP.render = function () {
   }
   const view = APP.views[route.view] || APP.views.landing;
   const body = view({ p: route.p });
-  const noChrome = ['landing', 'login', 'register', 'forgot', 'reset', 'check-email', 'wiz-c', 'wiz-e', 'notfound'];
-  const chrome = route.auth || (APP.db.session && noChrome.indexOf(route.view) < 0) ? APP.navbar() : APP.pubHeader();
-  const footer = route.auth ? '' : APP.footerHtml();
+  const noChrome = ['landing', 'login', 'register', 'forgot', 'reset', 'check-email', 'wiz-c', 'wiz-e', 'notfound', 'admin', 'suspended'];
+  const bare = route.view === 'admin';
+  const chrome = bare ? '' : route.auth || (APP.db.session && noChrome.indexOf(route.view) < 0) ? APP.navbar() : APP.pubHeader();
+  const footer = route.auth || bare ? '' : APP.footerHtml();
+  const keepY = bare && APP._lastRoute === location.hash.split('?')[0] ? window.scrollY : 0;
   document.getElementById('app').innerHTML =
     chrome + '<main class="main" id="main">' + body + '</main>' + footer + '<div id="toasts"></div>';
   APP.a11yPass();
-  window.scrollTo(0, 0);
+  window.scrollTo(0, keepY);
   { /* fade the page in on navigation only — not on in-page re-renders (chips, sort) */
     const key = location.hash.split('?')[0];
     const m = document.getElementById('main');

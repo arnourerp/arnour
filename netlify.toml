@@ -1,0 +1,6 @@
+# keep the database scripts out of the public site
+[[redirects]]
+  from = "/supabase/*"
+  to = "/index.html"
+  status = 404
+  force = true
