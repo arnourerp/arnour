@@ -1,18 +1,18 @@
-// Share links: /share/job/<id>, /share/q/<id>, /share/a/<id>
+// Share links: /share/job/<id>, /share/q/<id>, /share/a/<id>, /share/p/<id> (profile), /share/c/<id> (company)
 // Social sites do not run the app, so they read the preview (title, text) from this page.
 // People who open the link are sent straight on to the real page.
 const SB = 'https://refardkcseixbcaauabo.supabase.co';
 const KEY = 'sb_publishable_6ycFGEqbq9RAc1Fi1163Hg_JY7DqefQ';
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
-const rpc = (fn) => fetch(SB + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' }, body: '{}' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const rpc = (fn, args) => fetch(SB + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
 export default async (request, context) => {
   const url = new URL(request.url);
-  const m = url.pathname.match(/^\/share\/(job|q|a)\/([A-Za-z0-9_-]{1,40})\/?$/);
+  const m = url.pathname.match(/^\/share\/(job|q|a|p|c)\/([A-Za-z0-9_-]{1,40})\/?$/);
   if (!m) return Response.redirect(url.origin + '/', 302);
   const kind = m[1], id = m[2];
-  const target = url.origin + '/#/' + (kind === 'job' ? 'job/' : kind === 'q' ? 'community/q/' : 'community/a/') + id;
+  const target = url.origin + '/#/' + { job: 'job/', q: 'community/q/', a: 'community/a/', p: 'talent/', c: 'company/' }[kind] + id;
   let title = 'Arnour — The SAP Talent Network';
   let desc = 'The talent network built for the SAP ecosystem.';
   try {
@@ -22,16 +22,34 @@ export default async (request, context) => {
       if (j) {
         const c = Array.isArray(cos) ? cos.find((x) => x.id === j.companyId) : null;
         const co = c && c.name ? c.name : '';
-        title = (j.title || 'SAP role') + (co ? ' — ' + co : '') + ' | Arnour';
+        title = 'Hiring: ' + (j.title || 'SAP role') + (co ? ' — ' + co : '') + ' | Arnour';
         const bits = [j.level, j.employmentType, [j.city, j.country && String(j.country).toUpperCase()].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
         desc = cut((bits ? bits + '. ' : '') + (j.description || 'Hiring on Arnour, the talent network built for the SAP ecosystem.'), 200);
+      }
+    } else if (kind === 'p') {
+      const x = await rpc('get_public_profile', { p_id: id });
+      if (x && x.private) {
+        title = 'SAP professional on Arnour';
+        desc = 'This professional keeps their identity private. Companies can ask to connect through Arnour.';
+      } else if (x && x.id) {
+        const nm = [x.firstName, x.lastName].filter(Boolean).join(' ');
+        title = (nm || 'SAP professional') + (x.headline ? ' — ' + cut(x.headline, 80) : '') + ' | Arnour';
+        const bits = [x.level, x.country && String(x.country).toUpperCase(), x.availability].filter(Boolean).join(' · ');
+        desc = cut((bits ? bits + '. ' : '') + (x.summary || '') || 'SAP professional profile on Arnour, the talent network for the SAP ecosystem.', 200);
+      }
+    } else if (kind === 'c') {
+      const list = await rpc('list_companies');
+      const x = Array.isArray(list) ? list.find((i) => i.id === id) : null;
+      if (x) {
+        title = (x.name || 'Company') + (x.industry && !x.anon ? ' — ' + cut(x.industry, 60) : '') + ' | Arnour';
+        desc = cut((x.anon ? 'Company details are private. ' : '') + (x.about || x.description || 'Hiring SAP talent on Arnour, the talent network for the SAP ecosystem.'), 200);
       }
     } else {
       const c = await rpc('list_community');
       const list = c && (kind === 'q' ? c.questions : c.articles);
       const x = Array.isArray(list) ? list.find((i) => i.id === id) : null;
       if (x) {
-        title = cut(x.title, 90) + ' | Arnour Community';
+        title = (kind === 'q' ? 'Question: ' : 'Article: ') + cut(x.title, 90) + ' | Arnour Community';
         desc = cut(x.body || x.summary || '', 200) || desc;
       }
     }

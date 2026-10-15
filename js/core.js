@@ -1928,8 +1928,8 @@ APP.shareIcon = (name, size) => '<svg width="' + (size || 18) + '" height="' + (
 APP.shareUrl = function (hash) {
   /* live site: roles and community posts are shared through /share/… so social sites can show a real preview */
   if (APP.LIVE) {
-    const sm = hash.replace(/^#?\/?/, '').match(/^(job|community\/q|community\/a)\/([A-Za-z0-9_-]+)$/);
-    if (sm) return (location.origin || '') + '/share/' + (sm[1] === 'job' ? 'job' : sm[1] === 'community/q' ? 'q' : 'a') + '/' + sm[2];
+    const sm = hash.replace(/^#?\/?/, '').match(/^(job|community\/q|community\/a|talent|company)\/([A-Za-z0-9_-]+)$/);
+    if (sm) return (location.origin || '') + '/share/' + { job: 'job', 'community/q': 'q', 'community/a': 'a', talent: 'p', company: 'c' }[sm[1]] + '/' + sm[2];
   }
   let base = (location.origin || '') + (location.pathname || '');
   if (/index\.html$/i.test(base)) base = base.replace(/index\.html.*$/i, '');
