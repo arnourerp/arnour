@@ -1926,6 +1926,11 @@ APP.shareIcon = (name, size) => '<svg width="' + (size || 18) + '" height="' + (
 
 /* Absolute URL for a given hash route, e.g. '#/job/j11' -> https://site/#/job/j11 */
 APP.shareUrl = function (hash) {
+  /* live site: roles and community posts are shared through /share/… so social sites can show a real preview */
+  if (APP.LIVE) {
+    const sm = hash.replace(/^#?\/?/, '').match(/^(job|community\/q|community\/a)\/([A-Za-z0-9_-]+)$/);
+    if (sm) return (location.origin || '') + '/share/' + (sm[1] === 'job' ? 'job' : sm[1] === 'community/q' ? 'q' : 'a') + '/' + sm[2];
+  }
   let base = (location.origin || '') + (location.pathname || '');
   if (/index\.html$/i.test(base)) base = base.replace(/index\.html.*$/i, '');
   if (!/\/$/.test(base)) base += '/';
