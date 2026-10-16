@@ -2446,6 +2446,7 @@ APP.views = {};
 
 APP.routes = [
   { re: /^#?\/?$/, view: 'landing', auth: null },
+  { re: /^#\/home$/, view: 'landing', auth: null },
   { re: /^#\/login$/, view: 'login', auth: null },
   { re: /^#\/register(?:\/([ce]))?$/, view: 'register', auth: null },
   { re: /^#\/forgot$/, view: 'forgot', auth: null },
@@ -2599,23 +2600,46 @@ APP.syncFormsToDrafts = function (skip) {
   });
 };
 
+APP.pageTitle = function (view) {
+  const T = { landing: 'Arnour — The SAP Talent Network', login: 'Sign in', register: 'Join Arnour', forgot: 'Reset your password', reset: 'Choose a new password', 'check-email': 'Check your email', account: 'Account',
+    community: 'Community', 'community-q': 'Question', 'community-a': 'Article', 'community-ask': 'Ask a question', 'community-share': 'Share an article', jobs: 'Open SAP roles', 'job-detail': 'Role', 'talent-public': 'Professional profile', 'company-public': 'Company',
+    'wiz-c': 'Create your profile', 'wiz-e': 'Create your company profile', 'c-dash': 'Home', 'c-profile': 'My profile', 'c-jobs': 'Jobs', 'c-saved': 'My jobs', 'c-preview': 'Profile preview', 'c-msgs': 'Messages', 'c-msg': 'Messages',
+    'e-dash': 'Home', 'e-company': 'Company profile', 'e-talent': 'Talent', 'e-talent-detail': 'Talent', 'e-jobs': 'My roles', 'e-job-new': 'Post a job', 'e-job-edit': 'Edit role', 'e-job-detail': 'Role', 'e-msgs': 'Messages', 'e-msg': 'Messages', terms: 'Terms of Use', privacy: 'Privacy Policy', admin: 'Admin', suspended: 'Account suspended' };
+  const t = T[view];
+  return !t ? 'Arnour' : (view === 'landing' ? t : t + ' — Arnour');
+};
 APP.render = function () {
   const skip = APP._formSyncSkip;
   APP._formSyncSkip = [];
   APP.syncFormsToDrafts(skip);
   const route = APP.parseRoute();
+  /* redirects replace the current history entry, so the Back button never bounces */
+  const redirect = (h) => { try { history.replaceState(null, '', location.pathname + location.search + h); } catch (e) { location.hash = h; } APP.render(); };
+  const home = (ss) => ss.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard';
   if (APP.LIVE && APP.backend && APP.backend.guard) {
     const gh = APP.backend.guard(route);
-    if (gh && gh !== location.hash) { location.hash = gh; return; }
+    if (gh && gh !== location.hash) { redirect(gh); return; }
+  }
+  /* a signed-in person opening the bare address lands on their own page; #/home is the public page */
+  if (route.view === 'landing' && !/^#\/home/.test(location.hash)) {
+    const ls = APP.db.session;
+    if (ls) { redirect(home(ls)); return; }
+    if (APP.LIVE && APP.backend && APP.backend.user && APP.backend.isAdmin) { redirect('#/admin'); return; }
   }
   if (route.auth) {
     const s = APP.db.session;
-    if (!s || s.role !== route.auth) {
-      location.hash = '#/login';
-      APP.render();
+    if (!s) {
+      APP.state.afterAuth = location.hash; /* come back here after signing in */
+      redirect('#/login');
+      return;
+    }
+    if (s.role !== route.auth) {
+      redirect(home(s));
+      setTimeout(() => APP.toast(route.auth === 'employer' ? 'That page is for companies. Here is your dashboard.' : 'That page is for professionals. Here is your dashboard.'), 300);
       return;
     }
   }
+  document.title = APP.pageTitle(route.view);
   /* one-time markers for discoverability: visiting the community retires the nav "new" dot */
   if (location.hash.indexOf('#/community') === 0 && APP.db.session) {
     const su = APP.currentUser();
@@ -2635,7 +2659,7 @@ APP.render = function () {
   const body = view({ p: route.p });
   const noChrome = ['landing', 'login', 'register', 'forgot', 'reset', 'check-email', 'wiz-c', 'wiz-e', 'notfound', 'admin', 'suspended'];
   const bare = route.view === 'admin';
-  const chrome = bare ? '' : route.auth || (APP.db.session && noChrome.indexOf(route.view) < 0) ? APP.navbar() : APP.pubHeader();
+  const chrome = bare ? '' : route.auth || (APP.db.session && (noChrome.indexOf(route.view) < 0 || route.view === 'notfound')) ? APP.navbar() : APP.pubHeader();
   const footer = route.auth || bare ? '' : APP.footerHtml();
   const keepY = bare && APP._lastRoute === location.hash.split('?')[0] ? window.scrollY : 0;
   document.getElementById('app').innerHTML =
@@ -2691,7 +2715,7 @@ APP.rateHtml = function (c) {
 APP.footerHtml = function () {
   return '<footer class="site-footer"><div class="site-footer-inner">' +
     '<span class="brand sm"><span class="brand-logo" aria-hidden="true">A</span>Arnour</span>' +
-    '<nav aria-label="Footer"><a href="#/jobs">Open roles</a><a href="#/community">Community</a><a href="#/login">Sign in</a><a href="#/register">Join</a><a href="mailto:contact@arnour.com">Contact</a></nav>' +
+    '<nav aria-label="Footer">' + (APP.db.session ? '<a href="#/home">Home page</a>' : '') + '<a href="#/jobs">Open roles</a><a href="#/community">Community</a><a href="#/login">Sign in</a><a href="#/register">Join</a><a href="mailto:contact@arnour.com">Contact</a></nav>' +
     '<small>Prototype for customer validation — all companies, profiles and roles shown are sample data.</small>' +
     '</div></footer>';
 };

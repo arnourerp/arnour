@@ -93,7 +93,7 @@ APP.views.notfound = function () {
     '<p class="muted center">The link may be old or mistyped. Here is where most people go next:</p>' +
     '<a class="btn btn-primary btn-block" href="#/jobs">Browse open roles</a>' +
     '<a class="btn btn-outline btn-block" href="#/community">Visit the community</a>' +
-    '<a class="btn btn-ghost btn-block" href="#/">Back to the home page</a>' +
+    (APP.db.session ? '<a class="btn btn-ghost btn-block" href="' + (APP.db.session.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard') + '">Back to my dashboard</a>' : '<a class="btn btn-ghost btn-block" href="#/">Back to the home page</a>') +
     '<p class="muted small center">Still stuck? <a href="mailto:contact@arnour.com">contact@arnour.com</a></p></div></div>';
 };
 

@@ -454,6 +454,9 @@
 
   B.afterSignedIn = function () {
     var back = APP.state.afterAuth || ''; APP.state.afterAuth = '';
+    /* only return to a page this person's role can open */
+    if (B.profile && ((/^#\/c\//.test(back) && B.profile.role !== 'consultant') || (/^#\/e\//.test(back) && B.profile.role !== 'employer'))) back = '';
+    if (/^#\/(login|register|forgot|reset|check-email|onboard)/.test(back)) back = '';
     if (B.suspended) APP.go('#/suspended');
     else if (B.profile) APP.go(back || (B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'));
     else if (B.isAdmin) APP.go('#/admin');
@@ -523,7 +526,8 @@
     if (v === 'suspended') return '#/';
     if (v === 'admin' && !B.isAdmin) return B.user ? '#/' : '#/login';
     if (B.user && !B.profile) {
-      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset'].concat(B.isAdmin ? ['admin'] : []);
+      if (B.isAdmin && v === 'landing' && !/^#\/home/.test(location.hash)) return '#/admin';
+      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);
       if (ok.indexOf(v) === -1) return B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard';
       if (v === 'wiz-c' && B.metaRole() === 'e') return '#/onboard-e';
       if (v === 'wiz-e' && B.metaRole() === 'c') return '#/onboard';
@@ -669,7 +673,7 @@
   APP.footerHtml = function () {
     return '<footer class="site-footer"><div class="site-footer-inner">' +
       '<span class="brand sm"><span class="brand-logo" aria-hidden="true">A</span>Arnour</span>' +
-      '<nav aria-label="Footer"><a href="#/jobs">Open roles</a><a href="#/community">Community</a>' +
+      '<nav aria-label="Footer">' + (B.user ? '<a href="#/home">Home page</a>' : '') + '<a href="#/jobs">Open roles</a><a href="#/community">Community</a>' +
       (B.user ? '<a href="#/account">Account</a>' : '<a href="#/login">Sign in</a><a href="#/register">Join</a>') +
       '<a href="#/terms">Terms</a><a href="#/privacy">Privacy</a><a href="mailto:contact@arnour.com">Contact</a></nav>' +
       '<small>© Arnour. The talent network for the SAP ecosystem.</small></div></footer>';
