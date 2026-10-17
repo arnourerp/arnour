@@ -280,7 +280,8 @@ APP.views['wiz-c'] = function () {
     body = '<form data-form="wiz-c" data-step="3">' +
       sec('skills', 'spark', 'Your SAP skills',
         '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint + '</p>' +
-        '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>') +
+        '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>' +
+        (er.skills ? '<p class="field-error" role="alert">' + APP.h(er.skills) + '</p>' : '')) +
       (rp.prog ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
         '<label class="field"><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       (rp.ind ? sec('ind', 'building', indLabel,

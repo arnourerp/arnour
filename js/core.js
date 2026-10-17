@@ -310,11 +310,8 @@ APP.specialtiesForRoles = function (rts) {
 };
 APP.levelFromYears = function (y) { y = +y || 0; return y <= 3 ? 'Junior' : y <= 8 ? 'Mid' : 'Senior'; };
 /* The skills a fresh profile starts with, per role */
-APP.defaultSkillsFor = function (d) {
-  const m = APP.roleProfile(d).skills;
-  return m === 'products' ? [{ productId: 's4onprem', moduleId: '*', projects: 0, certified: false }]
-    : [{ productId: 's4onprem', moduleId: 'fi', projects: m === 'modules' ? 0 : 1, certified: false }];
-};
+/* Sign-up starts with no product or module ticked — the person chooses their own. */
+APP.defaultSkillsFor = function () { return []; };
 /* Free text (or an array) → clean, deduped tag list. */
 APP.tagList = function (v) {
   const src = Array.isArray(v) ? v : String(v == null ? '' : v).split(/[,，]/);
@@ -1311,6 +1308,12 @@ APP.matchDetail = function (c, job) {
 APP.matchScore = function (c, job) { return APP.matchDetail(c, job).score; };
 
 /** Compact label for a module name: "FI (Financial Accounting)" → "FI", "ABAP" → "ABAP". */
+/* Full module name for the projects list: "PS (Project System)" → "Project System". Names without a leading abbreviation stay as they are. */
+APP.moduleFull = function (name) {
+  const n = String(name || '').trim();
+  const m = /^([A-Z0-9&/+ -]{2,12}?)\s\((.+)\)$/.exec(n);
+  return m && !/^formerly/i.test(m[2]) ? m[2] : n;
+};
 APP.moduleShort = function (name) {
   /* compact label for chips: "FI (Financial Accounting)" → "FI", "SAP Analytics Cloud (SAC) - Planning (FP&A)" → "Planning" */
   let n = String(name || '').trim();
@@ -2452,23 +2455,32 @@ APP.skillCardsHtml = function (target, skills, mode) {
     const idxs = []; skills.forEach((k, i) => { if (k.productId === pid) idxs.push(i); });
     const sel = idxs.filter(i => real(skills[i])).map(i => skills[i].moduleId); nMods += sel.length;
     const opts = APP.opt(CATALOG.products.filter(p => p.id === pid || order.indexOf(p.id) === -1).map(p => [p.id, p.name]), pid);
-    const lines = idxs.filter(i => real(skills[i])).map(function (i) {
+    const lines = mode === 'modules' ? '' : idxs.filter(i => real(skills[i])).map(function (i) {
       const k = skills[i]; const m = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).find(x => x.id === k.moduleId);
       return '<div class="skill-row mod-line" data-skill-row="' + i + '" data-target="' + target + '">' +
-        '<span class="ml-n" title="' + APP.h(m ? m.name : k.moduleId) + '">' + APP.h(m ? APP.moduleShort(m.name) : k.moduleId) + '</span>' +
-        (mode === 'modules' ? '' : '<label class="ml-f"><span class="muted small">Projects' + (mode === 'optional' ? ' (optional)' : '') + '</span><input type="number" min="0" max="99" class="input" data-skill-field="projects" value="' + Number(k.projects || 0) + '"></label>') +
-        '<label class="ml-c"><input type="checkbox" data-skill-field="certified"' + (k.certified ? ' checked' : '') + '> <span>SAP-certified</span></label></div>';
+        '<span class="ml-n" title="' + APP.h(m ? m.name : k.moduleId) + '">' + APP.h(m ? APP.moduleFull(m.name) : k.moduleId) + '</span>' +
+        '<label class="ml-f"><span class="muted small">Projects' + (mode === 'optional' ? ' (optional)' : '') + '</span><input type="number" min="0" max="99" class="input" data-skill-field="projects" value="' + Number(k.projects || 0) + '"></label></div>';
+    }).join('');
+    const certChips = sel.map(function (mid) {
+      const k = skills.find(x => x.productId === pid && x.moduleId === mid) || {};
+      const m = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).find(x => x.id === mid);
+      return '<button type="button" class="mchip cert-chip' + (k.certified ? ' on' : '') + '" data-action="cert-toggle" data-target="' + target + '" data-pid="' + APP.h(pid) + '" data-mid="' + APP.h(mid) + '" aria-pressed="' + (k.certified ? 'true' : 'false') + '" title="' + APP.h(m ? m.name : mid) + '">' + (k.certified ? APP.icon('check', 12) + ' ' : '') + APP.h(m ? APP.moduleShort(m.name) : mid) + '</button>';
     }).join('');
     return '<div class="prod-card" data-prod="' + APP.h(pid) + '">' +
       '<div class="req-card-h"><label class="field prod-sel"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="' + target + '" data-pid="' + APP.h(pid) + '">' + opts + '</select></label>' +
       '<button type="button" class="icon-btn" data-action="prod-rm" data-target="' + target + '" data-pid="' + APP.h(pid) + '" title="Remove this product" aria-label="Remove this product">' + APP.icon('x', 15) + '</button></div>' +
       '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you have delivered') + ' <span class="muted">— tick all that apply</span></span>' +
       APP.moduleChipsHtml(pid, sel, 'data-target="' + target + '" data-pid="' + APP.h(pid) + '"', target + ':' + pid, false) + '</div>' +
-      (lines ? '<div class="mod-lines"><div class="mod-lines-h muted small">' + (mode === 'modules' ? 'Are you certified?' : 'How many projects, and are you certified?') + '</div>' + lines + '</div>' : '') +
+      (lines ? '<div class="mod-lines"><div class="mod-lines-h">' + (mode === 'optional' ? 'How many projects? <span class="muted">(optional)</span>' : 'How many projects?') + '</div>' + lines + '</div>' : '') +
+      (sel.length ? '<div class="cert-box"><div class="mod-lines-h"><b>SAP certification</b> <span class="muted">(optional)</span> <span class="muted small">— tap the modules you hold a certificate in</span></div><div class="chip-wrap">' + certChips + '</div></div>' : '') +
       '</div>';
   }).join('');
-  return '<div class="prod-cards">' + (cards || '<p class="muted small">No product yet — add your first one.</p>') + '</div>' +
-    (unused.length ? '<button type="button" class="btn btn-outline btn-sm" data-action="prod-add" data-target="' + target + '">' + APP.icon('plus', 14) + ' Add ' + (order.length ? 'another' : 'a') + ' product</button>' : '') +
+  const emptyCard = order.length ? '' :
+    '<div class="prod-card prod-empty"><div class="req-card-h"><label class="field prod-sel"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="' + target + '" data-pid="">' +
+    '<option value="">Choose your SAP product…</option>' + APP.opt(CATALOG.products.map(p => [p.id, p.name]), '') + '</select></label></div>' +
+    '<p class="muted small prod-empty-h">Pick a product to see its modules.</p></div>';
+  return '<div class="prod-cards">' + cards + emptyCard + '</div>' +
+    (unused.length && nMods ? '<button type="button" class="prod-add-card" data-action="prod-add" data-target="' + target + '"><span class="pa-ico">' + APP.icon('plus', 18) + '</span><span class="pa-t"><b>Add another SAP product</b><small>e.g. BTP, SuccessFactors, Ariba</small></span></button>' : '') +
     (nMods ? '<p class="muted small prod-count">' + nMods + ' module' + (nMods === 1 ? '' : 's') + ' across ' + order.length + ' product' + (order.length === 1 ? '' : 's') + '</p>' : '');
 };
 /* Products only (Basis, Project / Delivery Manager, Junior): tick the SAP products you work with — no modules, no counts. */
@@ -2949,6 +2961,8 @@ APP.bindGlobal = function () {
           APP.jobReqNormalize(rows);
           if (rows[0]) rows[0].orPrev = false;
           APP.jobReqCards(rows).forEach(cc => { if (cc.rows.length > 1) cc.rows.forEach((r, j) => { if (j > 0) r.orPrev = true; }); });
+        } else if (t.dataset.pid === '') {
+          if (t.value && !rows.some(r => r.productId === t.value)) rows.push({ productId: t.value, moduleId: '', projects: 0, certified: false });
         } else {
           rows.forEach(r => { if (r.productId === t.dataset.pid) fix(r); });
           const seen = {}; let blank = false;
@@ -3384,6 +3398,18 @@ APP.onClick = function (el, e) {
         const used = scope[key].map(r => r.productId);
         const p = CATALOG.products.find(x => used.indexOf(x.id) === -1);
         if (p) scope[key].push({ productId: p.id, moduleId: '', projects: 0, certified: false });
+      });
+      break;
+    }
+
+    case 'cert-toggle': {
+      const scope = APP.getScope(d.target);
+      if (!scope) break;
+      const rows = scope[APP.scopeSkillKey(scope)];
+      if (!Array.isArray(rows)) break;
+      APP.skillMutate(el, function () {
+        const k = rows.find(r => r.productId === d.pid && r.moduleId === d.mid);
+        if (k) k.certified = !k.certified;
       });
       break;
     }
@@ -3876,7 +3902,12 @@ APP.onSubmit = function (f) {
       } else if (step === 3) {
         const pm = APP.roleProfile(d).skills;
         const ok = (d.skills || []).some(k => k.productId && k.moduleId && (+k.projects || 0) >= 0);
-        if (!ok) { APP.toast(pm === 'products' ? 'Tick at least one SAP product you work with' : 'Add at least one complete skill (product + module)'); return; }
+        if (!ok) {
+          const msg = pm === 'products' ? 'Tick at least one SAP product you work with' : 'Add at least one complete skill (product + module)';
+          APP.wizC.err = { skills: msg }; APP.toast(msg); APP._formSyncSkip = ['wiz-c']; APP.render();
+          const el = document.querySelector('.wiz-sec.has-err'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
         if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
       } else if (step === 5 && APP.SHOW_RATES) {
         d.currency = g('currency') || APP.defaultCurrency(d.country); d.currencyChosen = true;
@@ -3905,6 +3936,7 @@ APP.onSubmit = function (f) {
         APP.toast(c.anon ? 'Welcome to Arnour — your identity is private 🔒' : 'Welcome to Arnour, ' + c.firstName + ' 🎉');
         return;
       }
+      APP.wizC.err = null;
       APP.wizC.step = APP.wizNextStep(step);
       APP.render();
       break;

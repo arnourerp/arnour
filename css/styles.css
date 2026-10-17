@@ -1653,3 +1653,19 @@ details.opt-more summary::-webkit-details-marker { display: none; }
 details.opt-more[open] summary { margin-bottom: 6px; }
 @media (max-width: 760px) { .form-grid.g3 { grid-template-columns: 1fr; } }
 .wizard-card.wiz-flat .wiz-sec > :last-child, .wizard-card.wiz-flat .wiz-sec .form-grid > .field { margin-bottom: 0; }
+
+/* ---- SAP skills: certification apart from project counts, empty start, add-another card ---- */
+.mod-line { grid-template-columns: minmax(0, 1fr) 110px !important; }
+.mod-line .ml-n { white-space: normal; }
+.mod-lines-h { font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: var(--space-2); }
+.cert-box { margin-top: var(--space-3); padding: 12px 14px; border-radius: 10px; background: var(--bg-subtle); border: 1px dashed var(--border-strong); }
+.cert-box .mod-lines-h { margin-bottom: 8px; font-weight: 400; }
+.cert-chip.on { background: #ECFDF5; border-color: #16A34A; color: #166534; }
+.prod-empty-h { margin: 8px 0 0; }
+.prod-add-card { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 4px; padding: 14px 16px; border: 2px dashed var(--accent-blue); border-radius: 12px; background: #F0F9FF; color: var(--accent-blue-ink); cursor: pointer; font: inherit; text-align: left; transition: background .15s, border-color .15s; }
+.prod-add-card:hover, .prod-add-card:focus-visible { background: #E0F2FE; border-style: solid; outline: none; }
+.prod-add-card .pa-ico { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-blue); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.prod-add-card .pa-t { display: flex; flex-direction: column; gap: 1px; }
+.prod-add-card .pa-t b { font-size: 14.5px; }
+.prod-add-card .pa-t small { color: var(--mut); font-size: 12.5px; }
+@media (max-width: 600px) { .mod-line { grid-template-columns: 1fr 96px !important; } }
