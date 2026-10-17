@@ -213,13 +213,13 @@ APP.views['wiz-c'] = function () {
   ).join('');
 
   let body = '';
+  const er = APP.wizC.err || {};
+  const sec = (key, ico, title, inner, extra) =>
+    '<section class="wiz-sec' + (extra || '') + (er[key] || (key === 'who' && (er.firstName || er.lastName || er.headline || er.gender)) || (key === 'where' && (er.nationality || er.country)) ? ' has-err' : '') + (step === 1 && APP.wizSecDone(d)[key] ? ' done' : '') + '" data-sec="' + key + '">' +
+    '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><h2>' + title + '</h2>' + (step === 1 ? '<span class="wiz-sec-tick" aria-hidden="true">' + APP.icon('check', 13) + '</span>' : '') + '</div>' + inner + '</section>';
   if (step === 1) {
-    const er = APP.wizC.err || {};
     const E = (k) => er[k] ? '<p class="field-error" role="alert">' + APP.h(er[k]) + '</p>' : '';
     const inv = (k) => er[k] ? ' aria-invalid="true"' : '';
-    const sec = (key, ico, title, inner, extra) =>
-      '<section class="wiz-sec' + (extra || '') + (er[key] || (key === 'who' && (er.firstName || er.lastName || er.headline || er.gender)) || (key === 'where' && (er.nationality || er.country)) ? ' has-err' : '') + (APP.wizSecDone(d)[key] ? ' done' : '') + '" data-sec="' + key + '">' +
-      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><h2>' + title + '</h2><span class="wiz-sec-tick" aria-hidden="true">' + APP.icon('check', 13) + '</span></div>' + inner + '</section>';
     const genderSeg = '<div class="seg gender-seg" role="group" aria-label="Gender">' +
       APP.genders.map(x => '<button type="button" class="seg-item ' + (d.gender === x[0] ? 'active' : '') + '" data-action="chip" data-scope="wizC" data-group="gender" data-single="1" data-value="' + x[0] + '"' + inv('gender') + '>' + x[1] + '</button>').join('') +
       '<input type="hidden" name="gender" value="' + APP.h(d.gender || '') + '" data-chip-echo="1"></div>';
@@ -228,11 +228,7 @@ APP.views['wiz-c'] = function () {
     const roleInner = collapsed
       ? '<div class="rt-collapsed"><span class="rt-check on" aria-hidden="true">' + APP.icon('check', 14) + '</span><div class="rt-collapsed-txt"><b>' + APP.h(APP.roleTypeLabel(selRole)) + '</b><span class="muted small">You can add another role later in Edit profile.</span></div><button type="button" class="btn btn-outline btn-sm" data-action="role-change">Change</button></div>'
       : APP.roleTypePicker('wizC', d, { single: true }) + E('role');
-    const rail = [['role', 'Role'], ['who', 'You'], ['where', 'Location'], ['languages', 'Languages']];
-    const dn = APP.wizSecDone(d);
-    const railHtml = '<nav class="wiz-rail" aria-label="Progress on this step">' + rail.map((r, i) =>
-      '<button type="button" class="wiz-rail-item' + (dn[r[0]] ? ' done' : '') + '" data-action="wiz-jump" data-sec="' + r[0] + '"><span class="wiz-rail-dot">' + (dn[r[0]] ? APP.icon('check', 12) : (i + 1)) + '</span><span>' + r[1] + '</span></button>').join('') + '</nav>';
-    body = '<div class="wiz-layout">' + railHtml + '<form data-form="wiz-c" data-step="1" novalidate class="wiz-main">' +
+    body = '<form data-form="wiz-c" data-step="1" novalidate>' +
       sec('role', 'briefcase', 'Your main role <span class="req-star">*</span>', '<div class="field" id="wiz-role">' + roleInner + '</div>') +
       sec('who', 'users', 'Who you are',
         '<div class="form-grid g3">' +
@@ -252,21 +248,20 @@ APP.views['wiz-c'] = function () {
       sec('languages', 'msg', 'Languages <span class="req-star">*</span>',
         '<div class="field field-langs"><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.languages, d.languages) + '</div>' + E('languages') + '</div>') +
       APP.wizNav(1, 6) +
-      '</form></div>';
+      '</form>';
   } else if (step === 2) {
     body = '<form data-form="wiz-c" data-step="2">' +
-      '<div class="range-row"><span class="label">Years of experience</span><output>' + d.yearsExp + '</output>' +
-      '<input type="range" class="range" min="1" max="30" value="' + d.yearsExp + '" data-slider-out data-wizard-years name="yearsExpR">' +
-      '</div>' +
-      '<div class="form-grid">' +
-      '<input type="hidden" name="yearsExp" value="' + d.yearsExp + '">' +
-      (rp.lvl ? '<label class="field"><span class="label">Experience level</span><div class="seg">' +
-      APP.levels.map(l => '<button type="button" class="seg-item ' + (d.level === l ? 'active' : '') + '" data-action="chip" data-scope="wizC" data-group="level" data-single="1" data-value="' + l + '">' + l + '</button>').join('') +
-      '<input type="hidden" name="level" value="' + APP.h(d.level) + '" data-chip-echo="1"></div></label>' : '') +
-      '<label class="field"><span class="label">Availability</span><select name="availability" class="input">' + APP.opt(APP.availability.map(a => [a, a]), d.availability) + '</select></label>' +
-      '</div>' +
-      '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('wizC', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div><p class="field-hint">How you like to work — shown on your profile and searchable by companies.</p></div>' +
-      '<p class="muted small">' + (rp.lvl ? 'Level and availability' : 'Availability') + ' help employers filter you — you can change them any time.</p>' +
+      sec('exp', 'briefcase', 'Your experience',
+        '<div class="range-row"><span class="label">Years of experience</span><output>' + d.yearsExp + '</output>' +
+        '<input type="range" class="range" min="1" max="30" value="' + d.yearsExp + '" data-slider-out data-wizard-years name="yearsExpR">' +
+        '</div>' +
+        '<input type="hidden" name="yearsExp" value="' + d.yearsExp + '">' +
+        (rp.lvl ? '<div class="field"><span class="label">Experience level</span><div class="seg">' +
+        APP.levels.map(l => '<button type="button" class="seg-item ' + (d.level === l ? 'active' : '') + '" data-action="chip" data-scope="wizC" data-group="level" data-single="1" data-value="' + l + '">' + l + '</button>').join('') +
+        '<input type="hidden" name="level" value="' + APP.h(d.level) + '" data-chip-echo="1"></div></div>' : '')) +
+      sec('avail', 'bell', 'Availability & how you work',
+        '<label class="field"><span class="label">Availability</span><select name="availability" class="input">' + APP.opt(APP.availability.map(a => [a, a]), d.availability) + '</select></label>' +
+        '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('wizC', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div></div>') +
       APP.wizNav(2, 6) +
       '</form>';
   } else if (step === 3) {
@@ -278,53 +273,60 @@ APP.views['wiz-c'] = function () {
     }[rp.skills];
     const indLabel = { many: 'Industries you\'ve worked in', optional: 'Industries you\'ve worked in (optional)', one: 'Your industry' }[rp.ind];
     body = '<form data-form="wiz-c" data-step="3">' +
-      '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint + '</p>' +
-      '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>' +
-      (rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"><p class="field-hint">A single number — companies see it next to your profile.</p></label>' : '') +
-      (rp.ind ? '<div class="field"><span class="label">' + indLabel + '</span><div class="chip-wrap">' + APP.chipGroup('wizC', 'industries', APP.industries, d.industries) + '</div></div>' : '') +
+      sec('skills', 'spark', 'Your SAP skills',
+        '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint + '</p>' +
+        '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>') +
+      (rp.prog ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
+        '<label class="field"><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
+      (rp.ind ? sec('ind', 'building', indLabel,
+        '<div class="chip-wrap">' + APP.chipGroup('wizC', 'industries', APP.industries, d.industries) + '</div>') : '') +
       APP.wizNav(3, 6) +
       '</form>';
   } else if (step === 4) {
     body = '<form data-form="wiz-c" data-step="4">' +
-      '<p class="field-hint">' + APP.icon('spark', 15) + ' Pick the SAP specialties you\'re known for' + (rp.rts[0] === 'junior' ? ' — optional for now' : ' (up to 6 reads strongest)') + '. They sharpen matching and appear on your profile.</p>' +
-      '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>' +
-      '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS, MDG rollout — comma separated"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>' +
+      sec('spec', 'spark', 'SAP specialties',
+        '<p class="field-hint">' + APP.icon('spark', 15) + ' Pick the specialties you\'re known for' + (rp.rts[0] === 'junior' ? ' — optional for now' : ' (up to 6 reads strongest)') + '. They sharpen matching and appear on your profile.</p>' +
+        '<div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div>') +
+      sec('own', 'plus', 'Your own specialties <span class="muted">(optional)</span>',
+        '<label class="field"><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS, MDG rollout — comma separated" aria-label="Your own specialties"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>') +
       APP.wizNav(4, 6) +
       '</form>';
   } else if (step === 5) {
     body = '<form data-form="wiz-c" data-step="5">' +
-      '<div class="field"><span class="label">Your rate <span class="muted">(optional)</span></span>' + APP.rateInputHtml(d, d.currencyChosen) + '</div>' +
-      '<p class="muted small">Shown to companies as your opening number — in the currency and period you choose. You can negotiate in the inbox. Leave it blank and your profile will read “Rate on request”.</p>' +
+      sec('rate', 'briefcase', 'Your rate <span class="muted">(optional)</span>',
+        '<div class="field">' + APP.rateInputHtml(d, d.currencyChosen) + '</div>' +
+        '<p class="muted small">Shown to companies as your opening number — in the currency and period you choose. You can negotiate in the inbox. Leave it blank and your profile will read “Rate on request”.</p>') +
       APP.wizNav(5, 6) +
       '</form>';
   } else {
     body = '<form data-form="wiz-c" data-step="6">' +
-      '<div class="field"><span class="label">CV (PDF recommended)</span>' +
-      '<div class="cv-box">' +
-      (d.cv
-        ? '<span class="cv-item">' + APP.icon('file', 16) + ' ' + APP.h(d.cv.name) + ' <em class="muted">' + APP.h(d.cv.size) + '</em><button type="button" class="icon-btn" data-action="cv-clear" data-scope="wizC">' + APP.icon('x', 13) + '</button></span>'
-        : '<label class="cv-drop">' + APP.icon('file', 18) + '<span>Upload your CV</span><input type="file" accept=".pdf,.doc,.docx" data-wiz-cv="c" hidden></label>') +
-      '</div></div>' +
-      '<label class="field"><span class="label">Short summary (optional)</span><textarea name="summary" class="input" rows="3" placeholder="e.g. Led FI/CO on a full S/4HANA greenfield rollout for a regional bank…">' + APP.h(d.summary) + '</textarea></label>' +
-      '<div class="review-box">' +
-      '<strong>Profile preview</strong>' +
-      '<div class="muted small">' + APP.h((d.firstName || '—') + ' ' + (d.lastName || '')) + ' · ' + APP.h(d.headline || '—') + ' · ' + APP.h(APP.locText(d)) + '<br>' +
-      (d.level || '—') + ' · ' + d.yearsExp + ' yrs · ' + APP.h((d.languages || []).join(', ') || '—') + '<br>' +
-      (d.industries && d.industries.length ? APP.h(d.industries.join(', ')) + '<br>' : '') +
-      (d.specialties && d.specialties.length ? 'Specialties: ' + APP.h(d.specialties.map(id => APP.specialtyName(id)).join(', ')) + '<br>' : '') +
-      (APP.tagList(d.otherSkills).length ? 'Your own specialties: ' + APP.h(APP.tagList(d.otherSkills).join(', ')) + '<br>' : '') +
-      (d.workPrefs && d.workPrefs.length ? 'Open to: ' + APP.h(d.workPrefs.join(', ')) + '<br>' : '') +
-      APP.rateHtml({ currency: d.currencyChosen ? d.currency : APP.defaultCurrency(d.country), dailyRate: d.dailyRate, ratePeriod: d.ratePeriod }) +
-      '</div></div>' +
+      sec('cv', 'file', 'Your CV',
+        '<div class="field"><span class="label">CV (PDF recommended)</span>' +
+        '<div class="cv-box">' +
+        (d.cv
+          ? '<span class="cv-item">' + APP.icon('file', 16) + ' ' + APP.h(d.cv.name) + ' <em class="muted">' + APP.h(d.cv.size) + '</em><button type="button" class="icon-btn" data-action="cv-clear" data-scope="wizC">' + APP.icon('x', 13) + '</button></span>'
+          : '<label class="cv-drop">' + APP.icon('file', 18) + '<span>Upload your CV</span><input type="file" accept=".pdf,.doc,.docx" data-wiz-cv="c" hidden></label>') +
+        '</div></div>' +
+        '<label class="field"><span class="label">Short summary (optional)</span><textarea name="summary" class="input" rows="3" placeholder="e.g. Led FI/CO on a full S/4HANA greenfield rollout for a regional bank…">' + APP.h(d.summary) + '</textarea></label>') +
+      sec('preview', 'users', 'Profile preview',
+        '<div class="review-box">' +
+        '<div class="muted small">' + APP.h((d.firstName || '—') + ' ' + (d.lastName || '')) + ' · ' + APP.h(d.headline || '—') + ' · ' + APP.h(APP.locText(d)) + '<br>' +
+        (d.level || '—') + ' · ' + d.yearsExp + ' yrs · ' + APP.h((d.languages || []).join(', ') || '—') + '<br>' +
+        (d.industries && d.industries.length ? APP.h(d.industries.join(', ')) + '<br>' : '') +
+        (d.specialties && d.specialties.length ? 'Specialties: ' + APP.h(d.specialties.map(id => APP.specialtyName(id)).join(', ')) + '<br>' : '') +
+        (APP.tagList(d.otherSkills).length ? 'Your own specialties: ' + APP.h(APP.tagList(d.otherSkills).join(', ')) + '<br>' : '') +
+        (d.workPrefs && d.workPrefs.length ? 'Open to: ' + APP.h(d.workPrefs.join(', ')) + '<br>' : '') +
+        APP.rateHtml({ currency: d.currencyChosen ? d.currency : APP.defaultCurrency(d.country), dailyRate: d.dailyRate, ratePeriod: d.ratePeriod }) +
+        '</div></div>') +
       APP.wizPrivacyHtml('c', d) +
       APP.wizNav(6, 6, true) +
       '</form>';
   }
 
   /* handle cv-clear (non-submit) here too */
-  return '<div class="wizard-wrap' + (step === 1 ? ' wizard-wide' : '') + '">' +
+  return '<div class="wizard-wrap wizard-wide">' +
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
-    '<div class="card wizard-card' + (step === 1 ? ' wiz-flat' : '') + '">' +
+    '<div class="card wizard-card wiz-flat">' +
     '<div class="wiz-progress">' + progress + '</div>' +
     '<h1 class="wiz-title">' + APP.wizStepsC[step - 1] + '</h1>' +
     '<p class="muted small wiz-time">Step ' + step + ' of ' + APP.wizStepsC.length + ' · about ' + Math.max(1, Math.ceil((APP.wizStepsC.length - step + 1) * 0.4)) + ' min left · you can edit everything later</p>' +

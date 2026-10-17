@@ -1631,23 +1631,18 @@ details.spec-more > .spec-cat { margin: 0 12px 10px; }
 @media (max-width: 640px) { .rt-list[data-rt-list] { grid-template-columns: 1fr; } .wiz-sec { padding: 14px; } }
 .rt-list[data-rt-list] .rt-opt::before, .rt-list[data-rt-list] .rt-opt.chip-on::before { content: none; display: none; }
 
-/* ---- sign-up step 1: distinct areas, side rail, collapsed role ---- */
-.wizard-wrap.wizard-wide { max-width: 960px; }
+/* ---- sign-up wizard: distinct areas (section cards on a tinted canvas) ---- */
+.wizard-wrap.wizard-wide { max-width: 760px; }
 .wizard-card.wiz-flat { background: transparent; border: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
-.wiz-layout { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; align-items: start; }
-.wiz-rail { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 4px; }
-.wiz-rail-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; background: transparent; border-radius: 10px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--mut); cursor: pointer; text-align: left; }
-.wiz-rail-item:hover { background: #fff; color: var(--ink); }
-.wiz-rail-dot { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border-strong); background: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex: none; }
-.wiz-rail-item.done { color: var(--ink); }
-.wiz-rail-item.done .wiz-rail-dot { background: #16A34A; border-color: #16A34A; color: #fff; }
-.wiz-main .wiz-sec { box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 6px 18px rgba(15,23,42,.05); border: 1px solid var(--border-subtle); border-top: 3px solid var(--accent-blue); border-radius: 14px; padding: 20px; margin-bottom: 20px; position: relative; }
-.wiz-main .wiz-sec.done { border-top-color: #16A34A; }
-.wiz-main .wiz-sec.has-err { border-top-color: var(--red); }
+.wizard-card.wiz-flat .wiz-sec, .wizard-card.wiz-flat .privacy-card { box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 6px 18px rgba(15,23,42,.05); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 20px; margin-bottom: 20px; position: relative; background: #fff; }
+.wizard-card.wiz-flat .wiz-sec { border-top: 3px solid var(--accent-blue); }
+.wizard-card.wiz-flat .wiz-sec.done { border-top-color: #16A34A; }
+.wizard-card.wiz-flat .wiz-sec.has-err { border-top-color: var(--red); }
 .wiz-sec-h { align-items: center; margin-bottom: 14px; }
 .wiz-sec-h h2 { margin: 0; font-size: 16px; }
 .wiz-sec-tick { margin-left: auto; width: 22px; height: 22px; border-radius: 50%; background: #16A34A; color: #fff; display: none; align-items: center; justify-content: center; }
 .wiz-sec.done .wiz-sec-tick { display: inline-flex; }
+.wiz-sec .field:last-child, .wiz-sec .field-hint:last-child { margin-bottom: 0; }
 .form-grid.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
 .rt-collapsed { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--blue); background: var(--blue-soft); border-radius: 12px; }
 .rt-collapsed .rt-check { background: var(--blue); border-color: var(--blue); }
@@ -1656,9 +1651,5 @@ details.opt-more { margin: 2px 0 4px; }
 details.opt-more summary { cursor: pointer; color: var(--accent-blue-text); font-weight: 600; font-size: 13.5px; list-style: none; padding: 4px 0; }
 details.opt-more summary::-webkit-details-marker { display: none; }
 details.opt-more[open] summary { margin-bottom: 6px; }
-@media (max-width: 760px) {
-  .wiz-layout { grid-template-columns: 1fr; gap: 12px; }
-  .wiz-rail { position: sticky; top: 0; z-index: 5; flex-direction: row; gap: 4px; background: var(--bg-canvas); padding: 8px 0; overflow-x: auto; }
-  .wiz-rail-item { padding: 6px 10px; background: #fff; border: 1px solid var(--border-subtle); border-radius: 999px; white-space: nowrap; font-size: 12.5px; }
-  .form-grid.g3 { grid-template-columns: 1fr; }
-}
+@media (max-width: 760px) { .form-grid.g3 { grid-template-columns: 1fr; } }
+.wizard-card.wiz-flat .wiz-sec > :last-child, .wizard-card.wiz-flat .wiz-sec .form-grid > .field { margin-bottom: 0; }

@@ -219,7 +219,7 @@ APP.roleTypeLabel = function (id) {
   return t ? t.name : '';
 };
 APP.RT_MAX = 3;
-/* Which sign-up step-1 sections are complete (drives the side rail and the card ticks). */
+/* Which sign-up step-1 sections are complete (drives the card ticks). */
 APP.wizSecDone = function (d) {
   const t = (v) => !!String(v || '').trim();
   return {
@@ -2976,7 +2976,6 @@ APP.bindGlobal = function () {
     const dn = APP.wizSecDone(d);
     Object.keys(dn).forEach(k => {
       const sec = document.querySelector('.wiz-sec[data-sec="' + k + '"]'); if (sec) sec.classList.toggle('done', dn[k]);
-      const it = document.querySelector('.wiz-rail-item[data-sec="' + k + '"]'); if (it) it.classList.toggle('done', dn[k]);
     });
   };
   document.addEventListener('input', wizLive);
@@ -3280,12 +3279,6 @@ APP.onClick = function (el, e) {
 
     case 'role-change': {
       if (APP.wizC) { APP.wizC.roleOpen = true; APP.render(); }
-      break;
-    }
-
-    case 'wiz-jump': {
-      const el = document.querySelector('.wiz-sec[data-sec="' + d.sec + '"]');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       break;
     }
 
