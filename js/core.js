@@ -910,8 +910,8 @@ APP.privacyCardHtml = function () {
       '<div><b>Confidential company</b><div class="muted small">' + APP.h(me.industry || '') + ' · ' + APP.h(APP.countryName(me.country) || '') + '</div></div></div>' +
       '<p class="muted small">Hidden until you accept an introduction: your company name, logo, website and contact. You can also override this for each role when you post it.</p></div>';
   }
-  return '<div class="card privacy-card"><div class="pc-row"><div class="grow"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + (isC ? 'Keep my identity private' : 'Keep my company confidential') + '</div>' +
-    '<p class="muted small" style="margin:4px 0 0">' + (isC ? 'Companies see your skills and experience, but not who you are. They can ask to connect; you choose whether to share your profile and CV.' : 'Professionals see your roles, but not which company is hiring, until you accept their interest.') + '</p></div>' +
+  return '<div class="card privacy-card"><div class="pc-row"><div class="grow"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + (isC ? 'Mutual Reveal: keep my identity private' : 'Keep my company confidential') + '</div>' +
+    '<p class="muted small" style="margin:4px 0 0">' + (isC ? 'Companies see your skills and experience, but not who you are. They can ask to connect; your name, photo and CV are shared only if you accept, and a reveal cannot be undone.' : 'Professionals see your roles, but not which company is hiring, until you accept their interest. A reveal cannot be undone.') + '</p></div>' +
     '<button type="button" class="switch' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + (isC ? 'Keep my identity private' : 'Keep my company confidential') + '" data-action="toggle-anon"><span></span></button></div>' + preview + '</div>';
 };
 

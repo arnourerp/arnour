@@ -15,7 +15,7 @@ APP.views.landing = function () {
   ].map(s => '<div class="stat-tile"><strong>' + APP.h(s[0]) + '</strong><small>' + APP.h(s[1]) + '</small></div>').join('');
 
   const why = [
-    ['Granular by design', 'Every profile and job is tagged by SAP product, module and projects delivered. You search for FICO — not "finance".', 'spark'],
+    ['Skills are the identity', 'Every profile and job is tagged by SAP product, module and projects delivered. That is enough to judge fit, so the name can wait.', 'spark'],
     ['A direct line', 'Built-in inbox with unread badges and one-click CV sharing. No email ping-pong, no middlemen.', 'msg'],
     ['Your feed, smart', 'Professionals land on roles that already match their skills. Employers see talent that already fits the brief.', 'check']
   ].map(w =>
@@ -25,11 +25,11 @@ APP.views.landing = function () {
   const cSteps = [
     ['Build your SAP portfolio', 'A guided wizard captures your products, modules, projects, rates, languages and CV.'],
     ['Get matched, instantly', 'Your feed is ranked against every open role — you only see work that fits your stack.'],
-    ['Talk directly, close faster', 'One-click CV sharing in the inbox. Move from first hello to signed contract.']
+    ['Reveal only when you choose', 'Companies see your skills, not your name. Share your name and CV in one click, after you accept an introduction.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
 
   const eSteps = [
-    ['Post a precise brief', 'Require exact product + module combinations, locations, rates and experience bands.'],
+    ['Post a precise brief', 'Require exact product + module combinations, locations, rates and experience bands. Keep your company confidential if you wish.'],
     ['Headhunt with a real search', 'Filter the talent database by products, modules, role type, location, nationality, availability and projects delivered.'],
     ['Hire without the noise', 'Shortlist in minutes — every result already speaks your SAP language.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
@@ -51,24 +51,43 @@ APP.views.landing = function () {
         '<p class="muted small">' + APP.h(APP.communityAuthorName(q.authorId)) + ' · ' + APP.h(tag) + ' · ' + ans + ' answer' + (ans === 1 ? '' : 's') + '</p></a></div>';
     }).join('');
 
+  const stage = (n, ttl, pro, co, cls) =>
+    '<div class="mr-stage ' + cls + '"><span class="mr-n">' + n + '</span><h3>' + ttl + '</h3>' +
+    '<div class="mr-row"><span class="mr-who">' + APP.icon('users', 14) + ' Professional sees</span><p>' + pro + '</p></div>' +
+    '<div class="mr-row"><span class="mr-who">' + APP.icon('building', 14) + ' Company sees</span><p>' + co + '</p></div></div>';
+  const reveal =
+    '<section class="section mr-section" id="mutual-reveal"><div class="section-head center"><span class="mr-kicker">' + APP.icon('lock', 14) + ' Mutual Reveal</span>' +
+    '<h2>Hidden until you both say yes</h2>' +
+    '<p class="muted">Because every profile and role is described by exact product, module and projects, nobody needs a name to judge fit. Names are shared only when both sides agree.</p></div>' +
+    '<div class="mr-flow">' +
+    stage(1, 'Hidden', 'The role, with a “Confidential company” label.', 'Skills, projects and headline. No name, photo or CV.', 'm1') +
+    stage(2, 'Introduction', 'Companies can ask to connect, and you can show interest in a role. Neither side is named yet.', 'You can ask a professional to connect and receive interest in your role. Still no names.', 'm2') +
+    stage(3, 'Mutual Reveal', 'Accepting an introduction reveals both sides at once. You see the company name, website and contact.', 'Name, photo, LinkedIn and CV.', 'm3') +
+    '</div>' +
+    '<div class="mr-both">' +
+    '<div class="card mr-card"><h3>' + APP.icon('users', 18) + ' For SAP professionals</h3><p class="muted">Look for your next role discreetly. Companies find you by what you do, not by your name. You decide who gets your name and CV, and only after you accept.</p></div>' +
+    '<div class="card mr-card"><h3>' + APP.icon('building', 18) + ' For companies</h3><p class="muted">Open a role without telling the market who is hiring or why. Post it as confidential, receive matched interest, and reveal your name only to the people you accept.</p></div>' +
+    '</div>' +
+    '<p class="mr-note">A reveal cannot be undone, so it only ever happens when you accept. Free to use, and you can switch it on or off any time in your profile.</p></section>';
   const liveRoles = Object.values(APP.db.jobs).filter(j => j.status === 'open').length;
   const livePros = Object.keys(APP.db.consultants || {}).length;
   return (APP.LIVE ? '' : '<div class="proto-banner" role="note">Prototype for customer validation: every company, profile and role is sample data.</div>') +
     '<section class="hero">' +
     '<div class="hero-inner">' +
-    '<h1>Hire SAP consultants by exact product and module.<br><span class="hl">Get hired for the work you actually do.</span></h1>' +
-    '<p class="hero-sub">Search for “S/4HANA FICO” or “SuccessFactors Recruiting”, not “finance” or “HR”.</p>' +
+    '<h1>Skills first, <span class="hl">names second.</span></h1>' +
+    '<p class="hero-sub">The SAP network where professionals and companies stay anonymous until both say yes. Search by exact product and module, like “S/4HANA FICO”, and reveal who you are only when it is mutual.</p>' +
     '<div class="hero-split">' +
-    '<a class="hero-card" href="#/onboard-e"><strong>I\'m hiring</strong><span>Create a company profile and post a precise role in about 3 minutes.</span><span class="btn btn-light btn-lg">Post a role →</span></a>' +
-    '<a class="hero-card" href="#/onboard"><strong>I\'m an SAP professional</strong><span>Tag your products and modules, then get roles ranked by fit.</span><span class="btn btn-outline-light btn-lg">Create my profile →</span></a>' +
+    '<a class="hero-card" href="#/onboard-e"><strong>I\'m hiring</strong><span>Post a precise role in about 3 minutes. Your company stays confidential until you accept an introduction.</span><span class="btn btn-light btn-lg">Post a role →</span></a>' +
+    '<a class="hero-card" href="#/onboard"><strong>I\'m an SAP professional</strong><span>Tag your products and modules and get roles ranked by fit, while you stay discreet.</span><span class="btn btn-outline-light btn-lg">Create my profile →</span></a>' +
     '</div>' +
     '<a class="hero-jobs-link" href="#/jobs">Browse ' + liveRoles + ' open roles first →</a>' +
     '<p class="hero-proof">' + liveRoles + ' open roles · ' + livePros + ' professionals · ' + prods + ' SAP products · ' + mods + ' modules</p>' +
     '</div></section>' +
 
-    '<section class="section"><div class="section-head"><h2>Why SAP people choose Arnour</h2></div><div class="why-grid">' + why + '</div></section>' +
+    reveal +
+    '<section class="section alt"><div class="section-head"><h2>Why SAP people choose Arnour</h2></div><div class="why-grid">' + why + '</div></section>' +
 
-    '<section class="section alt"><div class="section-head"><h2>How it works</h2></div>' +
+    '<section class="section"><div class="section-head"><h2>How it works</h2></div>' +
     '<div class="how-grid">' +
     '<div class="card how-card"><div class="how-title">' + APP.icon('users', 18) + ' For SAP professionals</div>' + cSteps + '</div>' +
     '<div class="card how-card"><div class="how-title">' + APP.icon('building', 18) + ' For companies & recruiters</div>' + eSteps + '</div>' +
@@ -82,7 +101,7 @@ APP.views.landing = function () {
     '<p class="center mt16"><a class="btn btn-primary" href="#/community">Browse the community</a></p></section>' +
 
     '<section class="cta-band"><div class="cta-inner">' +
-    '<h2>Your next SAP role is already a match away.</h2>' +
+    '<h2>Be found for your skills. Be known when you choose.</h2>' +
     '<a class="btn btn-light btn-lg" href="#/register">Join Arnour free →</a>' +
     '</div></section>';
 };
@@ -159,13 +178,13 @@ APP.wizPrivacyHtml = function (role, d) {
   } else {
     prev = APP.avatarHtml('Confidential company', 'lg') + '<div><b>Confidential company</b><div class="muted small">' + APP.h(d.industry || '') + (d.country ? ' · ' + APP.h(APP.countryName(d.country) || '') : '') + '</div></div>';
   }
-  return '<div class="card privacy-card wiz-privacy"><div class="pc-row"><div class="grow"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + (isC ? 'Keep my identity private' : 'Keep my company confidential') + ' <span class="muted small">(optional)</span></div>' +
+  return '<div class="card privacy-card wiz-privacy"><div class="pc-row"><div class="grow"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + (isC ? 'Mutual Reveal: stay private until you say yes' : 'Stay confidential until you say yes') + ' <span class="muted small">' + (isC ? '(recommended)' : '(optional)') + '</span></div>' +
     '<p class="muted small" style="margin:4px 0 0">' + (isC
-      ? 'Companies see your skills and experience, not who you are. They can ask to connect, and you choose whether to share your name and CV.'
+      ? 'Companies find you by your skills (product, module and projects), not your name. They can ask to connect, and your name, photo and CV are shared only if you accept.'
       : 'Professionals see your roles, not which company is hiring, until you accept their interest. You can also choose this for each role.') + '</p></div>' +
     '<button type="button" class="switch' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + (isC ? 'Keep my identity private' : 'Keep my company confidential') + '" data-action="wiz-anon" data-r="' + role + '"><span></span></button></div>' +
     '<div class="anon-preview"><span class="muted small">' + (on ? (isC ? 'Companies will see you as' : 'Professionals will see you as') : (isC ? 'If you turn this on, companies see you as' : 'If you turn this on, professionals see you as')) + '</span><div class="ap-row">' + prev + '</div>' +
-    '<p class="muted small">' + (isC ? 'Hidden until you accept: name, photo, LinkedIn, summary, city, nationality and CV. ' : 'Hidden until you accept: company name, logo, website and contact. ') + 'You can change this any time in your profile.</p></div></div>';
+    '<p class="muted small">' + (isC ? 'Hidden until you accept: name, photo, LinkedIn, summary, city, nationality and CV. ' : 'Hidden until you accept: company name, logo, website and contact. ') + 'A reveal cannot be undone, so it only happens when you accept. You can change this any time in your profile.</p></div></div>';
 };
 
 /* ------------------------------ professional wizard ------------------------------ */
@@ -177,7 +196,8 @@ APP.wizCDefaults = function () {
     workPrefs: [],
     currency: 'USD', dailyRate: '', summary: '', cv: null,
     skills: [{ productId: 's4onprem', moduleId: 'fi', projects: 1 }],
-    industries: [], specialties: [], otherSkills: ''
+    industries: [], specialties: [], otherSkills: '',
+    anon: true /* private by default: Mutual Reveal */
   };
 };
 
@@ -573,7 +593,7 @@ APP.views['talent-public'] = function (ctx) {
     document.title = 'Private profile · Arnour';
     const sx = APP.db.session;
     return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div><div class="card empty anon-empty">' + APP.icon('lock', 28) +
-      '<h3>This profile is private</h3><p class="muted">This professional keeps their identity confidential. It is shared only after they accept an introduction.</p>' +
+      '<h3>This profile is private</h3><p class="muted">This professional uses Mutual Reveal: skills first, name second. Their identity is shared only after they accept an introduction.</p>' +
       (sx && sx.role === 'employer' ? '<a class="btn btn-primary btn-sm" href="#/e/talent/' + c.id + '">View anonymous profile</a>' : '<a class="btn btn-outline btn-sm" href="#/">Back to home</a>') + '</div></div>';
   }
   const name = APP.consultantFullName(c);
@@ -611,7 +631,7 @@ APP.views['company-public'] = function (ctx) {
   if (co.anon && !APP.canSeeCompany(co)) {
     document.title = 'Confidential company · Arnour';
     return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div><div class="card empty anon-empty">' + APP.icon('lock', 28) +
-      '<h3>This company is confidential</h3><p class="muted">The company keeps its name private until it accepts an introduction with a professional.</p><a class="btn btn-outline btn-sm" href="#/jobs">Browse open roles</a></div></div>';
+      '<h3>This company is confidential</h3><p class="muted">This company uses Mutual Reveal: its name is shared only after it accepts an introduction with a professional.</p><a class="btn btn-outline btn-sm" href="#/jobs">Browse open roles</a></div></div>';
   }
   document.title = co.name + ' — hiring on Arnour';
   const jobs = APP.companyJobs(co.id).filter(j => j.status === 'open' && APP.canSeeCompany(co, j)).sort((a, b) => b.postedTs - a.postedTs);

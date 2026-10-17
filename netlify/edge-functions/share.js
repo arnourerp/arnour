@@ -30,7 +30,7 @@ export default async (request, context) => {
       const x = await rpc('get_public_profile', { p_id: id });
       if (x && x.private) {
         title = 'SAP professional on Arnour';
-        desc = 'This professional keeps their identity private. Companies can ask to connect through Arnour.';
+        desc = 'Skills first, names second: this professional's identity is shared only if they accept an introduction on Arnour.';
       } else if (x && x.id) {
         const nm = [x.firstName, x.lastName].filter(Boolean).join(' ');
         title = (nm || 'SAP professional') + (x.headline ? ' — ' + cut(x.headline, 80) : '') + ' | Arnour';
@@ -42,7 +42,7 @@ export default async (request, context) => {
       const x = Array.isArray(list) ? list.find((i) => i.id === id) : null;
       if (x) {
         title = (x.name || 'Company') + (x.industry && !x.anon ? ' — ' + cut(x.industry, 60) : '') + ' | Arnour';
-        desc = cut((x.anon ? 'Company details are private. ' : '') + (x.about || x.description || 'Hiring SAP talent on Arnour, the talent network for the SAP ecosystem.'), 200);
+        desc = cut((x.anon ? 'Company details are private until an introduction is accepted. ' : '') + (x.about || x.description || 'Hiring SAP talent on Arnour, the talent network for the SAP ecosystem.'), 200);
       }
     } else {
       const c = await rpc('list_community');

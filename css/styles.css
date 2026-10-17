@@ -1585,3 +1585,24 @@ details.spec-more:not([open]) > summary::after { transform: rotate(-90deg); }
 details.spec-more > .spec-cat { margin: 0 12px 10px; }
 .role-added { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--brand-soft, #eef3ff); font-size: 13px; }
 .narrow-in { max-width: 140px; }
+
+/* Mutual Reveal narrative */
+.mr-kicker { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3; font-size: 12.5px; font-weight: 700; letter-spacing: .3px; margin-bottom: 12px; }
+.mr-flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 8px; position: relative; }
+.mr-stage { background: #fff; border: 1px solid var(--line-soft, #E2E8F0); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+.mr-stage h3 { margin: 0; font-size: 17px; }
+.mr-n { width: 28px; height: 28px; border-radius: 50%; background: #0F172A; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.mr-stage.m3 { background: linear-gradient(180deg, #F5F3FF, #fff); border-color: #C4B5FD; }
+.mr-stage.m3 .mr-n { background: #6D28D9; }
+.mr-stage:not(:last-child)::after { content: "→"; position: absolute; right: -13px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1px solid var(--line-soft, #E2E8F0); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--mut); z-index: 2; }
+.mr-row { display: flex; flex-direction: column; gap: 3px; }
+.mr-row p { margin: 0; font-size: 14px; }
+.mr-who { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); font-weight: 700; }
+.mr-both { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+.mr-card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 16px; }
+.mr-card p { margin: 0; }
+.mr-note { text-align: center; color: var(--mut); font-size: 13.5px; margin: 16px auto 0; max-width: 640px; }
+@media (max-width: 760px) {
+  .mr-flow, .mr-both { grid-template-columns: 1fr; }
+  .mr-stage:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -13px; transform: translateX(-50%); }
+}
