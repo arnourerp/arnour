@@ -219,6 +219,16 @@ APP.roleTypeLabel = function (id) {
   return t ? t.name : '';
 };
 APP.RT_MAX = 3;
+/* Which sign-up step-1 sections are complete (drives the side rail and the card ticks). */
+APP.wizSecDone = function (d) {
+  const t = (v) => !!String(v || '').trim();
+  return {
+    role: APP.rtList(d).length > 0,
+    who: t(d.firstName) && t(d.lastName) && (d.gender === 'male' || d.gender === 'female') && t(d.headline),
+    where: t(d.nationality) && t(d.country),
+    languages: (d.languages || []).length > 0
+  };
+};
 /* A person can hold up to 3 role types; roleTypes[0] is the primary one and roleType always mirrors it (older code and cards read roleType). */
 APP.rtList = function (d) {
   if (!d) return [];
@@ -2958,6 +2968,19 @@ APP.bindGlobal = function () {
       if (c) { const v = +t.value || 0; c.rows.forEach(r => { r.minProjects = v; }); APP.jobSummaryRefresh(); }
     }
   });
+  const wizLive = (e) => {
+    const f = e.target.closest && e.target.closest('form[data-form="wiz-c"][data-step="1"]');
+    if (!f || !APP.wizC) return;
+    const v = (n) => { const x = f.elements[n]; return x ? x.value : ''; };
+    const d = Object.assign({}, APP.wizC.data, { firstName: v('firstName'), lastName: v('lastName'), headline: v('headline'), nationality: v('nationality'), country: v('country'), gender: v('gender') || APP.wizC.data.gender });
+    const dn = APP.wizSecDone(d);
+    Object.keys(dn).forEach(k => {
+      const sec = document.querySelector('.wiz-sec[data-sec="' + k + '"]'); if (sec) sec.classList.toggle('done', dn[k]);
+      const it = document.querySelector('.wiz-rail-item[data-sec="' + k + '"]'); if (it) it.classList.toggle('done', dn[k]);
+    });
+  };
+  document.addEventListener('input', wizLive);
+  document.addEventListener('change', wizLive);
   document.addEventListener('input', clearJobErr);
   document.addEventListener('change', clearJobErr);
 
@@ -3249,8 +3272,20 @@ APP.onClick = function (el, e) {
         l.push(d.value);
       }
       APP.rtSet(sc, l);
+      if (d.single && d.scope === 'wizC' && APP.wizC) APP.wizC.roleOpen = false;
       if (d.scope === 'wizC' && APP.wizC && APP.wizC.err) { delete APP.wizC.err.role; if (!Object.keys(APP.wizC.err).length) APP.wizC.err = null; }
       APP.renderKeep('[data-action="rt-toggle"][data-scope="' + d.scope + '"][data-value="' + d.value + '"]');
+      break;
+    }
+
+    case 'role-change': {
+      if (APP.wizC) { APP.wizC.roleOpen = true; APP.render(); }
+      break;
+    }
+
+    case 'wiz-jump': {
+      const el = document.querySelector('.wiz-sec[data-sec="' + d.sec + '"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       break;
     }
 
@@ -3824,7 +3859,7 @@ APP.onSubmit = function (f) {
         if (!d.roleType) er.role = 'Choose your main role. Everything after this is tailored to it.';
         if (!d.firstName) er.firstName = 'Add your first name';
         if (!d.lastName) er.lastName = 'Add your last name';
-        if (!d.headline) er.headline = 'Add a short professional headline';
+        if (!d.headline) er.headline = 'Add your title or headline';
         if (!APP.genders.some(x => x[0] === d.gender)) er.gender = 'Select Male or Female';
         if (!d.nationality) er.nationality = 'Select your nationality';
         if (!d.country) er.country = 'Select your country';

@@ -217,33 +217,42 @@ APP.views['wiz-c'] = function () {
     const er = APP.wizC.err || {};
     const E = (k) => er[k] ? '<p class="field-error" role="alert">' + APP.h(er[k]) + '</p>' : '';
     const inv = (k) => er[k] ? ' aria-invalid="true"' : '';
-    const sec = (key, ico, title, help, inner) =>
-      '<section class="wiz-sec' + (er[key] || (key === 'who' && (er.firstName || er.lastName || er.headline || er.gender)) || (key === 'where' && (er.nationality || er.country)) ? ' has-err' : '') + '" data-sec="' + key + '">' +
-      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><div><h2>' + title + '</h2><p class="muted small">' + help + '</p></div></div>' + inner + '</section>';
+    const sec = (key, ico, title, inner, extra) =>
+      '<section class="wiz-sec' + (extra || '') + (er[key] || (key === 'who' && (er.firstName || er.lastName || er.headline || er.gender)) || (key === 'where' && (er.nationality || er.country)) ? ' has-err' : '') + (APP.wizSecDone(d)[key] ? ' done' : '') + '" data-sec="' + key + '">' +
+      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><h2>' + title + '</h2><span class="wiz-sec-tick" aria-hidden="true">' + APP.icon('check', 13) + '</span></div>' + inner + '</section>';
     const genderSeg = '<div class="seg gender-seg" role="group" aria-label="Gender">' +
       APP.genders.map(x => '<button type="button" class="seg-item ' + (d.gender === x[0] ? 'active' : '') + '" data-action="chip" data-scope="wizC" data-group="gender" data-single="1" data-value="' + x[0] + '"' + inv('gender') + '>' + x[1] + '</button>').join('') +
       '<input type="hidden" name="gender" value="' + APP.h(d.gender || '') + '" data-chip-echo="1"></div>';
-    body = '<form data-form="wiz-c" data-step="1" novalidate>' +
-      sec('role', 'briefcase', 'Your main role <span class="req-star">*</span>', 'This shapes the rest of your profile.',
-        '<div class="field" id="wiz-role">' + APP.roleTypePicker('wizC', d, { single: true }) + E('role') + '</div>') +
-      sec('who', 'users', 'Who you are', 'How companies will know you. If you stay private, your headline is shown instead of your name.',
-        '<div class="form-grid">' +
+    const selRole = APP.rtList(d)[0];
+    const collapsed = !!selRole && !APP.wizC.roleOpen;
+    const roleInner = collapsed
+      ? '<div class="rt-collapsed"><span class="rt-check on" aria-hidden="true">' + APP.icon('check', 14) + '</span><div class="rt-collapsed-txt"><b>' + APP.h(APP.roleTypeLabel(selRole)) + '</b><span class="muted small">You can add another role later in Edit profile.</span></div><button type="button" class="btn btn-outline btn-sm" data-action="role-change">Change</button></div>'
+      : APP.roleTypePicker('wizC', d, { single: true }) + E('role');
+    const rail = [['role', 'Role'], ['who', 'You'], ['where', 'Location'], ['languages', 'Languages']];
+    const dn = APP.wizSecDone(d);
+    const railHtml = '<nav class="wiz-rail" aria-label="Progress on this step">' + rail.map((r, i) =>
+      '<button type="button" class="wiz-rail-item' + (dn[r[0]] ? ' done' : '') + '" data-action="wiz-jump" data-sec="' + r[0] + '"><span class="wiz-rail-dot">' + (dn[r[0]] ? APP.icon('check', 12) : (i + 1)) + '</span><span>' + r[1] + '</span></button>').join('') + '</nav>';
+    body = '<div class="wiz-layout">' + railHtml + '<form data-form="wiz-c" data-step="1" novalidate class="wiz-main">' +
+      sec('role', 'briefcase', 'Your main role <span class="req-star">*</span>', '<div class="field" id="wiz-role">' + roleInner + '</div>') +
+      sec('who', 'users', 'Who you are',
+        '<div class="form-grid g3">' +
         '<label class="field"><span class="label">First name <span class="req-star">*</span></span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '" placeholder="Ahmed"' + inv('firstName') + '>' + E('firstName') + '</label>' +
         '<label class="field"><span class="label">Last name <span class="req-star">*</span></span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '" placeholder="Said"' + inv('lastName') + '>' + E('lastName') + '</label>' +
+        '<div class="field"><span class="label">Gender <span class="req-star">*</span></span>' + genderSeg + E('gender') + '</div>' +
         '</div>' +
-        '<div class="field"><span class="label">Gender <span class="req-star">*</span></span>' + genderSeg + E('gender') + '<p class="field-hint">Shown only to companies on Arnour, never to visitors.</p></div>' +
-        '<label class="field"><span class="label">Professional headline <span class="req-star">*</span></span><input name="headline" class="input" value="' + APP.h(d.headline) + '" placeholder="Senior SAP S/4HANA FICO Consultant"' + inv('headline') + '>' + E('headline') + '<p class="field-hint">Shown on your profile, and used as your name if you choose to stay anonymous, so keep employer names out.</p></label>' +
-        '<label class="field"><span class="label">LinkedIn profile <span class="muted">(optional)</span></span><input name="linkedin" class="input" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you.</p></label>') +
-      sec('where', 'pin', 'Where you are', 'Country is required. City is optional.',
-        '<div class="form-grid">' +
+        '<label class="field"><span class="label">Your Title/Headline <span class="req-star">*</span></span><input name="headline" class="input" value="' + APP.h(d.headline) + '" placeholder="Senior SAP S/4HANA FICO Consultant"' + inv('headline') + '>' + E('headline') + '<p class="field-hint">Used as your name if you stay private, so keep employer names out.</p></label>' +
+        '<details class="opt-more"' + (d.linkedin ? ' open' : '') + '><summary>+ Add LinkedIn <span class="muted">(optional)</span></summary>' +
+        '<label class="field"><input name="linkedin" class="input" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile" aria-label="LinkedIn profile"></label></details>') +
+      sec('where', 'pin', 'Where you are',
+        '<div class="form-grid g3">' +
         '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '>' + APP.opt(APP.nationalities.map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
         '<label class="field"><span class="label">Country <span class="req-star">*</span></span><select name="country" data-wizard="c" class="input" id="wiz-country"' + inv('country') + '>' + APP.countryOptions(d.country) + '</select>' + E('country') + '</label>' +
         '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
         '</div>') +
-      sec('languages', 'msg', 'Languages <span class="req-star">*</span>', 'Pick every language you can work in.',
+      sec('languages', 'msg', 'Languages <span class="req-star">*</span>',
         '<div class="field field-langs"><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.languages, d.languages) + '</div>' + E('languages') + '</div>') +
       APP.wizNav(1, 6) +
-      '</form>';
+      '</form></div>';
   } else if (step === 2) {
     body = '<form data-form="wiz-c" data-step="2">' +
       '<div class="range-row"><span class="label">Years of experience</span><output>' + d.yearsExp + '</output>' +
@@ -313,9 +322,9 @@ APP.views['wiz-c'] = function () {
   }
 
   /* handle cv-clear (non-submit) here too */
-  return '<div class="wizard-wrap">' +
+  return '<div class="wizard-wrap' + (step === 1 ? ' wizard-wide' : '') + '">' +
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
-    '<div class="card wizard-card">' +
+    '<div class="card wizard-card' + (step === 1 ? ' wiz-flat' : '') + '">' +
     '<div class="wiz-progress">' + progress + '</div>' +
     '<h1 class="wiz-title">' + APP.wizStepsC[step - 1] + '</h1>' +
     '<p class="muted small wiz-time">Step ' + step + ' of ' + APP.wizStepsC.length + ' · about ' + Math.max(1, Math.ceil((APP.wizStepsC.length - step + 1) * 0.4)) + ' min left · you can edit everything later</p>' +
