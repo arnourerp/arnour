@@ -2379,7 +2379,7 @@ APP.moduleChipsHtml = function (pid, selected, attrs, qKey, allowAny) {
     return '<button type="button" class="mchip' + (on ? ' on' : '') + '" data-action="mod-toggle" ' + attrs + ' data-mid="' + APP.h(id) + '" aria-pressed="' + (on ? 'true' : 'false') + '" title="' + APP.h(title) + '"' + (hide ? ' hidden' : '') + '>' + (on ? APP.icon('check', 12) + ' ' : '') + APP.h(name) + '</button>';
   };
   return '<div class="mod-wrap">' +
-    (mods.length > 12 ? '<input type="search" class="input mod-q" data-mod-q="' + APP.h(qKey) + '" value="' + APP.h((APP.state.modQ || {})[qKey] || '') + '" placeholder="Filter ' + mods.length + ' modules…" aria-label="Filter modules">' : '') +
+    (allowAny && mods.length > 12 ? '<input type="search" class="input mod-q" data-mod-q="' + APP.h(qKey) + '" value="' + APP.h((APP.state.modQ || {})[qKey] || '') + '" placeholder="Filter ' + mods.length + ' modules…" aria-label="Filter modules">' : '') +
     '<div class="chip-wrap mod-chips">' +
     (allowAny ? one('*', 'Any module', 'Any module (general) — the product is what matters') : '') +
     mods.map(m => one(m.id, APP.moduleShort(m.name), m.name)).join('') +
