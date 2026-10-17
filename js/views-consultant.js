@@ -70,7 +70,7 @@ APP.views['c-dash'] = function () {
     '<p class="muted">' + APP.h(c.headline) + '</p></div></div>' +
     '<div class="profile-meta">' +
     '<span>' + APP.icon('pin', 14) + ' ' + APP.h(APP.locText(c)) + '</span>' +
-    APP.metaSpan('users', [c.nationality, c.level]) +
+    APP.metaSpan('users', [c.nationality, APP.genderLabel(c.gender), c.level]) +
     APP.metaSpan('check', [c.availability]) +
     (c.workPrefs && c.workPrefs.length ? '<span>' + APP.icon('home', 14) + ' Open to ' + APP.h(c.workPrefs.join(' / ')) + '</span>' : '') +
     '<span>' + APP.icon('file', 14) + ' ' + APP.rateHtml(c) + '</span>' +
@@ -128,7 +128,7 @@ APP.consultantProfileHtml = function (c, o) {
     '<p class="muted">' + APP.h(c.headline) + '</p>' +
     '<div class="profile-meta mt8">' +
     '<span>' + APP.icon('pin', 14) + ' ' + APP.h(APP.locText(c)) + '</span>' +
-    APP.metaSpan('users', [c.nationality, c.level, c.yearsExp ? c.yearsExp + ' yrs exp' : '', (c.programs > 0 && APP.roleProfile(c).prog) ? c.programs + ' ' + APP.roleProfile(c).prog.toLowerCase() : '']) +
+    APP.metaSpan('users', [c.nationality, APP.genderLabel(c.gender), c.level, c.yearsExp ? c.yearsExp + ' yrs exp' : '', (c.programs > 0 && APP.roleProfile(c).prog) ? c.programs + ' ' + APP.roleProfile(c).prog.toLowerCase() : '']) +
     (c.roleType ? '<span>' + APP.icon('briefcase', 14) + ' ' + APP.h(APP.roleTypeLine(c)) + '</span>' : '') +
     APP.metaSpan('check', [c.availability]) +
     (c.workPrefs && c.workPrefs.length ? '<span>' + APP.icon('home', 14) + ' Open to ' + APP.h(c.workPrefs.join(' / ')) + '</span>' : '') +
@@ -195,6 +195,7 @@ APP.views['c-profile'] = function () {
       '<label class="field"><span class="label">First name</span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '"></label>' +
       '<label class="field"><span class="label">Last name</span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '"></label>' +
       '</div>' +
+      '<label class="field"><span class="label">Gender</span><select name="gender" class="input">' + APP.opt([['', 'Select…']].concat(APP.genders), d.gender || '') + '</select><p class="field-hint">Shown only to companies on Arnour, never to visitors.</p></label>' +
       '<label class="field"><span class="label">Headline</span><input name="headline" class="input" value="' + APP.h(d.headline) + '"></label>' +
       '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
       '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + addedNote + '</div>' +

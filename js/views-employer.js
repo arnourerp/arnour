@@ -164,6 +164,7 @@ APP.applyTalentFilters = function (list) {
     }
     if (f.country && c.country !== f.country) return false;
     if (f.nationality && c.nationality !== f.nationality) return false;
+    if (f.gender && c.gender !== f.gender) return false;
     if (f.roleType && APP.rtList(c).indexOf(f.roleType) === -1) return false;
     if (f.levels && f.levels.length && !f.levels.includes(c.level)) return false;
     if (f.langs && f.langs.length && !f.langs.some(l => (c.languages || []).includes(l))) return false;
@@ -219,12 +220,13 @@ APP.talentActiveFilters = function (f) {
   if (f.availability) out.push(['availability', '', f.availability]);
   (f.langs || []).forEach(v => out.push(['langs', v, v]));
   if (f.nationality) out.push(['nationality', '', f.nationality]);
+  if (f.gender) out.push(['gender', '', APP.genderLabel(f.gender)]);
   return out;
 };
 APP.TF_SECTION_KEYS = {
   role: ['roleType'], products: ['product', 'module', 'cert'], specialties: ['specialties'],
   experience: ['levels', 'minYears', 'minProjects'], industry: ['industries'], availability: ['availability'],
-  location: ['country', 'region', 'workPref'], people: ['langs', 'nationality']
+  location: ['country', 'region', 'workPref'], people: ['langs', 'nationality', 'gender']
 };
 APP.tfCount = function (active, section) {
   const keys = APP.TF_SECTION_KEYS[section];
@@ -298,7 +300,8 @@ APP.talentFilterPanelHtml = function (f, active) {
     '<label class="field"><span class="label">Work preference</span><select name="workPref" class="input"><option value="">Any</option>' + APP.opt(APP.workPrefs.map(w => [w, w]), f.workPref) + '</select></label>';
   const peopleBody =
     '<div class="field"><span class="label">Languages</span><div class="chip-wrap">' + APP.chipGroup('talentFilters', 'langs', APP.languages, f.langs) + '</div></div>' +
-    '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input"><option value="">Any</option>' + APP.opt(APP.nationalities.map(n => [n, n]), f.nationality) + '</select></label>';
+    '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input"><option value="">Any</option>' + APP.opt(APP.nationalities.map(n => [n, n]), f.nationality) + '</select></label>' +
+    '<label class="field"><span class="label">Gender</span><select name="gender" class="input"><option value="">Any</option>' + APP.opt(APP.genders, f.gender) + '</select></label>';
   return '<form data-form="talent-search" class="filters card' + (APP.state.tfMobile ? ' tf-open' : '') + '" id="tf-panel">' +
     '<div class="card-h">Filters' + (active.length ? ' <span class="count-pill">' + active.length + '</span>' : '') + ' <button type="button" class="link" data-action="talent-reset">Reset</button></div>' +
     APP.tfSection('role', 'Role type', cnt('role'), true, roleBody) +
@@ -308,7 +311,7 @@ APP.talentFilterPanelHtml = function (f, active) {
     APP.tfSection('industry', 'Industry solutions', cnt('industry'), false, indBody) +
     APP.tfSection('availability', 'Availability', cnt('availability'), false, availBody) +
     APP.tfSection('location', 'Location & work style', cnt('location'), false, locBody) +
-    APP.tfSection('people', 'Language & nationality', cnt('people'), false, peopleBody) +
+    APP.tfSection('people', 'Language, nationality & gender', cnt('people'), false, peopleBody) +
     '</form>';
 };
 
@@ -480,7 +483,7 @@ APP.jobFormView = function (mode) {
 
   const st = APP.state.jobDet || {};
   const nSpec = (d.preferredSpecialties || []).length;
-  const nMore = (d.industries || []).length + (d.preferredLangs || []).length;
+  const nMore = (d.industries || []).length + (d.preferredLangs || []).length + (d.preferredGender ? 1 : 0);
   const openSpec = st.spec !== undefined ? st.spec : nSpec > 0;
   const openMore = st.more !== undefined ? st.more : editing;
   const sec = (n, title, sub, body) =>
@@ -522,6 +525,7 @@ APP.jobFormView = function (mode) {
     '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>More ranking preferences <span class="muted">(optional)</span>' + (nMore ? ' <span class="count-pill">' + nMore + ' selected</span>' : '') + '</summary>' +
     '<div class="field"><span class="label">Preferred languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'preferredLangs', APP.languages.filter(l => (d.languages || []).indexOf(l) === -1), d.preferredLangs) + '</div><p class="field-hint">Ranks the role higher for professionals who speak them — never hides it.</p></div>' +
     '<div class="field"><span class="label">Industries</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div><p class="field-hint">Ranks the role higher for professionals with that background — never hides it.</p></div>' +
+    '<label class="field"><span class="label">Preferred gender</span><select name="preferredGender" class="input"><option value="">No preference</option>' + APP.opt(APP.genders, d.preferredGender) + '</select><p class="field-hint">Ranks the role higher for matching professionals — never hides it.</p></label>' +
     '</details>';
 
   const pay =

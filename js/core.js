@@ -44,6 +44,8 @@ APP.countriesById = Object.fromEntries(APP.countries.map(c => [c.id, c]));
 APP.nationalities = ['Egypt', 'Jordan', 'Palestine', 'Lebanon', 'Iraq', 'Turkey', 'United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Kuwait', 'Bahrain', 'Oman', 'Morocco', 'Tunisia', 'Algeria', 'India', 'Pakistan', 'United Kingdom', 'Germany', 'United States', 'France', 'Other'];
 APP.languages = ['English', 'Arabic', 'Hindi', 'Urdu', 'French'];
 APP.levels = ['Junior', 'Mid', 'Senior'];
+APP.genders = [['male', 'Male'], ['female', 'Female']];
+APP.genderLabel = (g) => (APP.genders.find(x => x[0] === g) || [0, ''])[1];
 APP.availability = ['Immediate', 'Within 15 days', 'Within 30 days', 'Within 60 days', 'Within 90 days'];
 APP.workPrefs = ['Remote', 'Part-time', 'Hybrid'];
 
@@ -233,13 +235,18 @@ APP.roleTypePicker = function (scope, d, opts) {
     const on = sel.indexOf(t.id) !== -1, primary = on && sel[0] === t.id && !opts.single;
     return '<div class="rt-item' + (on ? ' on' : '') + '">' +
       '<button type="button" class="chip rt-opt' + (on ? ' chip-on' : '') + '" aria-pressed="' + (on ? 'true' : 'false') + '" data-action="rt-toggle" data-scope="' + scope + '" data-value="' + t.id + '"' + (opts.single ? ' data-single="1"' : '') + '>' +
-      '<span class="rt-txt"><span class="rt-name">' + APP.h(t.name) + (primary ? ' <span class="rt-primary">Primary</span>' : '') + '</span><span class="rt-sub">' + APP.h(t.sub) + '</span></span></button>' +
+      '<span class="rt-check" aria-hidden="true">' + (on ? APP.icon('check', 14) : '') + '</span>' +
+      '<span class="rt-txt"><span class="rt-name">' + APP.h(t.name) + (primary ? ' <span class="rt-primary">Primary</span>' : '') + (on && opts.single ? ' <span class="rt-primary">Selected</span>' : '') + '</span><span class="rt-sub">' + APP.h(t.sub) + '</span></span></button>' +
       (on && !primary && !opts.single ? '<button type="button" class="link rt-make" data-action="rt-primary" data-scope="' + scope + '" data-value="' + t.id + '">Make primary</button>' : '') +
       '</div>';
   }).join('');
-  return '<div class="rt-list">' + rows + '</div>' + (opts.single
-    ? '<p class="field-hint rt-meta">Pick your main role — the next steps are tailored to it. <b>You can add another role later in Edit profile.</b></p>'
-    : '<p class="field-hint rt-meta"><b>' + sel.length + ' of ' + APP.RT_MAX + '</b> selected · pick up to 3 — your first pick is your primary role. Each role you add brings the fields it needs. Companies can search by any of them.</p>');
+  if (opts.single) {
+    return '<div class="rt-callout" role="note">' + APP.icon('spark', 18) + '<div><b>Choose your main role.</b> The next steps are tailored to it. <b>You can add another role later in Edit profile.</b></div></div>' +
+      '<div class="rt-list" data-rt-list>' + rows + '</div>' +
+      '<p class="rt-chosen' + (sel.length ? ' on' : '') + '" role="status" aria-live="polite">' + (sel.length ? APP.icon('check', 14) + ' Your role: <b>' + APP.h(APP.roleTypeLabel(sel[0])) + '</b>' : 'No role selected yet') + '</p>';
+  }
+  return '<div class="rt-list">' + rows + '</div>' +
+    '<p class="field-hint rt-meta"><b>' + sel.length + ' of ' + APP.RT_MAX + '</b> selected · pick up to 3 — your first pick is your primary role. Each role you add brings the fields it needs. Companies can search by any of them.</p>';
 };
 
 /* ---- what each role is asked for (sign-up and Edit profile) ----
@@ -1242,6 +1249,10 @@ APP.matchDetail = function (c, job) {
     const mine = c.specialties || [];
     addCtx('spec', 'Specialties', job.preferredSpecialties.some(id => mine.indexOf(id) !== -1 || mine.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id)) ? 1 : 0);
   }
+  if (job.preferredGender === 'male' || job.preferredGender === 'female') {
+    const gg = c.gender; /* soft preference: ranks higher, never hides; unknown stays neutral */
+    ctx.push({ key: 'gen', label: 'Gender preference', f: gg ? (gg === job.preferredGender ? 1 : 0) : 0.5, w: 2, note: 'Employer prefers ' + APP.genderLabel(job.preferredGender).toLowerCase() });
+  }
   if (job.certification) {
     const ok = APP.consultantCertInJob(c, job);
     addCtx('cert', 'Certification', ok ? 1 : (job.certification === 'required' ? 0 : 0.2));
@@ -1399,7 +1410,7 @@ APP.jobsForConsultant = function (c) {
 /* ---------------------------- state (ui) ---------------------------- */
 
 APP.TF_DEFAULTS = function () {
-  return { q: '', product: '', module: '', region: 'all', country: '', nationality: '', roleType: '', levels: [], langs: [], industries: [], specialties: [], workPref: '', cert: '', availability: '', minYears: 0, minProjects: 0, sort: 'best' };
+  return { q: '', product: '', module: '', region: 'all', country: '', nationality: '', roleType: '', levels: [], langs: [], industries: [], specialties: [], workPref: '', cert: '', availability: '', minYears: 0, minProjects: 0, gender: '', sort: 'best' };
 };
 
 APP.JF_DEFAULTS = function () {
@@ -3238,6 +3249,7 @@ APP.onClick = function (el, e) {
         l.push(d.value);
       }
       APP.rtSet(sc, l);
+      if (d.scope === 'wizC' && APP.wizC && APP.wizC.err) { delete APP.wizC.err.role; if (!Object.keys(APP.wizC.err).length) APP.wizC.err = null; }
       APP.renderKeep('[data-action="rt-toggle"][data-scope="' + d.scope + '"][data-value="' + d.value + '"]');
       break;
     }
@@ -3806,13 +3818,25 @@ APP.onSubmit = function (f) {
         d.headline = g('headline'); d.nationality = g('nationality');
         d.linkedin = g('linkedin'); /* optional — shown on the public profile */
         d.country = g('country'); d.city = d.country ? g('city') : '';
-        if (!d.firstName || !d.lastName || !d.headline || !d.nationality || !d.country) {
-          APP.toast('Please complete all fields in step 1');
+        d.gender = g('gender') || d.gender || '';
+        APP.rtSet(d, APP.rtList(d));
+        const er = {};
+        if (!d.roleType) er.role = 'Choose your main role. Everything after this is tailored to it.';
+        if (!d.firstName) er.firstName = 'Add your first name';
+        if (!d.lastName) er.lastName = 'Add your last name';
+        if (!d.headline) er.headline = 'Add a short professional headline';
+        if (!APP.genders.some(x => x[0] === d.gender)) er.gender = 'Select Male or Female';
+        if (!d.nationality) er.nationality = 'Select your nationality';
+        if (!d.country) er.country = 'Select your country';
+        if (!(d.languages || []).length) er.languages = 'Choose at least one language you speak';
+        if (Object.keys(er).length) {
+          APP.wizC.err = er;
+          APP.toast('Please complete the highlighted fields');
+          APP._formSyncSkip = ['wiz-c']; APP.render();
+          setTimeout(function () { const first = document.querySelector('.wiz-sec.has-err'); if (first) first.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 30);
           return;
         }
-        APP.rtSet(d, APP.rtList(d));
-        if (!d.roleType) { APP.toast('Please choose your role type'); APP.flagRoleType(); return; }
-        if (!(d.languages || []).length) { APP.toast('Please choose at least one language you speak'); const lc = document.querySelector('.field-langs'); if (lc) lc.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+        APP.wizC.err = null;
         if (d._rtFor !== d.roleType) { d.skills = APP.defaultSkillsFor(d); d._rtFor = d.roleType; } /* a new role starts from the skills it needs */
         if (d.roleType === 'junior') d.level = 'Junior';
       } else if (step === 2) {
@@ -3897,6 +3921,8 @@ APP.onSubmit = function (f) {
       d.country = g('country'); d.city = d.country ? g('city') : '';
       if (!d.country) { APP.toast('Please select your country'); return; }
       d.yearsExp = +g('yearsExp') || user.yearsExp;
+      d.gender = g('gender') || user.gender || '';
+      if (!d.gender) delete d.gender;
       APP.rtSet(d, APP.rtList(APP.profileDraft ? d : user));
       d.level = APP.roleProfile(d).lvl ? (g('level') || user.level) : (d.roleType === 'junior' ? 'Junior' : (g('level') || APP.levelFromYears(d.yearsExp)));
       if (f.querySelector('[name="programs"]')) { d.programs = Math.max(0, +g('programs') || 0); }
@@ -3947,6 +3973,7 @@ APP.onSubmit = function (f) {
       if (f.querySelectorAll('[name="region"]').length) f2.region = g('region') || 'all';
       f2.country = g('country');
       f2.nationality = g('nationality');
+      f2.gender = g('gender');
       f2.roleType = g('roleType');
       f2.availability = g('availability');
       f2.workPref = g('workPref'); /* specialties are chip-driven, not form fields — keep the draft array */
@@ -4006,6 +4033,7 @@ APP.onSubmit = function (f) {
       d.industries = (d.industries || []).filter(Boolean);
       d.industry = d.industries[0] || ''; /* kept for older code paths and saved data */
       d.certification = g('certification');
+      if (fd.has('preferredGender')) { d.preferredGender = g('preferredGender'); if (!d.preferredGender) delete d.preferredGender; }
       /* keep the poster's line breaks, but tidy pasted text: unify newlines, cap blank lines, trim */
       d.description = g('description').replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
       d.languages = (d.languages || []).filter(Boolean);

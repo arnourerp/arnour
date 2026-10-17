@@ -214,20 +214,34 @@ APP.views['wiz-c'] = function () {
 
   let body = '';
   if (step === 1) {
-    body = '<form data-form="wiz-c" data-step="1">' +
-      '<div class="form-grid">' +
-      '<label class="field"><span class="label">First name *</span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '" placeholder="Ahmed"></label>' +
-      '<label class="field"><span class="label">Last name *</span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '" placeholder="Said"></label>' +
-      '</div>' +
-      '<label class="field"><span class="label">Professional headline *</span><input name="headline" class="input" value="' + APP.h(d.headline) + '" placeholder="Senior SAP S/4HANA FICO Consultant"><p class="field-hint">Shown on your profile — and used as your name if you choose to stay anonymous, so keep employer names out.</p></label>' +
-      '<label class="field"><span class="label">LinkedIn profile (optional)</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you.</p></label>' +
-      '<div class="form-grid">' +
-      '<label class="field"><span class="label">Nationality *</span><select name="nationality" class="input">' + APP.opt(APP.nationalities.map(n => [n, n]), d.nationality) + '</select></label>' +
-      '<label class="field"><span class="label">Country *</span><select name="country" data-wizard="c" class="input" id="wiz-country">' + APP.countryOptions(d.country) + '</select></label>' +
-      '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
-      '</div>' +
-      '<div class="field field-langs"><span class="label">Languages spoken <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.languages, d.languages) + '</div></div>' +
-      '<div class="field"><span class="label">Your role type <span class="req-star">*</span></span>' + APP.roleTypePicker('wizC', d, { single: true }) + '</div>' +
+    const er = APP.wizC.err || {};
+    const E = (k) => er[k] ? '<p class="field-error" role="alert">' + APP.h(er[k]) + '</p>' : '';
+    const inv = (k) => er[k] ? ' aria-invalid="true"' : '';
+    const sec = (key, ico, title, help, inner) =>
+      '<section class="wiz-sec' + (er[key] || (key === 'who' && (er.firstName || er.lastName || er.headline || er.gender)) || (key === 'where' && (er.nationality || er.country)) ? ' has-err' : '') + '" data-sec="' + key + '">' +
+      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><div><h2>' + title + '</h2><p class="muted small">' + help + '</p></div></div>' + inner + '</section>';
+    const genderSeg = '<div class="seg gender-seg" role="group" aria-label="Gender">' +
+      APP.genders.map(x => '<button type="button" class="seg-item ' + (d.gender === x[0] ? 'active' : '') + '" data-action="chip" data-scope="wizC" data-group="gender" data-single="1" data-value="' + x[0] + '"' + inv('gender') + '>' + x[1] + '</button>').join('') +
+      '<input type="hidden" name="gender" value="' + APP.h(d.gender || '') + '" data-chip-echo="1"></div>';
+    body = '<form data-form="wiz-c" data-step="1" novalidate>' +
+      sec('role', 'briefcase', 'Your main role <span class="req-star">*</span>', 'This shapes the rest of your profile.',
+        '<div class="field" id="wiz-role">' + APP.roleTypePicker('wizC', d, { single: true }) + E('role') + '</div>') +
+      sec('who', 'users', 'Who you are', 'How companies will know you. If you stay private, your headline is shown instead of your name.',
+        '<div class="form-grid">' +
+        '<label class="field"><span class="label">First name <span class="req-star">*</span></span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '" placeholder="Ahmed"' + inv('firstName') + '>' + E('firstName') + '</label>' +
+        '<label class="field"><span class="label">Last name <span class="req-star">*</span></span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '" placeholder="Said"' + inv('lastName') + '>' + E('lastName') + '</label>' +
+        '</div>' +
+        '<div class="field"><span class="label">Gender <span class="req-star">*</span></span>' + genderSeg + E('gender') + '<p class="field-hint">Shown only to companies on Arnour, never to visitors.</p></div>' +
+        '<label class="field"><span class="label">Professional headline <span class="req-star">*</span></span><input name="headline" class="input" value="' + APP.h(d.headline) + '" placeholder="Senior SAP S/4HANA FICO Consultant"' + inv('headline') + '>' + E('headline') + '<p class="field-hint">Shown on your profile, and used as your name if you choose to stay anonymous, so keep employer names out.</p></label>' +
+        '<label class="field"><span class="label">LinkedIn profile <span class="muted">(optional)</span></span><input name="linkedin" class="input" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you.</p></label>') +
+      sec('where', 'pin', 'Where you are', 'Country is required. City is optional.',
+        '<div class="form-grid">' +
+        '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '>' + APP.opt(APP.nationalities.map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
+        '<label class="field"><span class="label">Country <span class="req-star">*</span></span><select name="country" data-wizard="c" class="input" id="wiz-country"' + inv('country') + '>' + APP.countryOptions(d.country) + '</select>' + E('country') + '</label>' +
+        '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
+        '</div>') +
+      sec('languages', 'msg', 'Languages <span class="req-star">*</span>', 'Pick every language you can work in.',
+        '<div class="field field-langs"><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.languages, d.languages) + '</div>' + E('languages') + '</div>') +
       APP.wizNav(1, 6) +
       '</form>';
   } else if (step === 2) {

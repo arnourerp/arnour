@@ -221,6 +221,13 @@ $$ select (case when co.owner is not distinct from auth.uid() and auth.uid() is 
           || jsonb_build_object('id', co.id, 'anon', co.anon, 'sample', co.sample) $$;
 
 -- ---------- reading (everything goes through these) ------------------------
+-- Gender is shown only to the owner and to signed-in companies (so it can be filtered on). Never to visitors, other professionals,
+-- the community, shared links or previews: it is not part of _consultant_public_keys().
+create or replace function public._emp_gender(c public.consultants) returns jsonb
+language sql stable security definer set search_path = public as
+$$ select case when auth.uid() is not null and my_role() = 'employer' and c.data ? 'gender' and c.data->>'gender' in ('male','female')
+               then jsonb_build_object('gender', c.data->'gender') else '{}'::jsonb end $$;
+
 create or replace function public.list_consultants() returns setof jsonb
 language plpgsql stable security definer set search_path = public as
 $$
@@ -230,9 +237,9 @@ begin
   for c in select * from public.consultants x where public._visible(x.owner, x.sample) or x.owner = auth.uid() loop
     if c.owner = auth.uid() then return next _full_consultant(c, true);
     elsif r = 'employer' and is_revealed(c.id, ent) then   -- introduced: the company may also open the CV file
-      return next _full_consultant(c, false) || case when jsonb_typeof(c.data->'cv') = 'object' then jsonb_build_object('cv', c.data->'cv') else '{}'::jsonb end;
-    elsif not c.anon then return next _full_consultant(c, false);
-    else return next _redact_consultant(c);
+      return next _full_consultant(c, false) || _emp_gender(c) || case when jsonb_typeof(c.data->'cv') = 'object' then jsonb_build_object('cv', c.data->'cv') else '{}'::jsonb end;
+    elsif not c.anon then return next _full_consultant(c, false) || _emp_gender(c);
+    else return next _redact_consultant(c) || _emp_gender(c);
     end if;
   end loop;
 end $$;
@@ -240,7 +247,7 @@ end $$;
 create or replace function public.get_public_profile(p_id text) returns jsonb
 language sql stable security definer set search_path = public as
 $$ select case when c.anon and coalesce(c.owner <> auth.uid(), true) then jsonb_build_object('id', c.id, 'private', true)
-               else _full_consultant(c, c.owner is not distinct from auth.uid()) end
+               else _full_consultant(c, c.owner is not distinct from auth.uid()) || case when c.owner is not distinct from auth.uid() then '{}'::jsonb else _emp_gender(c) end end
    from public.consultants c where c.id = p_id and (public._visible(c.owner, c.sample) or c.owner = auth.uid()) $$;
 
 create or replace function public.list_companies() returns setof jsonb
