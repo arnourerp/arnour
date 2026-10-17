@@ -169,7 +169,7 @@ begin
   ) u;
   select coalesce(jsonb_agg(
     case when c.anon and c.owner is distinct from me then _redact_consultant(c)
-         else (c.data - array['email','phone','cv','savedJobIds','linkedin']) || jsonb_build_object('id', c.id, 'anon', c.anon, 'sample', c.sample) end
+         else public._pick(c.data, public._consultant_public_keys()) - array['linkedin'] || jsonb_build_object('id', c.id, 'anon', c.anon, 'sample', c.sample) end
   ), '[]'::jsonb) into auths
   from public.consultants c where c.id = any(coalesce(ids, array[]::text[]));
 
@@ -296,7 +296,22 @@ revoke all on function public._cid(text,text), public._comm_guard(), public._pub
   public.post_comment(text,text,text), public.delete_comment(text), public.set_vote(text,text,boolean)
   from public, anon, authenticated;
 
-grant execute on function public.list_community() to anon, authenticated;
-grant execute on function public.post_question(text,text,text,text,text,text,boolean), public.post_answer(text,text,text),
-  public.accept_answer(text,text,boolean), public.post_article(text,text,text,text,text,text,text),
-  public.post_comment(text,text,text), public.delete_comment(text), public.set_vote(text,text,boolean) to authenticated;
+-- the access rights live in one function, so re-running 001 (which resets all rights) can restore them
+create or replace function public._grant_community() returns void language plpgsql as
+$g$
+begin
+  grant execute on function public.list_community() to anon, authenticated;
+  grant execute on function public.post_question(text,text,text,text,text,text,boolean), public.post_answer(text,text,text),
+    public.accept_answer(text,text,boolean), public.post_article(text,text,text,text,text,text,text),
+    public.post_comment(text,text,text), public.delete_comment(text), public.set_vote(text,text,boolean) to authenticated;
+end
+$g$;
+revoke all on function public._grant_community() from public, anon, authenticated;
+select public._grant_community();
+
+-- lookups by author (account deletion, moderation, notifications)
+create index if not exists questions_owner_idx on public.questions(owner);
+create index if not exists answers_owner_idx on public.answers(owner);
+create index if not exists articles_owner_idx on public.articles(owner);
+create index if not exists comments_owner_idx on public.article_comments(owner);
+create index if not exists votes_voter_idx on public.votes(voter);

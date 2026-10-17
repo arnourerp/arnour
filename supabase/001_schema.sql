@@ -113,6 +113,11 @@ create table if not exists public.notifications (
   from_user uuid
 );
 create index if not exists notif_key_idx on public.notifications(user_key, ts desc);
+create index if not exists notif_from_idx on public.notifications(from_user, ts);
+create index if not exists jobs_owner_idx on public.jobs(owner);
+create index if not exists consultants_owner_idx on public.consultants(owner);
+create index if not exists companies_owner_idx on public.companies(owner);
+create index if not exists conv_e_idx on public.conversations(e_id);
 
 -- ---------- admin controls (Release 3) -------------------------------------
 alter table public.profiles    add column if not exists suspended        boolean not null default false;
@@ -180,24 +185,40 @@ begin
 end $$;
 
 -- ---------- redaction helpers ----------------------------------------------
+-- What other people may see of a profile: only these fields ever leave the server for someone else.
+-- (Anything else a person stores, such as their saved roles or "seen" markers, stays with them.)
+create or replace function public._pick(d jsonb, keys text[]) returns jsonb
+language sql immutable as
+$$ select coalesce((select jsonb_object_agg(e.key, e.value) from jsonb_each(coalesce(d, '{}'::jsonb)) e where e.key = any(keys)), '{}'::jsonb) $$;
+
+create or replace function public._consultant_public_keys() returns text[]
+language sql immutable as
+$$ select array['firstName','lastName','headline','summary','city','country','nationality','availability','currency','dailyRate','ratePeriod',
+               'industries','languages','level','linkedin','otherSkills','roleType','roleTypes','skills','specialties','workPrefs','yearsExp'] $$;
+
 create or replace function public._redact_consultant(c public.consultants) returns jsonb
 language sql immutable as
-$$ select (c.data - array['firstName','lastName','city','nationality','summary','linkedin','cv','photo','email','phone','savedJobIds'])
+$$ select public._pick(c.data, public._consultant_public_keys()) - array['firstName','lastName','city','nationality','summary','linkedin']
           || jsonb_build_object('id', c.id, 'anon', true, 'firstName', '', 'lastName', '', 'sample', c.sample, 'certRevoked', c.cert_revoked) $$;
 
+-- mine: everything. Others: the public fields, and only the CV's name (the file itself is downloaded through its own rule)
 create or replace function public._full_consultant(c public.consultants, mine boolean) returns jsonb
 language sql immutable as
-$$ select (case when mine then c.data else c.data - 'savedJobIds' end)
+$$ select (case when mine then c.data
+                else public._pick(c.data, public._consultant_public_keys())
+                     || case when jsonb_typeof(c.data->'cv') = 'object' then jsonb_build_object('cv', (c.data->'cv') - 'path') else '{}'::jsonb end end)
           || jsonb_build_object('id', c.id, 'anon', c.anon, 'sample', c.sample, 'certRevoked', c.cert_revoked) $$;
 
 create or replace function public._redact_company(co public.companies, as_id text) returns jsonb
 language sql immutable as
-$$ select (co.data - array['website','about','description','city','contactName','contactTitle','email','phone','linkedin'])
+$$ select public._pick(co.data, array['industry','size','country','sapSystems'])
           || jsonb_build_object('id', as_id, 'anon', true, '_anon', true, 'name', 'Confidential company', 'sample', co.sample) $$;
 
 create or replace function public._full_company(co public.companies) returns jsonb
-language sql immutable as
-$$ select co.data || jsonb_build_object('id', co.id, 'anon', co.anon, 'sample', co.sample) $$;
+language sql stable security definer set search_path = public as
+$$ select (case when co.owner is not distinct from auth.uid() and auth.uid() is not null then co.data
+                else public._pick(co.data, array['name','about','description','city','country','industry','size','website','sapSystems','contactName','contactTitle','linkedin']) end)
+          || jsonb_build_object('id', co.id, 'anon', co.anon, 'sample', co.sample) $$;
 
 -- ---------- reading (everything goes through these) ------------------------
 create or replace function public.list_consultants() returns setof jsonb
@@ -208,8 +229,9 @@ begin
   if auth.uid() is null then return; end if;
   for c in select * from public.consultants x where public._visible(x.owner, x.sample) or x.owner = auth.uid() loop
     if c.owner = auth.uid() then return next _full_consultant(c, true);
+    elsif r = 'employer' and is_revealed(c.id, ent) then   -- introduced: the company may also open the CV file
+      return next _full_consultant(c, false) || case when jsonb_typeof(c.data->'cv') = 'object' then jsonb_build_object('cv', c.data->'cv') else '{}'::jsonb end;
     elsif not c.anon then return next _full_consultant(c, false);
-    elsif r = 'employer' and is_revealed(c.id, ent) then return next _full_consultant(c, false);
     else return next _redact_consultant(c);
     end if;
   end loop;
@@ -338,6 +360,7 @@ begin
   if my_role() <> 'employer' then raise exception 'employers only'; end if;
   conf := case when p_data ? 'confidential' and jsonb_typeof(p_data->'confidential') = 'boolean' then (p_data->>'confidential')::boolean end;
   st := coalesce(nullif(p_data->>'status',''), 'open');
+  if st not in ('open','closed','filled','draft') then st := 'open'; end if;
   p_data := p_data - array['id','companyId','status','postedTs','applicants','appliedTs','applyNotes','invited','sample','mine','confidential'];
   if jid is null or jid = '' or not exists (select 1 from public.jobs where id = jid) then
     jid := coalesce(nullif(p_id,''), 'j-' || substr(replace(gen_random_uuid()::text,'-',''),1,10));
@@ -458,6 +481,10 @@ begin
   if side <> 'c' or p_cv is null or jsonb_typeof(p_cv) <> 'object' or coalesce(p_cv->>'path','') not like auth.uid()::text || '/%' then
     p_cv := case when side = 'c' and p_cv is not null and jsonb_typeof(p_cv) = 'boolean' then p_cv else null end;
   end if;
+  if p_call is not null then
+    if jsonb_typeof(p_call) <> 'object' then p_call := null;
+    else p_call := jsonb_set(p_call, '{status}', '"proposed"'); end if;
+  end if;
   if char_length(coalesce(p_text,'')) = 0 and p_cv is null and p_call is null then return; end if;
   insert into public.messages(conv_id, side, text, ts, cv, call) values (p_conv, side, left(coalesce(p_text,''), 6000), now_ms, p_cv, p_call);
   update public.conversations set last_ts = now_ms,
@@ -479,25 +506,128 @@ language sql stable security definer set search_path = public as
 $$ select exists (select 1 from public.conversations v where v.id = p_conv
                   and (v.c_id = public.my_entity() or v.e_id = public.my_entity())) $$;
 
+-- only the person who received the proposal answers it
 create or replace function public.answer_call(p_msg uuid, p_status text) returns void
 language sql security definer set search_path = public as
 $$ update public.messages m set call = jsonb_set(m.call, '{status}', to_jsonb(p_status))
    where m.id = p_msg and p_status in ('accepted','declined') and m.call->>'status' = 'proposed'
-     and public.in_conversation(m.conv_id) $$;
+     and public.in_conversation(m.conv_id)
+     and m.side <> case when public.my_role() = 'consultant' then 'c' else 'e' end $$;
 
--- notifications: anyone signed in may notify; the target may be an anonymous alias
+-- notifications: a member may only notify people they are actually connected to (a role, an introduction,
+-- a conversation or a community thread). For anything sent to another person the wording is written here,
+-- from the real records, so nobody can send made-up text to someone else.
+create or replace function public._ent_label(p_ent text, p_viewer text) returns text
+language plpgsql stable security definer set search_path = public as
+$$
+declare c public.consultants; co public.companies;
+begin
+  select * into c from public.consultants where id = p_ent;
+  if c.id is not null then
+    if c.anon and not public.is_revealed(c.id, p_viewer) then
+      return coalesce(nullif(trim(c.data->>'headline'), ''), 'An SAP professional');
+    end if;
+    return coalesce(nullif(trim(coalesce(c.data->>'firstName','') || ' ' || coalesce(c.data->>'lastName','')), ''), 'An SAP professional');
+  end if;
+  select * into co from public.companies where id = p_ent;
+  if co.id is not null then
+    if co.anon and not public.is_revealed(p_viewer, co.id) then return 'A confidential company'; end if;
+    return coalesce(nullif(co.data->>'name',''), 'A company');
+  end if;
+  return 'Someone';
+end $$;
+
 create or replace function public.send_notification(p_key text, p_type text, p_text text, p_link text) returns void
 language plpgsql security definer set search_path = public as
 $$
-declare k text := resolve_eid(p_key);
+declare
+  me text := my_entity(); k text := resolve_eid(p_key); lnk text := left(coalesce(p_link,''), 200);
+  mc text[]; mj text[]; mq text[]; ma text[]; txt text := null; ttl text; who text; j public.jobs; co public.companies; i public.intros; v public.conversations;
+  qa record; n int;
 begin
-  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if auth.uid() is null or me is null then raise exception 'not signed in'; end if;
   if k is null then return; end if;
-  -- resolve a consultant or company id (aliases already resolved)
   if not (exists (select 1 from public.consultants where id = k) or exists (select 1 from public.companies where id = k)) then return; end if;
-  -- simple flood guard: at most 60 notifications per sender per hour
+  -- only links to pages inside Arnour
+  if lnk <> '' and lnk !~ '^#/[A-Za-z0-9/_:-]*$' then lnk := ''; end if;
+  -- flood guard: at most 60 notifications per sender per hour
   if (select count(*) from public.notifications where from_user = auth.uid() and ts > (extract(epoch from now())*1000)::bigint - 3600000) > 60 then return; end if;
-  insert into public.notifications(user_key, type, text, link, from_user) values (k, left(p_type,20), left(p_text,500), left(coalesce(p_link,''),200), auth.uid());
+  who := public._ent_label(me, k);
+  mc := regexp_match(lnk, '^#/[ce]/messages/([A-Za-z0-9-]+)$');
+  mj := regexp_match(lnk, '^#/(?:job|e/jobs)/([A-Za-z0-9-]+)$');
+  mq := regexp_match(lnk, '^#/community/q/([A-Za-z0-9-]+)$');
+  ma := regexp_match(lnk, '^#/community/a/([A-Za-z0-9-]+)$');
+
+  if k = me then
+    txt := left(coalesce(p_text,''), 300);                                   -- notes to yourself (welcome, levels, reminders)
+  elsif mc is not null then
+    select * into v from public.conversations where id = mc[1];
+    if v.id is not null and ((v.c_id = me and v.e_id = k) or (v.e_id = me and v.c_id = k)) then
+      txt := who || case when p_text ilike '%proposed a call%' then ' proposed a call'
+                         when p_text ilike '%accepted your introduction%' then ' accepted your introduction — you can now chat'
+                         when p_text ilike '%replied%' then ' replied to your message' else ' sent you a message' end;
+    end if;
+  elsif lnk ~ '^#/[ce]/intros$' then
+    select * into i from public.intros where (cid = me and eid = k) or (eid = me and cid = k) order by coalesce(resp_ts, ts) desc limit 1;
+    if i.id is not null then
+      select data->>'title' into ttl from public.jobs where id = i.job_id;
+      txt := case
+        when i.status = 'pending' and i.from_side = 'e' then who || ' would like to connect' || coalesce(' about "' || ttl || '"', '')
+        when i.status = 'pending' then who || ' is interested' || coalesce(' in "' || ttl || '"', '')
+        when i.status = 'accepted' then who || ' accepted your introduction — you can now chat'
+        else 'Your introduction request' || coalesce(' for "' || ttl || '"', '') || ' was not accepted this time' end;
+    end if;
+  elsif mj is not null then
+    select * into j from public.jobs where id = mj[1];
+    if j.id is not null then
+      ttl := coalesce(j.data->>'title', 'a role');
+      select * into co from public.companies where id = j.company_id;
+      if j.company_id = me and exists (select 1 from public.consultants where id = k) then
+        who := case when public._co_hidden(co, j) and not public.is_revealed(k, co.id) then 'A confidential company' else coalesce(co.data->>'name', 'A company') end;
+        txt := case when exists (select 1 from public.invites where job_id = j.id and consultant_id = k)
+                    then who || ' invited you to apply for "' || ttl || '"'
+                    else 'New role matches your profile: ' || ttl || ' — ' || who end;
+      elsif j.company_id = k and exists (select 1 from public.consultants where id = me) then
+        txt := case when exists (select 1 from public.applications where job_id = j.id and consultant_id = me)
+                    then who || ' applied to "' || ttl || '"' || case when p_text ilike '%with a note%' then ' — with a note' else '' end
+                    else who || ' withdrew their application for "' || ttl || '"' end;
+      end if;
+    end if;
+  elsif mq is not null then
+    select q.id, q.title, q.author into qa from public.questions q where q.id = mq[1];
+    if qa.id is not null then
+      ttl := left(qa.title, 80);
+      if qa.author = me then
+        if exists (select 1 from public.answers where question_id = qa.id and author = k and accepted) then
+          txt := 'Your answer on "' || ttl || '" was marked accepted';
+        else
+          txt := 'New question in the community: "' || ttl || '"';           -- sent to members who know the product
+        end if;
+      elsif exists (select 1 from public.answers where question_id = qa.id and author = me) then
+        if qa.author = k then txt := who || ' answered your question "' || ttl || '"';
+        elsif exists (select 1 from public.answers where question_id = qa.id and author = k) then txt := 'Another answer was posted on "' || ttl || '", which you answered';
+        end if;
+      elsif exists (select 1 from public.votes where voter = me and ((kind = 'q' and item_id = qa.id) or (kind = 'a' and item_id in (select id from public.answers where question_id = qa.id and author = k)))) then
+        txt := 'Your post on "' || ttl || '" is getting upvotes';
+      end if;
+    end if;
+  elsif ma is not null then
+    select r.id, r.title, r.author into qa from public.articles r where r.id = ma[1];
+    if qa.id is not null then
+      ttl := left(qa.title, 80);
+      if exists (select 1 from public.article_comments where article_id = qa.id and author = me) then
+        if qa.author = k then txt := who || ' commented on your article "' || ttl || '"';
+        elsif exists (select 1 from public.article_comments where article_id = qa.id and author = k) then txt := who || ' also commented on "' || ttl || '"';
+        end if;
+      elsif qa.author = k and exists (select 1 from public.votes where voter = me and kind = 'r' and item_id = qa.id) then
+        txt := 'Your article "' || ttl || '" is getting upvotes';
+      end if;
+    end if;
+  end if;
+
+  if txt is null then return; end if;                                         -- no real connection: nothing is sent
+  insert into public.notifications(user_key, type, text, link, from_user)
+  values (k, case when p_type in ('msg','job','app','comm') then p_type else 'job' end, left(txt, 500), lnk, auth.uid());
 end $$;
 
 create or replace function public.delete_my_account() returns void
@@ -603,3 +733,11 @@ begin
   end if;
 end
 $storage$;
+
+-- re-running this file resets every access right above; give the community and admin parts theirs back
+do $regrant$
+begin
+  if exists (select 1 from pg_proc where proname = '_grant_community' and pronamespace = 'public'::regnamespace) then perform public._grant_community(); end if;
+  if exists (select 1 from pg_proc where proname = '_grant_admin' and pronamespace = 'public'::regnamespace) then perform public._grant_admin(); end if;
+end
+$regrant$;

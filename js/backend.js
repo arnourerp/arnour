@@ -51,7 +51,7 @@
     if (/introduction required/i.test(m)) return 'This person or company is private — send an introduction request first.';
     if (/role not open/i.test(m)) return 'That role is no longer open.';
     if (/not allowed|not your/i.test(m)) return 'That action is not allowed for your account.';
-    return 'Could not save that change. Please try again.';
+    return 'Your last change could not be saved, so it was undone. Please try again.';
   }
   function authError(e) {
     var m = String((e && e.message) || '');

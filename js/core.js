@@ -1042,6 +1042,11 @@ APP.ICO = {
   ext: '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 7h6v6"/><path d="M10 14 21 3"/></svg>'
 };
 
+/* one line of profile facts with an icon; nothing at all when every fact is empty (no lone icons, no "undefined") */
+APP.metaSpan = function (icon, parts) {
+  const t = (parts || []).filter(x => x !== undefined && x !== null && String(x).trim() !== '').map(x => APP.h(x)).join(' · ');
+  return t ? '<span>' + APP.icon(icon, 14) + ' ' + t + '</span>' : '';
+};
 APP.icon = function (name, size) {
   const s = APP.ICO[name];
   if (!s) return '';
@@ -1370,14 +1375,22 @@ APP.scopeSkillKey = function (scope) {
 /* ---------------------------- toasts ---------------------------- */
 
 APP.toast = function (msg) {
-  const slot = document.getElementById('toasts');
-  if (!slot) return;
+  /* the toast area lives outside #app, so a re-render never wipes a message the user has not read yet */
+  let slot = document.getElementById('toasts');
+  if (slot && slot.closest('#app')) { slot.remove(); slot = null; }
+  if (!slot) {
+    if (!document.body) return;
+    slot = document.createElement('div'); slot.id = 'toasts'; slot.setAttribute('role', 'status'); slot.setAttribute('aria-live', 'polite');
+    document.body.appendChild(slot);
+  }
+  const long = /could not|couldn.t|not allowed|problem|failed|undone|try again/i.test(String(msg));
   const el = document.createElement('div');
   el.className = 'toast';
   el.innerHTML = APP.h(msg);
   slot.appendChild(el);
   setTimeout(() => { el.classList.add('show'); }, 20);
-  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 350); }, 2600);
+  if (long) el.classList.add('toast-warn');
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 350); }, long ? 6000 : 2600);
 };
 
 /* ---------------------------- shared card builders (v2: 3-level hierarchy) ----------------------------
@@ -1437,9 +1450,9 @@ APP.skillChipsHtml = function (skills, n) {
   const top = (skills || []).slice(0, n || 4);
   if (!top.length) return '<span class="muted small">No skills tagged yet</span>';
   return top.map(k =>
-    '<span class="chip" title="' + APP.h(APP.skillLabel(k)) + '">' +
+    '<span class="chip" title="' + APP.h(APP.skillLabel(k)) + (Number(k.projects) > 0 ? ' — ' + Number(k.projects) + ' project' + (Number(k.projects) === 1 ? '' : 's') : ' — no projects yet') + '">' +
     APP.h(APP.productShort(k.productId)) + ': ' + APP.h(APP.skillName(k.productId, k.moduleId)) +
-    '<em>' + (k.certified ? '✓ ' : '') + Number(k.projects || 0) + '×</em></span>'
+    ((k.certified || Number(k.projects) > 0) ? '<em>' + (k.certified ? '✓ ' : '') + (Number(k.projects) > 0 ? Number(k.projects) + '×' : '') + '</em>' : '') + '</span>'
   ).join('');
 };
 
@@ -2663,7 +2676,7 @@ APP.render = function () {
   const footer = route.auth || bare ? '' : APP.footerHtml();
   const keepY = bare && APP._lastRoute === location.hash.split('?')[0] ? window.scrollY : 0;
   document.getElementById('app').innerHTML =
-    chrome + '<main class="main" id="main">' + body + '</main>' + footer + '<div id="toasts"></div>';
+    chrome + '<main class="main" id="main">' + body + '</main>' + footer;
   APP.a11yPass();
   window.scrollTo(0, keepY);
   { /* fade the page in on navigation only — not on in-page re-renders (chips, sort) */

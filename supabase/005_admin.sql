@@ -450,11 +450,18 @@ revoke all on function
   public.admin_settings(), public.admin_set_hide_samples(boolean), public.admin_log_list(int)
   from public, anon, authenticated;
 
-grant execute on function
-  public.am_i_admin(), public.report_item(text,text,text,text), public.admin_overview(), public.admin_people(text,int),
-  public.admin_set_suspended(uuid,boolean,text), public.admin_delete_user(uuid), public.admin_set_cert_revoked(text,boolean),
-  public.admin_jobs(text,int), public.admin_set_job_status(text,text,text), public.admin_delete_job(text,text),
-  public.admin_posts(text,int), public.admin_remove_post(text,text,text),
-  public.admin_reports(text,int), public.admin_moderate(bigint,text,text), public.admin_conversation(text),
-  public.admin_settings(), public.admin_set_hide_samples(boolean), public.admin_log_list(int)
-  to authenticated;
+create or replace function public._grant_admin() returns void language plpgsql as
+$g$
+begin
+  grant execute on function
+    public.am_i_admin(), public.report_item(text,text,text,text), public.admin_overview(), public.admin_people(text,int),
+    public.admin_set_suspended(uuid,boolean,text), public.admin_delete_user(uuid), public.admin_set_cert_revoked(text,boolean),
+    public.admin_jobs(text,int), public.admin_set_job_status(text,text,text), public.admin_delete_job(text,text),
+    public.admin_posts(text,int), public.admin_remove_post(text,text,text),
+    public.admin_reports(text,int), public.admin_moderate(bigint,text,text), public.admin_conversation(text),
+    public.admin_settings(), public.admin_set_hide_samples(boolean), public.admin_log_list(int)
+    to authenticated;
+end
+$g$;
+revoke all on function public._grant_admin() from public, anon, authenticated;
+select public._grant_admin();

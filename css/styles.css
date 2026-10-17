@@ -1569,3 +1569,8 @@ button.conv-item:focus-visible { outline: 2px solid var(--ring); outline-offset:
 .adm-msg { background: var(--bg-subtle); border-radius: 10px; padding: 8px 10px; }
 .adm-log p { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); font-size: 14px; }
 .mb16 { margin-bottom: 16px; }
+.toast.toast-warn { background: #7F1D1D; }
+/* long names keep their labels on the card (no sideways scrolling on phones) */
+.card-name { flex-wrap: wrap; min-width: 0; }
+.card-name > .pill { flex-shrink: 0; }
+@media (max-width: 640px) { .upvote { min-height: 36px; min-width: 40px; } }

@@ -70,8 +70,8 @@ APP.views['c-dash'] = function () {
     '<p class="muted">' + APP.h(c.headline) + '</p></div></div>' +
     '<div class="profile-meta">' +
     '<span>' + APP.icon('pin', 14) + ' ' + APP.h(APP.locText(c)) + '</span>' +
-    '<span>' + APP.icon('users', 14) + ' ' + APP.h(c.nationality) + ' · ' + APP.h(c.level) + '</span>' +
-    '<span>' + APP.icon('check', 14) + ' ' + APP.h(c.availability) + '</span>' +
+    APP.metaSpan('users', [c.nationality, c.level]) +
+    APP.metaSpan('check', [c.availability]) +
     (c.workPrefs && c.workPrefs.length ? '<span>' + APP.icon('home', 14) + ' Open to ' + APP.h(c.workPrefs.join(' / ')) + '</span>' : '') +
     '<span>' + APP.icon('file', 14) + ' ' + APP.rateHtml(c) + '</span>' +
     '</div>' +
@@ -128,9 +128,9 @@ APP.consultantProfileHtml = function (c, o) {
     '<p class="muted">' + APP.h(c.headline) + '</p>' +
     '<div class="profile-meta mt8">' +
     '<span>' + APP.icon('pin', 14) + ' ' + APP.h(APP.locText(c)) + '</span>' +
-    '<span>' + APP.icon('users', 14) + ' ' + APP.h(c.nationality) + ' · ' + APP.h(c.level) + ' · ' + c.yearsExp + ' yrs exp</span>' +
+    APP.metaSpan('users', [c.nationality, c.level, c.yearsExp ? c.yearsExp + ' yrs exp' : '']) +
     (c.roleType ? '<span>' + APP.icon('briefcase', 14) + ' ' + APP.h(APP.roleTypeLine(c)) + '</span>' : '') +
-    '<span>' + APP.icon('check', 14) + ' ' + APP.h(c.availability) + '</span>' +
+    APP.metaSpan('check', [c.availability]) +
     (c.workPrefs && c.workPrefs.length ? '<span>' + APP.icon('home', 14) + ' Open to ' + APP.h(c.workPrefs.join(' / ')) + '</span>' : '') +
     rateLine +
     (c.linkedin ? '<a class="ext-link" href="' + APP.h(APP.normUrl(c.linkedin)) + '" target="_blank" rel="noopener">' + APP.icon('ext', 14) + ' LinkedIn</a>' : '') +
@@ -542,7 +542,7 @@ APP.chatMessagesHtml = function (cv, isC) {
       body = '<div class="msg msg-call">' + APP.icon('spark', 18) + '<div class="mc-body"><strong>' + (mine ? 'You proposed a call' : 'Call proposed') + '</strong><span>' + APP.h(APP.callWhen(c)) + '</span>' +
         (c.note ? '<small class="muted">“' + APP.h(c.note) + '”</small>' : '') +
         (canAnswer ? '<div class="btn-row"><button type="button" class="btn btn-primary btn-sm" data-action="call-reply" data-conv="' + cv.id + '" data-i="' + i + '" data-ans="accepted">Accept</button><button type="button" class="btn btn-ghost btn-sm" data-action="call-reply" data-conv="' + cv.id + '" data-i="' + i + '" data-ans="declined">Decline</button></div>'
-          : '<span class="pill ' + (c.status === 'accepted' ? 'inv' : c.status === 'declined' ? 'muted-pill' : 'warn-pill') + '">' + ({ proposed: 'Awaiting reply', accepted: 'Confirmed', declined: 'Declined' }[c.status]) + '</span>') +
+          : '<span class="pill ' + (c.status === 'accepted' ? 'inv' : c.status === 'declined' ? 'muted-pill' : 'warn-pill') + '">' + ({ proposed: 'Awaiting reply', accepted: 'Confirmed', declined: 'Declined' }[c.status] || 'Awaiting reply') + '</span>') +
         '</div></div>';
     } else if (m.cv) {
       const ref = typeof m.cv === 'object' ? m.cv : null;
