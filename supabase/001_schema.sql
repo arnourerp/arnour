@@ -194,7 +194,7 @@ $$ select coalesce((select jsonb_object_agg(e.key, e.value) from jsonb_each(coal
 create or replace function public._consultant_public_keys() returns text[]
 language sql immutable as
 $$ select array['firstName','lastName','headline','summary','city','country','nationality','availability','currency','dailyRate','ratePeriod',
-               'industries','languages','level','linkedin','otherSkills','roleType','roleTypes','skills','specialties','workPrefs','yearsExp'] $$;
+               'industries','languages','level','linkedin','otherSkills','programs','roleType','roleTypes','skills','specialties','workPrefs','yearsExp'] $$;
 
 create or replace function public._redact_consultant(c public.consultants) returns jsonb
 language sql immutable as

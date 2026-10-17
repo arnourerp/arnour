@@ -170,8 +170,9 @@ APP.applyTalentFilters = function (list) {
     if (f.availability && c.availability !== f.availability) return false;
     if (f.minYears && c.yearsExp < f.minYears) return false;
     if (f.minProjects) {
-      const maxProjects = Math.max(0, ...(c.skills || []).map(k => k.projects || 0));
-      if (maxProjects < f.minProjects) return false;
+      /* roles that don't record per-module counts (PM, Basis, Architect, Support, Key User, Junior) are judged on their single "projects led / programs" number, or not at all */
+      const maxProjects = Math.max(0, +c.programs || 0, ...(c.skills || []).map(k => k.projects || 0));
+      if (maxProjects < f.minProjects && (APP.countsTracked(c) || +c.programs > 0)) return false;
     }
     if (f.industries && f.industries.length) {
       if (!((c.industries || []).some(x => f.industries.indexOf(x) !== -1))) return false;
@@ -508,7 +509,7 @@ APP.jobFormView = function (mode) {
   const specPart =
     '<details class="opt-box" data-det="spec"' + (openSpec ? ' open' : '') + '><summary>Preferred specialties <span class="muted">(optional)</span>' + (nSpec ? ' <span class="count-pill">' + nSpec + ' selected</span>' : '') + '</summary>' +
     '<p class="field-hint">Ranks the role higher for professionals with these — never hides it.</p>' +
-    '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties') + '</div></details>';
+    '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties', { roles: d.roleType ? [d.roleType] : [], sugLabel: 'Common for this role type' }) + '</div></details>';
   const skills = '<p class="field-hint">' + APP.icon('spark', 14) + ' These drive matching — professionals whose product + module fits rank at the top of their feed.</p>' + reqPart + specPart;
 
   const candidate =

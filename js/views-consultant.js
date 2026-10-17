@@ -128,7 +128,7 @@ APP.consultantProfileHtml = function (c, o) {
     '<p class="muted">' + APP.h(c.headline) + '</p>' +
     '<div class="profile-meta mt8">' +
     '<span>' + APP.icon('pin', 14) + ' ' + APP.h(APP.locText(c)) + '</span>' +
-    APP.metaSpan('users', [c.nationality, c.level, c.yearsExp ? c.yearsExp + ' yrs exp' : '']) +
+    APP.metaSpan('users', [c.nationality, c.level, c.yearsExp ? c.yearsExp + ' yrs exp' : '', (c.programs > 0 && APP.roleProfile(c).prog) ? c.programs + ' ' + APP.roleProfile(c).prog.toLowerCase() : '']) +
     (c.roleType ? '<span>' + APP.icon('briefcase', 14) + ' ' + APP.h(APP.roleTypeLine(c)) + '</span>' : '') +
     APP.metaSpan('check', [c.availability]) +
     (c.workPrefs && c.workPrefs.length ? '<span>' + APP.icon('home', 14) + ' Open to ' + APP.h(c.workPrefs.join(' / ')) + '</span>' : '') +
@@ -184,6 +184,10 @@ APP.views['c-profile'] = function () {
       }) + '</div>' +
       '<p class="muted small mt8">This is your public page — <a class="link" href="#/talent/' + c.id + '">open it to see exactly what companies see when they open a shared link →</a></p>';
   } else {
+    const rp = APP.roleProfile(d);
+    const before = APP.rtList(c), now = APP.rtList(d);
+    const addedRoles = now.filter(x => before.indexOf(x) === -1);
+    const addedNote = addedRoles.length ? '<p class="role-added">' + APP.icon('spark', 14) + ' Added <b>' + addedRoles.map(APP.roleTypeLabel).map(APP.h).join(', ') + '</b> — the fields this role needs are now in the sections below.</p>' : '';
     body =
       '<div class="card"><div class="card-h">Edit your profile <button class="link" data-action="profile-edit-off">Cancel</button></div>' +
       '<form data-form="profile-edit">' +
@@ -193,7 +197,7 @@ APP.views['c-profile'] = function () {
       '</div>' +
       '<label class="field"><span class="label">Headline</span><input name="headline" class="input" value="' + APP.h(d.headline) + '"></label>' +
       '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
-      '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + '</div>' +
+      '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + addedNote + '</div>' +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input">' + APP.opt(APP.nationalities.map(n => [n, n]), d.nationality) + '</select></label>' +
       '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
@@ -202,13 +206,14 @@ APP.views['c-profile'] = function () {
       '<div class="field"><span class="label">Languages <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('profile', 'languages', APP.languages, d.languages || []) + '</div></div>' +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Years of experience</span><input name="yearsExp" type="number" min="1" max="40" class="input" value="' + APP.h(d.yearsExp) + '"></label>' +
-      '<label class="field"><span class="label">Level</span><select name="level" class="input">' + APP.opt(APP.levels.map(l => [l, l]), d.level) + '</select></label>' +
+      (rp.lvl ? '<label class="field"><span class="label">Level</span><select name="level" class="input">' + APP.opt(APP.levels.map(l => [l, l]), d.level) + '</select></label>' : '') +
       '<label class="field"><span class="label">Availability</span><select name="availability" class="input">' + APP.opt(APP.availability.map(x => [x, x]), d.availability) + '</select></label>' +
       '</div>' +
       '<div class="field"><span class="label">SAP skills</span>' +
-      '<div class="skill-rows">' + APP.skillCardsHtml('profile', d.skills || []) + '</div></div>' +
-      '<div class="field"><span class="label">Industries</span><div class="chip-wrap">' + APP.chipGroup('profile', 'industries', APP.industries, d.industries || []) + '</div></div>' +
-      '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('profile', d.specialties || [], null, { softMax: 6 }) + '</div></div>' +
+      '<div class="skill-rows">' + APP.skillCardsHtml('profile', d.skills || [], rp.skills) + '</div></div>' +
+      (rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"></label>' : '') +
+      (rp.ind ? '<div class="field"><span class="label">Industries' + (rp.ind === 'optional' ? ' <span class="muted">(optional)</span>' : '') + '</span><div class="chip-wrap">' + APP.chipGroup('profile', 'industries', APP.industries, d.industries || []) + '</div></div>' : '') +
+      '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('profile', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>' +
       '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('profile', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div></div>' +
       '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>' +
       '<div class="form-grid">' +

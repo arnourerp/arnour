@@ -1574,3 +1574,14 @@ button.conv-item:focus-visible { outline: 2px solid var(--ring); outline-offset:
 .card-name { flex-wrap: wrap; min-width: 0; }
 .card-name > .pill { flex-shrink: 0; }
 @media (max-width: 640px) { .upvote { min-height: 36px; min-width: 40px; } }
+
+/* role-aware specialties */
+.spec-suggest { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+details.spec-more { margin-top: 12px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--bg); }
+details.spec-more > summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; font-weight: 700; min-height: 44px; }
+details.spec-more > summary::-webkit-details-marker { display: none; }
+details.spec-more > summary::after { content: "▾"; color: var(--mut); transition: transform .15s; margin-left: auto; }
+details.spec-more:not([open]) > summary::after { transform: rotate(-90deg); }
+details.spec-more > .spec-cat { margin: 0 12px 10px; }
+.role-added { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--brand-soft, #eef3ff); font-size: 13px; }
+.narrow-in { max-width: 140px; }

@@ -187,6 +187,7 @@ APP.views['wiz-c'] = function () {
   if (!APP.wizC) APP.wizC = { step: 1, data: APP.wizCDefaults() };
   const d = APP.wizC.data;
   const step = APP.wizC.step;
+  const rp = APP.roleProfile(d);
   const progress = APP.wizStepsC.map((label, i) =>
     '<div class="wiz-step ' + (i + 1 === step ? 'active' : '') + (i + 1 < step ? 'done' : '') + '"><span class="wiz-dot">' + (i + 1 < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + label + '</small></div>'
   ).join('');
@@ -206,7 +207,7 @@ APP.views['wiz-c'] = function () {
       '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
       '</div>' +
       '<div class="field field-langs"><span class="label">Languages spoken <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.languages, d.languages) + '</div></div>' +
-      '<div class="field"><span class="label">Your role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('wizC', d) + '</div>' +
+      '<div class="field"><span class="label">Your role type <span class="req-star">*</span></span>' + APP.roleTypePicker('wizC', d, { single: true }) + '</div>' +
       APP.wizNav(1, 6) +
       '</form>';
   } else if (step === 2) {
@@ -216,26 +217,34 @@ APP.views['wiz-c'] = function () {
       '</div>' +
       '<div class="form-grid">' +
       '<input type="hidden" name="yearsExp" value="' + d.yearsExp + '">' +
-      '<label class="field"><span class="label">Experience level</span><div class="seg">' +
+      (rp.lvl ? '<label class="field"><span class="label">Experience level</span><div class="seg">' +
       APP.levels.map(l => '<button type="button" class="seg-item ' + (d.level === l ? 'active' : '') + '" data-action="chip" data-scope="wizC" data-group="level" data-single="1" data-value="' + l + '">' + l + '</button>').join('') +
-      '<input type="hidden" name="level" value="' + APP.h(d.level) + '" data-chip-echo="1"></div></label>' +
+      '<input type="hidden" name="level" value="' + APP.h(d.level) + '" data-chip-echo="1"></div></label>' : '') +
       '<label class="field"><span class="label">Availability</span><select name="availability" class="input">' + APP.opt(APP.availability.map(a => [a, a]), d.availability) + '</select></label>' +
       '</div>' +
       '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('wizC', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div><p class="field-hint">How you like to work — shown on your profile and searchable by companies.</p></div>' +
-      '<p class="muted small">Level and availability help employers filter you — you can change them any time.</p>' +
+      '<p class="muted small">' + (rp.lvl ? 'Level and availability' : 'Availability') + ' help employers filter you — you can change them any time.</p>' +
       APP.wizNav(2, 6) +
       '</form>';
   } else if (step === 3) {
+    const hint = {
+      full: 'This is the heart of Arnour: tag every SAP product and module you\'ve delivered, with how many projects. This powers your smart matches.',
+      optional: 'Tag the SAP products and modules you build for. Project counts are optional — add them if you can.',
+      modules: 'Tag the SAP products and modules you work with. No project counts needed.',
+      products: 'Tick the SAP products you work with. No modules or project counts needed.'
+    }[rp.skills];
+    const indLabel = { many: 'Industries you\'ve worked in', optional: 'Industries you\'ve worked in (optional)', one: 'Your industry' }[rp.ind];
     body = '<form data-form="wiz-c" data-step="3">' +
-      '<p class="field-hint">' + APP.icon('spark', 15) + ' This is the heart of Arnour: tag every SAP product and module you\'ve delivered, with how many projects. This powers your smart matches.</p>' +
-      '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills) + '</div>' +
-      '<div class="field"><span class="label">Industries you\'ve worked in</span><div class="chip-wrap">' + APP.chipGroup('wizC', 'industries', APP.industries, d.industries) + '</div></div>' +
+      '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint + '</p>' +
+      '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>' +
+      (rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"><p class="field-hint">A single number — companies see it next to your profile.</p></label>' : '') +
+      (rp.ind ? '<div class="field"><span class="label">' + indLabel + '</span><div class="chip-wrap">' + APP.chipGroup('wizC', 'industries', APP.industries, d.industries) + '</div></div>' : '') +
       APP.wizNav(3, 6) +
       '</form>';
   } else if (step === 4) {
     body = '<form data-form="wiz-c" data-step="4">' +
-      '<p class="field-hint">' + APP.icon('spark', 15) + ' Beyond modules — pick the SAP specialties you\'re known for (up to 6 reads strongest). They sharpen matching and appear on your profile.</p>' +
-      '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6 }) + '</div></div>' +
+      '<p class="field-hint">' + APP.icon('spark', 15) + ' Pick the SAP specialties you\'re known for' + (rp.rts[0] === 'junior' ? ' — optional for now' : ' (up to 6 reads strongest)') + '. They sharpen matching and appear on your profile.</p>' +
+      '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>' +
       '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS, MDG rollout — comma separated"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>' +
       APP.wizNav(4, 6) +
       '</form>';

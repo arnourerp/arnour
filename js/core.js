@@ -47,7 +47,7 @@ APP.levels = ['Junior', 'Mid', 'Senior'];
 APP.availability = ['Immediate', 'Within 15 days', 'Within 30 days', 'Within 60 days', 'Within 90 days'];
 APP.workPrefs = ['Remote', 'Part-time', 'Hybrid'];
 
-/* Curated SAP specialty hierarchy — 4 practice areas, 26 specialties (consultant step 4, profile, job "preferred specialties", talent search). Groups with an empty name render without a heading. */
+/* Curated SAP specialty hierarchy — 4 practice areas, 36 specialties (consultant step 4, profile, job "preferred specialties", talent search). Groups with an empty name render without a heading. */
 APP.specialties = [
   { id: 'strategic', name: 'Strategic Advisory & Architecture', groups: [
     { name: 'Cloud Transformation Programs', items: [
@@ -56,13 +56,14 @@ APP.specialties = [
     ] },
     { name: 'Enterprise & Solution Architecture', items: [
       { id: 's4cloud-arch', name: 'S/4HANA Cloud Architecture (Public / Private)', short: 'S/4HANA Cloud Architecture' },
-      { id: 'clean-core', name: 'Clean Core Strategy & Extensibility', short: 'Clean Core' },
+      { id: 'clean-core', name: 'Clean Core Strategy', short: 'Clean Core' },
       { id: 'integration-arch', name: 'Integration Architecture (SAP Integration Suite / CPI)', short: 'Integration Architecture' }
     ] },
     { name: 'Business Transformation & Discovery', items: [
       { id: 'value-discovery', name: 'Value Discovery & Business Case', short: 'Value Discovery' },
       { id: 'fit-standard', name: 'Fit-to-Standard Workshops', short: 'Fit-to-Standard' },
-      { id: 'process-mining', name: 'Process Transformation & Mining (SAP Signavio)', short: 'Signavio / Process Mining' }
+      { id: 'process-mining', name: 'Process Transformation & Mining (SAP Signavio)', short: 'Signavio / Process Mining' },
+      { id: 'presales', name: 'Presales / Proof of Concept (PoC)', short: 'Presales / PoC' }
     ] }
   ] },
   { id: 'implementation', name: 'Implementation & Transition Leadership', groups: [
@@ -71,38 +72,49 @@ APP.specialties = [
       { id: 'brownfield', name: 'Brownfield (System Conversion)', short: 'Brownfield' },
       { id: 'sdt', name: 'Selective Data Transition / SDT (Carve-outs & Mergers)', short: 'SDT (Carve-outs & Mergers)' }
     ] },
+    { name: 'Localization & Statutory', items: [
+      { id: 'localization', name: 'Localization & Statutory Compliance (e-Invoicing, VAT, country versions)', short: 'Localization' }
+    ] },
     { name: 'Program Governance & Methodology', items: [
       { id: 'activate', name: 'SAP Activate Methodology', short: 'SAP Activate' },
       { id: 'pmo', name: 'Project Management & Governance (PMO)', short: 'Project Mgmt & Governance (PMO)' },
-      { id: 'cutover', name: 'Cutover & Release Management', short: 'Cutover & Release' }
+      { id: 'cutover', name: 'Cutover & Go-Live', short: 'Cutover' }
     ] },
     { name: 'Data Management', items: [
       { id: 'data-migration', name: 'Data Migration & ETL (Migration Cockpit, BODS, Syniti)', short: 'Data Migration & ETL' },
-      { id: 'mdg', name: 'Master Data Governance (SAP MDG)', short: 'MDG' }
+      { id: 'mdg', name: 'Master Data Governance (SAP MDG)', short: 'MDG' },
+      { id: 'data-cleansing', name: 'Data Cleansing & Quality', short: 'Data Cleansing' }
     ] }
   ] },
   { id: 'engineering', name: 'Engineering, Quality & Platform Operations', groups: [
     { name: 'Platform & Extensibility', items: [
       { id: 'btp', name: 'SAP BTP (Business Technology Platform)', short: 'BTP' },
-      { id: 'build', name: 'SAP Build & Low-Code / No-Code Automation', short: 'SAP Build' }
+      { id: 'build', name: 'SAP Build & Low-Code / No-Code Automation', short: 'SAP Build' },
+      { id: 'extensibility', name: 'Extensibility (RAP / CAP / Side-by-side)', short: 'Extensibility' }
     ] },
     { name: 'Quality, Testing & ALM', items: [
       { id: 'testing', name: 'Test Management & Automation (Tricentis / Tosca)', short: 'Test Automation' },
-      { id: 'alm', name: 'SAP Cloud ALM / Solution Manager', short: 'Cloud ALM / SolMan' }
+      { id: 'alm', name: 'SAP Cloud ALM / Solution Manager', short: 'Cloud ALM / SolMan' },
+      { id: 'uat', name: 'UAT Coordination', short: 'UAT Coordination' },
+      { id: 'release', name: 'Release Management', short: 'Release Mgmt' },
+      { id: 'upgrades', name: 'Release Upgrades (Feature & Support Packs)', short: 'Release Upgrades' }
     ] },
     { name: 'Security & Compliance', items: [
       { id: 'security', name: 'SAP Security, Authorizations & GRC', short: 'Security & GRC' }
     ] },
     { name: 'Production Operations & Hypercare', items: [
       { id: 'hypercare', name: 'Hypercare & Go-Live Transition', short: 'Hypercare' },
-      { id: 'ams', name: 'AMS & Production Support (L2/L3, SLA Mgmt)', short: 'AMS & Support' },
+      { id: 'ams', name: 'AMS & Production Support (L2/L3)', short: 'AMS & Support' },
+      { id: 'sla', name: 'SLA & Incident Management', short: 'SLA / Incident' },
+      { id: 'hadr', name: 'High Availability & Disaster Recovery', short: 'HA/DR' },
       { id: 'perf', name: 'Performance Optimization & Health Checks', short: 'Performance' }
     ] }
   ] },
   { id: 'adoption', name: 'Adoption & Change Enablement', groups: [
     { name: '', items: [
       { id: 'ocm', name: 'Organizational Change Management (OCM)', short: 'OCM' },
-      { id: 'training', name: 'User Enablement, Training & Documentation', short: 'Training & Enablement' }
+      { id: 'training', name: 'User Enablement & Training', short: 'Training & Enablement' },
+      { id: 'process-doc', name: 'Process Documentation', short: 'Process Docs' }
     ] }
   ] }
 ];
@@ -192,7 +204,7 @@ APP.specialtyLabel = function (id) {
 APP.roleTypes = [
   { id: 'functional', name: 'Functional Consultant', sub: 'Configures core business modules and process flows.' },
   { id: 'technical', name: 'Developer / Technical Consultant', sub: 'Builds custom applications, APIs, and integrations.' },
-  { id: 'basis', name: 'Basis & Cloud Infrastructure', sub: 'Manages system performance, databases, and hosting.' },
+  { id: 'basis', name: 'Basis, Cloud & Security', sub: 'Manages system performance, security, databases, and hosting.' },
   { id: 'architect', name: 'Solution & Enterprise Architect', sub: 'Drives high-level landscape design and governance.' },
   { id: 'delivery', name: 'Project / Delivery Manager', sub: 'Directs project timelines, resources, and cutovers.' },
   { id: 'support', name: 'Support & AMS / Application Lead', sub: 'Oversees day-to-day operations and incident tickets.' },
@@ -213,19 +225,78 @@ APP.rtList = function (d) {
 };
 APP.rtSet = function (d, list) { d.roleTypes = list.slice(0, APP.RT_MAX); d.roleType = d.roleTypes[0] || ''; };
 APP.roleTypeLine = function (c) { return APP.rtList(c).map(APP.roleTypeLabel).join(' · '); };
-/* Multi-select list (max 3, first pick = primary). Junior / Trainee stands alone. */
-APP.roleTypePicker = function (scope, d) {
+/* Role picker. Multi-select (max 3, first pick = primary; Junior / Trainee stands alone) — or, with opts.single (sign-up), one role only. */
+APP.roleTypePicker = function (scope, d, opts) {
+  opts = opts || {};
   const sel = APP.rtList(d);
   const rows = APP.roleTypes.map(function (t) {
-    const on = sel.indexOf(t.id) !== -1, primary = on && sel[0] === t.id;
+    const on = sel.indexOf(t.id) !== -1, primary = on && sel[0] === t.id && !opts.single;
     return '<div class="rt-item' + (on ? ' on' : '') + '">' +
-      '<button type="button" class="chip rt-opt' + (on ? ' chip-on' : '') + '" aria-pressed="' + (on ? 'true' : 'false') + '" data-action="rt-toggle" data-scope="' + scope + '" data-value="' + t.id + '">' +
+      '<button type="button" class="chip rt-opt' + (on ? ' chip-on' : '') + '" aria-pressed="' + (on ? 'true' : 'false') + '" data-action="rt-toggle" data-scope="' + scope + '" data-value="' + t.id + '"' + (opts.single ? ' data-single="1"' : '') + '>' +
       '<span class="rt-txt"><span class="rt-name">' + APP.h(t.name) + (primary ? ' <span class="rt-primary">Primary</span>' : '') + '</span><span class="rt-sub">' + APP.h(t.sub) + '</span></span></button>' +
-      (on && !primary ? '<button type="button" class="link rt-make" data-action="rt-primary" data-scope="' + scope + '" data-value="' + t.id + '">Make primary</button>' : '') +
+      (on && !primary && !opts.single ? '<button type="button" class="link rt-make" data-action="rt-primary" data-scope="' + scope + '" data-value="' + t.id + '">Make primary</button>' : '') +
       '</div>';
   }).join('');
-  return '<div class="rt-list">' + rows + '</div>' +
-    '<p class="field-hint rt-meta"><b>' + sel.length + ' of ' + APP.RT_MAX + '</b> selected · pick up to 3 — your first pick is your primary role. Companies can search by any of them.</p>';
+  return '<div class="rt-list">' + rows + '</div>' + (opts.single
+    ? '<p class="field-hint rt-meta">Pick your main role — the next steps are tailored to it. <b>You can add another role later in Edit profile.</b></p>'
+    : '<p class="field-hint rt-meta"><b>' + sel.length + ' of ' + APP.RT_MAX + '</b> selected · pick up to 3 — your first pick is your primary role. Each role you add brings the fields it needs. Companies can search by any of them.</p>');
+};
+
+/* ---- what each role is asked for (sign-up and Edit profile) ----
+   skills:  full = product → module → projects · optional = same, projects optional · modules = modules only (no counts) · products = products only
+   ind:     many / optional / one / '' (hidden)       lvl: ask for experience level (otherwise it is derived)       prog: label of the single "how many" number */
+APP.ROLE_PROFILE = {
+  functional: { skills: 'full',     ind: 'many',     lvl: 1, prog: '' },
+  technical:  { skills: 'optional', ind: 'many',     lvl: 1, prog: '' },
+  basis:      { skills: 'products', ind: '',         lvl: 1, prog: '' },
+  architect:  { skills: 'modules',  ind: 'many',     lvl: 1, prog: 'Programs delivered' },
+  delivery:   { skills: 'products', ind: 'many',     lvl: 1, prog: 'Projects led' },
+  support:    { skills: 'modules',  ind: 'optional', lvl: 1, prog: '' },
+  keyuser:    { skills: 'modules',  ind: 'one',      lvl: 0, prog: '' },
+  junior:     { skills: 'products', ind: '',         lvl: 0, prog: '' }
+};
+APP.ROLE_SPECIALTIES = {
+  functional: ['fit-standard', 'process-mining', 'greenfield', 'brownfield', 'activate', 'data-migration', 'mdg', 'cutover', 'localization', 'testing', 'hypercare', 'training'],
+  technical:  ['clean-core', 'extensibility', 'integration-arch', 'greenfield', 'brownfield', 'data-migration', 'btp', 'build', 'testing', 'hypercare', 'perf'],
+  basis:      ['rise', 's4cloud-arch', 'clean-core', 'brownfield', 'sdt', 'cutover', 'hadr', 'btp', 'alm', 'security', 'hypercare', 'perf'],
+  architect:  ['presales', 'value-discovery', 'rise', 'grow', 's4cloud-arch', 'clean-core', 'integration-arch', 'fit-standard', 'process-mining', 'greenfield', 'brownfield', 'sdt', 'btp'],
+  delivery:   ['rise', 'grow', 'greenfield', 'brownfield', 'sdt', 'activate', 'pmo', 'release', 'cutover', 'alm', 'hypercare', 'ocm'],
+  support:    ['sla', 'upgrades', 'testing', 'alm', 'security', 'hypercare', 'ams', 'perf'],
+  keyuser:    ['fit-standard', 'process-mining', 'activate', 'data-cleansing', 'mdg', 'build', 'uat', 'hypercare', 'ocm', 'training'],
+  junior:     ['activate', 'data-migration', 'testing', 'process-doc', 'hypercare', 'training']
+};
+APP.SKILL_RANK = { products: 1, modules: 2, optional: 3, full: 4 };
+APP.IND_RANK = { '': 0, one: 1, optional: 2, many: 3 };
+/* Merged requirements of everyone's roles (a person with two roles sees the richer of each). No role yet → the full form. */
+APP.roleProfile = function (d) {
+  const rts = APP.rtList(d);
+  if (!rts.length) return { skills: 'full', ind: 'many', lvl: 1, prog: '', rts: rts };
+  const out = { skills: 'products', ind: '', lvl: 0, prog: '', rts: rts };
+  rts.forEach(function (rt) {
+    const p = APP.ROLE_PROFILE[rt] || APP.ROLE_PROFILE.functional;
+    if (APP.SKILL_RANK[p.skills] > APP.SKILL_RANK[out.skills]) out.skills = p.skills;
+    if (APP.IND_RANK[p.ind] > APP.IND_RANK[out.ind]) out.ind = p.ind;
+    if (p.lvl) out.lvl = 1;
+    if (!out.prog && p.prog) out.prog = p.prog;
+  });
+  return out;
+};
+/* Does this person record project counts per module? (only Functional / Technical do) */
+APP.countsTracked = function (d) { const s = APP.roleProfile(d).skills; return s === 'full' || s === 'optional'; };
+/* Role types whose job requirements carry a minimum project count */
+APP.rtCounts = function (rt) { const p = APP.ROLE_PROFILE[rt]; return !!p && (p.skills === 'full' || p.skills === 'optional'); };
+/* Specialties to suggest first: the primary role's, then the others'. */
+APP.specialtiesForRoles = function (rts) {
+  const out = [];
+  (rts || []).forEach(rt => (APP.ROLE_SPECIALTIES[rt] || []).forEach(id => { if (out.indexOf(id) === -1 && APP.SPECIAL_IDX[id]) out.push(id); }));
+  return out;
+};
+APP.levelFromYears = function (y) { y = +y || 0; return y <= 3 ? 'Junior' : y <= 8 ? 'Mid' : 'Senior'; };
+/* The skills a fresh profile starts with, per role */
+APP.defaultSkillsFor = function (d) {
+  const m = APP.roleProfile(d).skills;
+  return m === 'products' ? [{ productId: 's4onprem', moduleId: '*', projects: 0, certified: false }]
+    : [{ productId: 's4onprem', moduleId: 'fi', projects: m === 'modules' ? 0 : 1, certified: false }];
 };
 /* Free text (or an array) → clean, deduped tag list. */
 APP.tagList = function (v) {
@@ -671,7 +742,7 @@ APP.skillName = (pid, mid) => {
   return m ? m.name : mid;
 };
 APP.productShort = (id) => { const p = APP.product(id); return (p && (p.short || p.name)) || ''; };
-APP.skillLabel = (k) => APP.productShort(k.productId) + ' · ' + APP.skillName(k.productId, k.moduleId);
+APP.skillLabel = (k) => k.moduleId === '*' ? APP.productShort(k.productId) : APP.productShort(k.productId) + ' · ' + APP.skillName(k.productId, k.moduleId);
 
 APP.companyJobs = (cid) => Object.values(APP.db.jobs).filter(j => j.companyId === cid);
 APP.consultantConvs = (cid) => Object.values(APP.db.conversations).filter(c => c.cId === cid);
@@ -953,7 +1024,8 @@ APP.equivModules = function (m) {
 };
 APP.reqMatch = function (c, r) {
   const sk = c.skills || [];
-  const meets = (k) => !r.minProjects || (Number(k.projects) || 0) >= r.minProjects;
+  const tracked = APP.countsTracked(c);
+  const meets = (k) => !r.minProjects || !tracked || (Number(k.projects) || 0) >= r.minProjects;
   const hit = sk.filter(k => k.productId === r.productId && (r.moduleId === '*' || k.moduleId === r.moduleId));
   if (hit.length) {
     const best = Math.max.apply(null, hit.map(k => Number(k.projects) || 0));
@@ -1081,17 +1153,17 @@ APP.jobRoleType = function (job) {
   return 'functional';
 };
 /* Product-level types: the SAP product matters, not each module */
-APP.rtProductLevel = function (rt) { return rt === 'architect' || rt === 'delivery'; };
+APP.rtProductLevel = function (rt) { return rt === 'architect' || rt === 'delivery' || rt === 'basis' || rt === 'junior'; };
 APP.MATCH_WEIGHTS = {
   /*            exp lvl ind spec lang cert loc avail */
   functional: { exp: 3, lvl: 1, ind: 3, spec: 2, lang: 2, cert: 2, loc: 2, avail: 1 },
   technical:  { exp: 3, lvl: 1, ind: 1, spec: 3, lang: 1, cert: 1, loc: 1, avail: 2 },
-  basis:      { exp: 3, lvl: 1, ind: 1, spec: 2, lang: 1, cert: 3, loc: 1, avail: 2 },
+  basis:      { exp: 3, lvl: 1, ind: 1, spec: 4, lang: 1, cert: 3, loc: 1, avail: 2 },
   support:    { exp: 2, lvl: 1, ind: 2, spec: 2, lang: 3, cert: 1, loc: 3, avail: 3 },
   architect:  { exp: 4, lvl: 4, ind: 4, spec: 3, lang: 1, cert: 1, loc: 1, avail: 1 },
-  delivery:   { exp: 5, lvl: 3, ind: 4, spec: 3, lang: 3, cert: 1, loc: 2, avail: 2 },
-  keyuser:    { exp: 2, lvl: 1, ind: 5, spec: 2, lang: 2, cert: 1, loc: 3, avail: 1 },
-  junior:     { exp: 0, lvl: 0, ind: 1, spec: 1, lang: 2, cert: 0, loc: 3, avail: 4 }
+  delivery:   { exp: 5, lvl: 3, ind: 4, spec: 4, lang: 3, cert: 1, loc: 2, avail: 2 },
+  keyuser:    { exp: 2, lvl: 1, ind: 5, spec: 4, lang: 2, cert: 1, loc: 3, avail: 1 },
+  junior:     { exp: 0, lvl: 0, ind: 1, spec: 3, lang: 2, cert: 0, loc: 3, avail: 4 }
 };
 APP.RT_ADJACENT = { functional: ['keyuser', 'support', 'junior'], keyuser: ['functional'], support: ['functional', 'technical', 'basis'], technical: ['basis', 'support', 'architect'], basis: ['technical', 'support'], architect: ['delivery', 'functional', 'technical'], delivery: ['architect'], junior: ['functional', 'technical'] };
 /* Role-type fit of a person for a job role type: { f: factor, cap, note } */
@@ -2211,6 +2283,8 @@ APP.specialtyChipsHtml = function (scope, selected, group, opts) {
   opts = opts || {};
   const g = group || 'specialties';
   const sel = (id) => selected.indexOf(id) !== -1;
+  const sug = (opts.roles && opts.roles.length) ? APP.specialtiesForRoles(opts.roles) : [];
+  const roleMode = sug.length > 0;
   const chip = (val, label, on, title) =>
     '<button type="button" class="chip' + (on ? ' chip-on' : '') + '" aria-pressed="' + (on ? 'true' : 'false') + '"' + (title ? ' title="' + APP.h(title) + '"' : '') +
     ' data-action="chip" data-scope="' + scope + '" data-group="' + g + '" data-value="' + APP.h(val) + '">' + APP.h(label) + '</button>';
@@ -2220,7 +2294,7 @@ APP.specialtyChipsHtml = function (scope, selected, group, opts) {
   const strip = '<div class="spec-selected" role="status" aria-live="polite"><span class="spec-selected-label">Selected (' + known.length + (opts.softMax ? ' of ' + opts.softMax : '') + ')</span>' +
     (known.length
       ? known.map(id => chip(id, APP.specialtyName(id) + ' ×', true, 'Remove ' + APP.specialtyLabel(id))).join('')
-      : '<span class="muted small">None yet. Open an area below and tap what applies.</span>') + warn + '</div>';
+      : '<span class="muted small">' + (roleMode ? 'None yet. Tap what applies below.' : 'None yet. Open an area below and tap what applies.') + '</span>') + warn + '</div>';
   const open = APP.state.specOpen || (APP.state.specOpen = {});
   const none = known.length === 0;
   const panels = APP.specialties.map((cat, ci) => {
@@ -2228,7 +2302,7 @@ APP.specialtyChipsHtml = function (scope, selected, group, opts) {
     cat.groups.forEach(gr => gr.items.forEach(it => ids.push(it.id)));
     const n = ids.filter(sel).length;
     const key = scope + ':' + g + ':' + cat.id;
-    const isOpen = key in open ? open[key] : (n > 0 || (none && ci === 0));
+    const isOpen = key in open ? open[key] : (n > 0 || (none && ci === 0 && !roleMode));
     return '<details class="spec-cat" data-spec-key="' + key + '"' + (isOpen ? ' open' : '') + '>' +
       '<summary><span class="spec-cat-name">' + APP.h(cat.name) + '</span>' +
       '<span class="spec-count' + (n ? ' on' : '') + '">' + (n ? n + ' selected' : ids.length + ' options') + '</span></summary>' +
@@ -2237,7 +2311,15 @@ APP.specialtyChipsHtml = function (scope, selected, group, opts) {
         '<div class="chip-wrap">' + gr.items.map(it => chip(it.id, it.short || it.name, sel(it.id), it.name)).join('') + '</div></div>'
       ).join('') + '</details>';
   }).join('');
-  return strip + panels;
+  if (!roleMode) return strip + panels;
+  /* Role-aware: the role's own specialties first; the full grouped list sits behind "Add other specialties". */
+  const outside = known.filter(id => sug.indexOf(id) === -1).length;
+  const mkey = scope + ':' + g + ':more';
+  const mOpen = mkey in open ? open[mkey] : false;
+  const suggested = '<div class="spec-suggest"><span class="spec-group-name">' + (opts.sugLabel || ('Suggested for your role' + (opts.roles.length > 1 ? 's' : ''))) + '</span>' +
+    '<div class="chip-wrap">' + sug.map(id => { const it = APP.SPECIAL_IDX[id]; return chip(id, it.short || it.name, sel(id), it.name); }).join('') + '</div></div>';
+  return strip + suggested +
+    '<details class="spec-more" data-spec-key="' + mkey + '"' + (mOpen ? ' open' : '') + '><summary>Add other specialties' + (outside ? ' <span class="spec-count on">' + outside + ' selected</span>' : '') + '</summary>' + panels + '</details>';
 };
 
 /* Select rows for "skill pairs" (product + module + count) */
@@ -2327,7 +2409,7 @@ APP.jobReqRowsHtml = function (rows) {
       (cards.length > 1 ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div>' +
       '<div class="req-fields">' +
       '<label class="field"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="jobNew" data-idx="' + c.start + '">' + APP.productOptions(c.productId) + '</select></label>' +
-      '<label class="field req-min"><span class="label">Min. projects <span class="muted">(optional)</span></span><input type="number" min="0" max="99" class="input" data-req-min data-idx="' + c.start + '" value="' + (c.min ? Number(c.min) : '') + '" placeholder="Any"></label>' +
+      (APP.rtCounts(APP.jobNewDraft && APP.jobNewDraft.roleType) || !(APP.jobNewDraft && APP.jobNewDraft.roleType) ? '<label class="field req-min"><span class="label">Min. projects <span class="muted">(optional)</span></span><input type="number" min="0" max="99" class="input" data-req-min data-idx="' + c.start + '" value="' + (c.min ? Number(c.min) : '') + '" placeholder="Any"></label>' : '') +
       '</div>' +
       '<div class="field"><span class="label">Modules <span class="muted">— tick one or more; any of them is enough</span></span>' +
       APP.moduleChipsHtml(c.productId, sel, 'data-target="jobNew" data-idx="' + c.start + '"', 'jobNew:' + c.cid, true) + '</div>' +
@@ -2335,33 +2417,50 @@ APP.jobReqRowsHtml = function (rows) {
   }).join('');
 };
 /* ---- professional skills: one card per product, tick modules, then projects + certified per module ---- */
-APP.skillCardsHtml = function (target, skills) {
+APP.skillCardsHtml = function (target, skills, mode) {
   skills = skills || [];
+  mode = mode || 'full';
+  if (mode === 'products') return APP.productChipsHtml(target, skills);
+  const real = (k) => k.moduleId && k.moduleId !== '*';
   const order = []; skills.forEach(k => { if (k.productId && order.indexOf(k.productId) === -1) order.push(k.productId); });
   const unused = CATALOG.products.filter(p => order.indexOf(p.id) === -1);
   let nMods = 0;
   const cards = order.map(function (pid) {
     const idxs = []; skills.forEach((k, i) => { if (k.productId === pid) idxs.push(i); });
-    const sel = idxs.map(i => skills[i].moduleId).filter(Boolean); nMods += sel.length;
+    const sel = idxs.filter(i => real(skills[i])).map(i => skills[i].moduleId); nMods += sel.length;
     const opts = APP.opt(CATALOG.products.filter(p => p.id === pid || order.indexOf(p.id) === -1).map(p => [p.id, p.name]), pid);
-    const lines = idxs.filter(i => skills[i].moduleId).map(function (i) {
+    const lines = idxs.filter(i => real(skills[i])).map(function (i) {
       const k = skills[i]; const m = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).find(x => x.id === k.moduleId);
       return '<div class="skill-row mod-line" data-skill-row="' + i + '" data-target="' + target + '">' +
         '<span class="ml-n" title="' + APP.h(m ? m.name : k.moduleId) + '">' + APP.h(m ? APP.moduleShort(m.name) : k.moduleId) + '</span>' +
-        '<label class="ml-f"><span class="muted small">Projects</span><input type="number" min="0" max="99" class="input" data-skill-field="projects" value="' + Number(k.projects || 0) + '"></label>' +
+        (mode === 'modules' ? '' : '<label class="ml-f"><span class="muted small">Projects' + (mode === 'optional' ? ' (optional)' : '') + '</span><input type="number" min="0" max="99" class="input" data-skill-field="projects" value="' + Number(k.projects || 0) + '"></label>') +
         '<label class="ml-c"><input type="checkbox" data-skill-field="certified"' + (k.certified ? ' checked' : '') + '> <span>SAP-certified</span></label></div>';
     }).join('');
     return '<div class="prod-card" data-prod="' + APP.h(pid) + '">' +
       '<div class="req-card-h"><label class="field prod-sel"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="' + target + '" data-pid="' + APP.h(pid) + '">' + opts + '</select></label>' +
       '<button type="button" class="icon-btn" data-action="prod-rm" data-target="' + target + '" data-pid="' + APP.h(pid) + '" title="Remove this product" aria-label="Remove this product">' + APP.icon('x', 15) + '</button></div>' +
-      '<div class="field"><span class="label">Modules you have delivered <span class="muted">— tick all that apply</span></span>' +
+      '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you have delivered') + ' <span class="muted">— tick all that apply</span></span>' +
       APP.moduleChipsHtml(pid, sel, 'data-target="' + target + '" data-pid="' + APP.h(pid) + '"', target + ':' + pid, false) + '</div>' +
-      (lines ? '<div class="mod-lines"><div class="mod-lines-h muted small">How many projects, and are you certified?</div>' + lines + '</div>' : '') +
+      (lines ? '<div class="mod-lines"><div class="mod-lines-h muted small">' + (mode === 'modules' ? 'Are you certified?' : 'How many projects, and are you certified?') + '</div>' + lines + '</div>' : '') +
       '</div>';
   }).join('');
   return '<div class="prod-cards">' + (cards || '<p class="muted small">No product yet — add your first one.</p>') + '</div>' +
     (unused.length ? '<button type="button" class="btn btn-outline btn-sm" data-action="prod-add" data-target="' + target + '">' + APP.icon('plus', 14) + ' Add ' + (order.length ? 'another' : 'a') + ' product</button>' : '') +
     (nMods ? '<p class="muted small prod-count">' + nMods + ' module' + (nMods === 1 ? '' : 's') + ' across ' + order.length + ' product' + (order.length === 1 ? '' : 's') + '</p>' : '');
+};
+/* Products only (Basis, Project / Delivery Manager, Junior): tick the SAP products you work with — no modules, no counts. */
+APP.productChipsHtml = function (target, skills) {
+  skills = skills || [];
+  const on = (pid) => skills.some(k => k.productId === pid && k.moduleId);
+  const chips = CATALOG.products.map(p =>
+    '<button type="button" class="chip' + (on(p.id) ? ' chip-on' : '') + '" aria-pressed="' + (on(p.id) ? 'true' : 'false') + '" data-action="prod-chip" data-target="' + target + '" data-pid="' + APP.h(p.id) + '">' + APP.h(p.name) + '</button>'
+  ).join('');
+  const certs = skills.map((k, i) => ({ k: k, i: i })).filter(x => x.k.moduleId && x.k.productId).map(x =>
+    '<div class="skill-row mod-line" data-skill-row="' + x.i + '" data-target="' + target + '"><span class="ml-n">' + APP.h(APP.productShort(x.k.productId)) + (x.k.moduleId !== '*' ? ' · ' + APP.h(APP.moduleShort(APP.skillName(x.k.productId, x.k.moduleId))) : '') + '</span>' +
+    '<label class="ml-c"><input type="checkbox" data-skill-field="certified"' + (x.k.certified ? ' checked' : '') + '> <span>SAP-certified</span></label></div>'
+  ).join('');
+  return '<div class="chip-wrap">' + chips + '</div>' +
+    (certs ? '<div class="mod-lines"><div class="mod-lines-h muted small">Are you SAP-certified?</div>' + certs + '</div>' : '');
 };
 APP.jobPreviewObj = function (d, co) {
   const rows = (d.requires || []).filter(r => r.productId && (r.moduleId || APP.rtProductLevel(d.roleType))).map(r => Object.assign({}, r, { moduleId: r.moduleId || '*' }));
@@ -3130,7 +3229,8 @@ APP.onClick = function (el, e) {
       if (!sc) break;
       let l = APP.rtList(sc);
       const i = l.indexOf(d.value);
-      if (i !== -1) l.splice(i, 1);
+      if (d.single) l = [d.value];
+      else if (i !== -1) l.splice(i, 1);
       else if (d.value === 'junior') l = ['junior'];
       else {
         l = l.filter(x => x !== 'junior');
@@ -3222,10 +3322,10 @@ APP.onClick = function (el, e) {
             if (!rows.some(r => r.productId === d.pid)) rows.push({ productId: d.pid, moduleId: '', projects: 0, certified: false });
           } else {
             const ph = rows.findIndex(r => r.productId === d.pid && !r.moduleId);
-            if (ph !== -1) { rows[ph].moduleId = d.mid; rows[ph].projects = 1; rows[ph].certified = false; }
+            if (ph !== -1) { rows[ph].moduleId = d.mid; rows[ph].projects = APP.countsTracked(scope) ? 1 : 0; rows[ph].certified = false; }
             else {
               let last = -1; rows.forEach((r, j) => { if (r.productId === d.pid) last = j; });
-              rows.splice(last + 1, 0, { productId: d.pid, moduleId: d.mid, projects: 1, certified: false });
+              rows.splice(last + 1, 0, { productId: d.pid, moduleId: d.mid, projects: APP.countsTracked(scope) ? 1 : 0, certified: false });
             }
           }
         }
@@ -3242,6 +3342,19 @@ APP.onClick = function (el, e) {
         const used = scope[key].map(r => r.productId);
         const p = CATALOG.products.find(x => used.indexOf(x.id) === -1);
         if (p) scope[key].push({ productId: p.id, moduleId: '', projects: 0, certified: false });
+      });
+      break;
+    }
+
+    case 'prod-chip': {
+      const scope = APP.getScope(d.target);
+      if (!scope) break;
+      const key = APP.scopeSkillKey(scope);
+      if (!Array.isArray(scope[key])) scope[key] = [];
+      APP.skillMutate(el, function () {
+        const rows = scope[key];
+        if (rows.some(r => r.productId === d.pid && r.moduleId)) scope[key] = rows.filter(r => r.productId !== d.pid);
+        else scope[key] = rows.filter(r => !(r.productId === d.pid && !r.moduleId)).concat([{ productId: d.pid, moduleId: '*', projects: 0, certified: false }]);
       });
       break;
     }
@@ -3700,14 +3813,17 @@ APP.onSubmit = function (f) {
         APP.rtSet(d, APP.rtList(d));
         if (!d.roleType) { APP.toast('Please choose your role type'); APP.flagRoleType(); return; }
         if (!(d.languages || []).length) { APP.toast('Please choose at least one language you speak'); const lc = document.querySelector('.field-langs'); if (lc) lc.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
-        if (d.roleType === 'junior') d.level = 'Junior'; /* Junior / Trainee suggests the Junior level — still editable in the next step */
+        if (d._rtFor !== d.roleType) { d.skills = APP.defaultSkillsFor(d); d._rtFor = d.roleType; } /* a new role starts from the skills it needs */
+        if (d.roleType === 'junior') d.level = 'Junior';
       } else if (step === 2) {
         d.yearsExp = Math.max(1, +g('yearsExp') || 1);
-        d.level = g('level') || 'Mid';
+        d.level = APP.roleProfile(d).lvl ? (g('level') || 'Mid') : (d.roleType === 'junior' ? 'Junior' : APP.levelFromYears(d.yearsExp));
         d.availability = g('availability') || APP.availability[0];
       } else if (step === 3) {
+        const pm = APP.roleProfile(d).skills;
         const ok = (d.skills || []).some(k => k.productId && k.moduleId && (+k.projects || 0) >= 0);
-        if (!ok) { APP.toast('Add at least one complete skill (product + module)'); return; }
+        if (!ok) { APP.toast(pm === 'products' ? 'Tick at least one SAP product you work with' : 'Add at least one complete skill (product + module)'); return; }
+        if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
       } else if (step === 5) {
         d.currency = g('currency') || APP.defaultCurrency(d.country); d.currencyChosen = true;
         d.ratePeriod = g('ratePeriod') || 'day';
@@ -3716,6 +3832,8 @@ APP.onSubmit = function (f) {
         d.summary = g('summary');
         const c = Object.assign({}, d);
         c.id = 'c' + Date.now();
+        delete c._rtFor;
+        if (!(c.programs > 0)) delete c.programs;
         c.skills = (d.skills || []).filter(k => k.productId && k.moduleId).map(k => ({ productId: k.productId, moduleId: k.moduleId, projects: +k.projects || 0, certified: !!k.certified }));
         c.industries = d.industries || [];
         c.workPrefs = (Array.isArray(d.workPrefs) ? d.workPrefs : APP.tagList(d.workPrefs)).filter(Boolean);
@@ -3779,8 +3897,9 @@ APP.onSubmit = function (f) {
       d.country = g('country'); d.city = d.country ? g('city') : '';
       if (!d.country) { APP.toast('Please select your country'); return; }
       d.yearsExp = +g('yearsExp') || user.yearsExp;
-      d.level = g('level') || user.level;
       APP.rtSet(d, APP.rtList(APP.profileDraft ? d : user));
+      d.level = APP.roleProfile(d).lvl ? (g('level') || user.level) : (d.roleType === 'junior' ? 'Junior' : (g('level') || APP.levelFromYears(d.yearsExp)));
+      if (f.querySelector('[name="programs"]')) { d.programs = Math.max(0, +g('programs') || 0); }
       if (!d.roleType) { APP.toast('Please choose your role type'); APP.flagRoleType(); return; }
       if (APP.profileDraft && !(APP.profileDraft.languages || user.languages || []).length) { APP.toast('Please choose at least one language you speak'); return; }
       d.availability = g('availability') || user.availability;
