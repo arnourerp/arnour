@@ -30,7 +30,7 @@ export default async (request, context) => {
       const x = await rpc('get_public_profile', { p_id: id });
       if (x && x.private) {
         title = 'SAP professional on Arnour';
-        desc = 'Skills first, names second: this professional's identity is shared only if they accept an introduction on Arnour.';
+        desc = 'Skills first, names second: the identity of this professional is shared only if they accept an introduction on Arnour.';
       } else if (x && x.id) {
         const nm = [x.firstName, x.lastName].filter(Boolean).join(' ');
         title = (nm || 'SAP professional') + (x.headline ? ' — ' + cut(x.headline, 80) : '') + ' | Arnour';
