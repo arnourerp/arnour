@@ -195,7 +195,7 @@ APP.views['c-profile'] = function () {
       '<label class="field"><span class="label">First name</span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '"></label>' +
       '<label class="field"><span class="label">Last name</span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '"></label>' +
       '</div>' +
-      '<label class="field"><span class="label">Gender</span><select name="gender" class="input">' + APP.opt([['', 'Select…']].concat(APP.genders), d.gender || '') + '</select><p class="field-hint">Shown only to companies on Arnour, never to visitors.</p></label>' +
+      '<label class="field"><span class="label">Gender</span><select name="gender" class="input">' + APP.opt([['', 'Select…']].concat(APP.genders), d.gender || '') + '</select></label>' +
       '<label class="field"><span class="label">Your Title/Headline</span><input name="headline" class="input" value="' + APP.h(d.headline) + '"></label>' +
       '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
       '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + addedNote + '</div>' +
