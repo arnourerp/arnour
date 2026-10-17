@@ -11,9 +11,9 @@ APP.views['c-dash'] = function () {
 
   const complete = [
     !!c.firstName, !!c.headline, !!c.cv, (c.skills || []).length >= 3,
-    !!c.summary, (c.languages || []).length > 0, !!c.dailyRate
-  ].filter(Boolean).length;
-  const strength = Math.round((complete / 7) * 100);
+    !!c.summary, (c.languages || []).length > 0
+  ].concat(APP.SHOW_RATES ? [!!c.dailyRate] : []);
+  const strength = Math.round((complete.filter(Boolean).length / complete.length) * 100);
 
   const topSkills = (c.skills || []).slice(0, 5).map(k => APP.skillLabel(k));
 
@@ -73,7 +73,7 @@ APP.views['c-dash'] = function () {
     APP.metaSpan('users', [c.nationality, APP.genderLabel(c.gender), c.level]) +
     APP.metaSpan('check', [c.availability]) +
     (c.workPrefs && c.workPrefs.length ? '<span>' + APP.icon('home', 14) + ' Open to ' + APP.h(c.workPrefs.join(' / ')) + '</span>' : '') +
-    '<span>' + APP.icon('file', 14) + ' ' + APP.rateHtml(c) + '</span>' +
+    (APP.SHOW_RATES ? '<span>' + APP.icon('file', 14) + ' ' + APP.rateHtml(c) + '</span>' : '') +
     '</div>' +
     '<div class="field" style="margin-top:14px"><span class="label">SAP skills</span><div class="chip-wrap">' + APP.skillChipsHtml(c.skills, 6) + '</div></div>' +
     (!c.roleType ? '<p class="muted small mt8">' + APP.icon('spark', 13) + ' <a class="link" href="#/c/profile">Add your role type</a> so companies can find you.</p>' : '') +
@@ -118,7 +118,7 @@ APP.consultantProfileHtml = function (c, o) {
     '<div class="btn-row"><a class="btn btn-outline btn-sm" href="#/community">Visit the community</a></div>' +
     '</div>';
 
-  const rateLine = pub
+  const rateLine = !APP.SHOW_RATES ? '' : pub
     ? '<span>' + APP.icon('file', 14) + ' Rate: on request</span>'
     : '<span>' + APP.icon('file', 14) + ' ' + APP.rateHtml(c) + '</span>';
 
@@ -217,9 +217,7 @@ APP.views['c-profile'] = function () {
       '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('profile', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>' +
       '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('profile', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div></div>' +
       '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>' +
-      '<div class="form-grid">' +
-      '<div class="field"><span class="label">Your rate</span>' + APP.rateInputHtml(d, true) + '</div>' +
-      '</div>' +
+      (APP.SHOW_RATES ? '<div class="form-grid"><div class="field"><span class="label">Your rate</span>' + APP.rateInputHtml(d, true) + '</div></div>' : '') +
       '<div class="field"><span class="label">Summary</span><textarea name="summary" class="input" rows="3">' + APP.h(d.summary) + '</textarea></div>' +
       '<div class="field"><span class="label">CV</span><div class="cv-box">' +
       (d.cv

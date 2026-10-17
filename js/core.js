@@ -338,6 +338,8 @@ APP.currencies = [
   { id: 'EUR', name: 'EUR — Euro' },
   { id: 'GBP', name: 'GBP — Pound Sterling' }
 ];
+/* Rates and pay are switched off for now (professional rate, job pay). Set to true to bring every rate field, display and match note back — saved data is untouched. */
+APP.SHOW_RATES = false;
 APP.ratePeriods = [['day', 'per day'], ['month', 'per month'], ['year', 'per year']];
 
 /* ---- Professional rate (v20): amount + currency + period. The amount stays in c.dailyRate (kept for saved data); c.ratePeriod is new (default day). ---- */
@@ -671,7 +673,7 @@ APP.getStartedHtml = function (role) {
   let tasks;
   if (role === 'consultant') {
     const c = u;
-    const full = [!!c.firstName, !!c.headline, !!c.cv, (c.skills || []).length >= 3, !!c.summary, (c.languages || []).length > 0, !!c.dailyRate].every(Boolean);
+    const full = [!!c.firstName, !!c.headline, !!c.cv, (c.skills || []).length >= 3, !!c.summary, (c.languages || []).length > 0].concat(APP.SHOW_RATES ? [!!c.dailyRate] : []).every(Boolean);
     const touched = (c.savedJobIds || []).length > 0 || Object.values(APP.db.jobs || {}).some(j => (j.applicants || []).indexOf(k) !== -1);
     tasks = [
       { t: 'Complete your profile', d: 'Companies find you here', done: full, href: '#/c/profile' },
@@ -1289,7 +1291,7 @@ APP.matchDetail = function (c, job) {
   ctx.sort((a, b) => b.w - a.w).forEach(x => parts.push({ stage: 'other', label: x.label, pct: pct(x.f), note: x.note || '', weight: x.w }));
 
   /* Rate fit (info only, no score) */
-  if (job.rateMax && c.dailyRate && (c.currency || 'USD') === (job.currency || 'USD')) {
+  if (APP.SHOW_RATES && job.rateMax && c.dailyRate && (c.currency || 'USD') === (job.currency || 'USD')) {
     const jp = job.ratePeriod || 'day', cp = c.ratePeriod || 'day';
     const inJobPeriod = Math.round(c.dailyRate / APP.PERIOD_DAYS[cp] * APP.PERIOD_DAYS[jp]);
     if (inJobPeriod > job.rateMax * 1.001) {
@@ -1584,7 +1586,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
     (co && co._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Confidential</span>' : '') +
     (invited ? ' <span class="pill inv">' + APP.icon('check', 12) + ' Invited</span>' : '') + '</h3>' +
     '</div>' +
-    '<div class="card-side">' + APP.matchPillHtml(score) + '<span class="card-rate">' + APP.h(APP.fmtRange(job)) + '</span></div>' +
+    '<div class="card-side">' + APP.matchPillHtml(score) + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.h(APP.fmtRange(job)) + '</span>' : '') + '</div>' +
     '</div>' +
     meta +
     '<div class="card-pills">' + APP.pillsHtml(reqLabels, 4, link) + '</div>' +
@@ -1639,7 +1641,7 @@ APP.talentCard = function (c, opts) {
     '<p class="card-name">' + APP.h(name) + APP.certBadgeHtml(c) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Anonymous</span>' : '') + (opts.note || '') + '</p>' +
     '<h3 class="card-title">' + APP.h(c.headline || APP.roleTypeLabel(c.roleType) || c.level || '') + '</h3>' +
     '</div>' +
-    '<div class="card-side">' + (hasScore ? APP.matchPillHtml(opts.score) : '') + '<span class="card-rate">' + APP.rateHtml(c) + '</span></div>' +
+    '<div class="card-side">' + (hasScore ? APP.matchPillHtml(opts.score) : '') + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.rateHtml(c) + '</span>' : '') + '</div>' +
     '</div>' +
     meta +
     '<div class="card-pills">' + APP.pillsHtml(APP.skillPillLabels(c.skills, opts.job), 4, profile) + '</div>' +
@@ -2530,7 +2532,7 @@ APP.jobStepErrors = function (d, step) {
     if (!String(d.title || '').trim()) e.title = 'Add a job title';
     if (!APP.roleTypeById[d.roleType]) e.roleType = 'Choose the type of role — it decides how professionals are ranked';
     if (!d.country) e.country = 'Select the country for this role';
-    if (d.rateMin && d.rateMax && +d.rateMin > +d.rateMax) e.pay = 'Pay minimum should be lower than the maximum';
+    if (APP.SHOW_RATES && d.rateMin && d.rateMax && +d.rateMin > +d.rateMax) e.pay = 'Pay minimum should be lower than the maximum';
   }
   if (step === 2) {
     const rows = d.requires || [];
@@ -3689,7 +3691,7 @@ APP.onClick = function (el, e) {
       break;
 
     case 'wiz-back': {
-      if (d.target === 'wizC' && APP.wizC) { APP.wizC.step = Math.max(1, APP.wizC.step - 1); APP.render(); }
+      if (d.target === 'wizC' && APP.wizC) { APP.wizC.step = APP.wizPrevStep(APP.wizC.step); APP.render(); }
       if (d.target === 'wizE' && APP.wizE) { APP.wizE.step = Math.max(1, APP.wizE.step - 1); APP.render(); }
       break;
     }
@@ -3876,7 +3878,7 @@ APP.onSubmit = function (f) {
         const ok = (d.skills || []).some(k => k.productId && k.moduleId && (+k.projects || 0) >= 0);
         if (!ok) { APP.toast(pm === 'products' ? 'Tick at least one SAP product you work with' : 'Add at least one complete skill (product + module)'); return; }
         if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
-      } else if (step === 5) {
+      } else if (step === 5 && APP.SHOW_RATES) {
         d.currency = g('currency') || APP.defaultCurrency(d.country); d.currencyChosen = true;
         d.ratePeriod = g('ratePeriod') || 'day';
         d.dailyRate = +g('dailyRate') || 0; /* optional — profiles without a rate read "Rate on request" and the dashboard nudges to add one */
@@ -3903,7 +3905,7 @@ APP.onSubmit = function (f) {
         APP.toast(c.anon ? 'Welcome to Arnour — your identity is private 🔒' : 'Welcome to Arnour, ' + c.firstName + ' 🎉');
         return;
       }
-      APP.wizC.step = step + 1;
+      APP.wizC.step = APP.wizNextStep(step);
       APP.render();
       break;
     }
@@ -3957,9 +3959,11 @@ APP.onSubmit = function (f) {
       if (!d.roleType) { APP.toast('Please choose your role type'); APP.flagRoleType(); return; }
       if (APP.profileDraft && !(APP.profileDraft.languages || user.languages || []).length) { APP.toast('Please choose at least one language you speak'); return; }
       d.availability = g('availability') || user.availability;
-      d.currency = g('currency') || user.currency;
-      d.ratePeriod = g('ratePeriod') || user.ratePeriod || 'day';
-      d.dailyRate = +g('dailyRate') || user.dailyRate;
+      if (APP.SHOW_RATES) {
+        d.currency = g('currency') || user.currency;
+        d.ratePeriod = g('ratePeriod') || user.ratePeriod || 'day';
+        d.dailyRate = +g('dailyRate') || user.dailyRate;
+      }
       d.summary = g('summary') || user.summary;
       if (APP.profileDraft) { d.skills = (APP.profileDraft.skills || []).filter(k => k.productId && k.moduleId); d.industries = APP.profileDraft.industries || []; }
       d.workPrefs = (APP.profileDraft && Array.isArray(APP.profileDraft.workPrefs) ? APP.profileDraft.workPrefs : user.workPrefs) || [];
@@ -4051,10 +4055,12 @@ APP.onSubmit = function (f) {
       d.confidential = fd.get('confidential') === 'on';
       d.employmentType = g('employmentType') || 'Contract';
       d.duration = g('duration') || '';
-      d.currency = g('currency') || 'USD';
-      d.ratePeriod = g('ratePeriod') || (d.employmentType === 'Full-time' ? 'month' : 'day');
-      d.rateMin = +g('rateMin') || 0;
-      d.rateMax = +g('rateMax') || 0;
+      if (fd.has('rateMin')) { /* pay fields are hidden while APP.SHOW_RATES is off — keep whatever is saved */
+        d.currency = g('currency') || 'USD';
+        d.ratePeriod = g('ratePeriod') || (d.employmentType === 'Full-time' ? 'month' : 'day');
+        d.rateMin = +g('rateMin') || 0;
+        d.rateMax = +g('rateMax') || 0;
+      }
       d.minExp = +g('minExp') || 0;
       delete d.maxExp;
       d.level = g('level');
@@ -4076,7 +4082,7 @@ APP.onSubmit = function (f) {
       if (!d.title) { APP.toast('Please add a job title'); return; }
       if (!APP.roleTypeById[d.roleType]) { APP.toast('Please choose the role type'); return; }
       if (!d.country) { APP.toast('Please select the country for this role'); return; }
-      if (d.rateMin && d.rateMax && d.rateMin > d.rateMax) { APP.toast('Pay minimum should be lower than maximum'); return; }
+      if (APP.SHOW_RATES && d.rateMin && d.rateMax && d.rateMin > d.rateMax) { APP.toast('Pay minimum should be lower than maximum'); return; }
       /* Don't strip incomplete rows from the draft itself — otherwise a failed publish silently deletes the rows the poster is still filling in. */
       const reqRows = (d.requires || []).filter(r => r.productId && r.moduleId);
       if (!reqRows.length) { APP.toast('Add at least one required SAP skill — pick a product and a module'); return; }

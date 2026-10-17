@@ -427,7 +427,7 @@ APP.views['e-talent-detail'] = function (ctx) {
     (APP.LIVE && c.sample ? '<p class="sample-note">Sample profile, for illustration. Messages to sample profiles are not answered.</p>' : '') +
     (c.headline ? '<p class="muted td-headline">' + E(c.headline) + '</p>' : '') +
     '<div class="job-meta">' + facts + '</div>' +
-    '<div class="td-keys"><span class="td-key"><small>Rate</small><b>' + APP.rateHtml(c) + '</b></span>' +
+    '<div class="td-keys">' + (APP.SHOW_RATES ? '<span class="td-key"><small>Rate</small><b>' + APP.rateHtml(c) + '</b></span>' : '') +
     (c.linkedin ? '<a class="ext-link" href="' + E(APP.normUrl(c.linkedin)) + '" target="_blank" rel="noopener">' + APP.icon('ext', 14) + ' LinkedIn</a>' : '') +
     '</div></div></header>' +
     '<div class="jd-grid"><div class="jd-main card">' + aboutSec + expSec + detSec + commSec + '</div>' + side + '</div>' +
@@ -549,8 +549,8 @@ APP.jobFormView = function (mode) {
       sec(1, 'The role', 'What it is and where.', basics) +
       sec(2, 'Required SAP skills <span class="req-star">*</span>', 'The most important part — it decides who sees your role.', skills) +
       sec(3, 'Candidate requirements', 'Seniority, experience, certification and languages.', candidate) +
-      sec(4, 'Pay <span class="muted">(optional)</span>', '', pay) +
-      sec(5, 'Description', 'Optional — scope, team and what success looks like.', desc) +
+      (APP.SHOW_RATES ? sec(4, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
+      sec(APP.SHOW_RATES ? 5 : 4, 'Description', 'Optional — scope, team and what success looks like.', desc) +
       '<div class="publish-bar"><a class="btn btn-ghost" href="#/e/jobs/' + d.editId + '">Cancel</a>' +
       '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Save changes</button></div>' +
       '</form></div>';
@@ -558,7 +558,7 @@ APP.jobFormView = function (mode) {
 
   /* ---- posting: 3-step wizard. All steps stay in the DOM (hidden) so every field is always submitted and drafts never lose data. ---- */
   const step = Math.min(3, Math.max(1, APP.state.jobStep || 1));
-  const labels = ['Role & pay', 'SAP skills', 'Review & publish'];
+  const labels = [APP.SHOW_RATES ? 'Role & pay' : 'The role', 'SAP skills', 'Review & publish'];
   const stepper = '<ol class="wiz-steps" aria-label="Progress">' + labels.map((l, i) => {
     const n = i + 1;
     return '<li class="' + (n === step ? 'cur' : n < step ? 'done' : '') + '"' + (n === step ? ' aria-current="step"' : '') + '>' +
@@ -567,13 +567,13 @@ APP.jobFormView = function (mode) {
   const card = (title, sub, body) => '<section class="card form-sec"><div class="sec-h"><div><h3>' + title + '</h3>' + (sub ? '<p class="muted small">' + sub + '</p>' : '') + '</div></div>' + body + '</section>';
   const pl = APP.rtProductLevel(d.roleType);
   const pv = APP.jobPreviewObj(d, co);
-  const s1 = card('The role', 'What it is and where.', basics) + card('Pay <span class="muted">(optional)</span>', 'Roles with a pay range get noticeably more applications.', pay);
+  const s1 = card('The role', 'What it is and where.', basics) + (!APP.SHOW_RATES ? '' : card('Pay <span class="muted">(optional)</span>', 'Roles with a pay range get noticeably more applications.', pay));
   const s2 = card(pl ? 'Which SAP products should they know?' : 'What SAP experience do they need?', pl ? 'For this role the product matters more than individual modules — pick modules only if they are essential. Start with one product.' : 'The most important part — it decides who sees your role. Start with one; add more only if you need them.', reqPart) +
     card('Nice to have <span class="muted">(optional)</span>', 'Seniority, certification, languages and specialties. Skip this if you are unsure.', candidate + specPart);
   const s3 = card('Description <span class="muted">(optional)</span>', 'Scope, team and what success looks like.', desc) +
     '<div class="preview-h"><h3>This is how professionals will see your role</h3><div id="req-summary-2">' + APP.jobReqSummary(d, true) + '</div></div>' +
     '<div class="job-preview" aria-label="Role preview" tabindex="-1">' + APP.jobCard(pv, null, '', '') + '</div>' +
-    '<p class="muted small preview-edit">Something off? <button type="button" class="link" data-action="job-step" data-step="1">Edit role &amp; pay</button> · <button type="button" class="link" data-action="job-step" data-step="2">Edit skills</button></p>';
+    '<p class="muted small preview-edit">Something off? <button type="button" class="link" data-action="job-step" data-step="1">Edit role' + (APP.SHOW_RATES ? ' &amp; pay' : '') + '</button> · <button type="button" class="link" data-action="job-step" data-step="2">Edit skills</button></p>';
   const steps = [s1, s2, s3].map((h, i) => '<div class="jw-step" data-step="' + (i + 1) + '"' + (i + 1 === step ? '' : ' hidden') + '>' + h + '</div>').join('');
   const bar = '<div class="publish-bar">' +
     (step === 1 ? '<a class="btn btn-ghost" href="#/e/jobs">Cancel</a>' : '<button type="button" class="btn btn-ghost" data-action="job-step" data-step="' + (step - 1) + '">← Back</button>') +
@@ -693,7 +693,7 @@ APP.views['e-job-detail'] = function (ctx) {
     '<div class="job-meta">' +
     '<span>' + APP.icon('briefcase') + E(job.employmentType) + '</span>' +
     '<span>' + APP.icon('pin') + E(APP.locText(job)) + (job.remote ? ' · Remote-friendly' : '') + '</span>' +
-    '<span>' + APP.icon('file') + E(APP.fmtRange(job)) + '</span>' +
+    (APP.SHOW_RATES ? '<span>' + APP.icon('file') + E(APP.fmtRange(job)) + '</span>' : '') +
     (job.duration ? '<span>' + APP.icon('check') + E(job.duration) + '</span>' : '') +
     '</div>' +
     '<p class="muted small jd-posted">Posted ' + APP.timeAgo(job.postedTs) + (job.editedTs ? ' · Edited ' + APP.timeAgo(job.editedTs) : '') + '</p></header>' +

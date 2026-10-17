@@ -23,13 +23,13 @@ APP.views.landing = function () {
   ).join('');
 
   const cSteps = [
-    ['Build your SAP portfolio', 'A guided wizard captures your products, modules, projects, rates, languages and CV.'],
+    ['Build your SAP portfolio', 'A guided wizard captures your products, modules, projects, languages and CV.'],
     ['Get matched, instantly', 'Your feed is ranked against every open role — you only see work that fits your stack.'],
     ['Reveal only when you choose', 'Companies see your skills, not your name. Share your name and CV in one click, after you accept an introduction.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
 
   const eSteps = [
-    ['Post a precise brief', 'Require exact product + module combinations, locations, rates and experience bands. Keep your company confidential if you wish.'],
+    ['Post a precise brief', 'Require exact product + module combinations, locations and experience bands. Keep your company confidential if you wish.'],
     ['Headhunt with a real search', 'Filter the talent database by products, modules, role type, location, nationality, availability and projects delivered.'],
     ['Hire without the noise', 'Shortlist in minutes — every result already speaks your SAP language.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
@@ -202,14 +202,19 @@ APP.wizCDefaults = function () {
 };
 
 APP.wizStepsC = ['About you', 'Experience', 'SAP skills', 'Specialties', 'Your rate', 'CV & finish'];
+/* Steps people actually see: the rate step (5) is skipped while APP.SHOW_RATES is off. */
+APP.wizVisible = () => APP.SHOW_RATES ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 6];
+APP.wizNextStep = (st) => { const v = APP.wizVisible(); return v[Math.min(v.length - 1, v.indexOf(st) + 1)] || st; };
+APP.wizPrevStep = (st) => { const v = APP.wizVisible(); return v[Math.max(0, v.indexOf(st) - 1)] || 1; };
 
 APP.views['wiz-c'] = function () {
   if (!APP.wizC) APP.wizC = { step: 1, data: APP.wizCDefaults() };
   const d = APP.wizC.data;
   const step = APP.wizC.step;
   const rp = APP.roleProfile(d);
-  const progress = APP.wizStepsC.map((label, i) =>
-    '<div class="wiz-step ' + (i + 1 === step ? 'active' : '') + (i + 1 < step ? 'done' : '') + '"><span class="wiz-dot">' + (i + 1 < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + label + '</small></div>'
+  const vis = APP.wizVisible();
+  const progress = vis.map((n, i) =>
+    '<div class="wiz-step ' + (n === step ? 'active' : '') + (n < step ? 'done' : '') + '"><span class="wiz-dot">' + (n < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + APP.wizStepsC[n - 1] + '</small></div>'
   ).join('');
 
   let body = '';
@@ -316,7 +321,7 @@ APP.views['wiz-c'] = function () {
         (d.specialties && d.specialties.length ? 'Specialties: ' + APP.h(d.specialties.map(id => APP.specialtyName(id)).join(', ')) + '<br>' : '') +
         (APP.tagList(d.otherSkills).length ? 'Your own specialties: ' + APP.h(APP.tagList(d.otherSkills).join(', ')) + '<br>' : '') +
         (d.workPrefs && d.workPrefs.length ? 'Open to: ' + APP.h(d.workPrefs.join(', ')) + '<br>' : '') +
-        APP.rateHtml({ currency: d.currencyChosen ? d.currency : APP.defaultCurrency(d.country), dailyRate: d.dailyRate, ratePeriod: d.ratePeriod }) +
+        (APP.SHOW_RATES ? APP.rateHtml({ currency: d.currencyChosen ? d.currency : APP.defaultCurrency(d.country), dailyRate: d.dailyRate, ratePeriod: d.ratePeriod }) : '') +
         '</div></div>') +
       APP.wizPrivacyHtml('c', d) +
       APP.wizNav(6, 6, true) +
@@ -329,7 +334,7 @@ APP.views['wiz-c'] = function () {
     '<div class="card wizard-card wiz-flat">' +
     '<div class="wiz-progress">' + progress + '</div>' +
     '<h1 class="wiz-title">' + APP.wizStepsC[step - 1] + '</h1>' +
-    '<p class="muted small wiz-time">Step ' + step + ' of ' + APP.wizStepsC.length + ' · about ' + Math.max(1, Math.ceil((APP.wizStepsC.length - step + 1) * 0.4)) + ' min left · you can edit everything later</p>' +
+    '<p class="muted small wiz-time">Step ' + (vis.indexOf(step) + 1) + ' of ' + vis.length + ' · about ' + Math.max(1, Math.ceil((vis.length - vis.indexOf(step)) * 0.4)) + ' min left · you can edit everything later</p>' +
     body +
     '</div></div>';
 };
@@ -508,7 +513,7 @@ APP.jobSections = function (job, me) {
     ['Role type', APP.roleTypeLabel(APP.jobRoleType(job))],
     ['Employment', job.employmentType],
     ['Location', APP.locText(job) + (job.remote ? ' · Remote-friendly' : '')],
-    ['Rate', APP.fmtRange(job)],
+    APP.SHOW_RATES ? ['Rate', APP.fmtRange(job)] : ['', ''],
     ['Duration', job.duration],
     ['Level', job.level],
     ['Experience', APP.expLabel(job) ? APP.expLabel(job) + ' exp' : ''],
@@ -599,7 +604,7 @@ APP.views['job-detail'] = function (ctx) {
     '<div class="job-meta">' +
     '<span>' + APP.icon('briefcase') + E(job.employmentType) + '</span>' +
     '<span>' + APP.icon('pin') + E(APP.locText(job)) + (job.remote ? ' · Remote-friendly' : '') + '</span>' +
-    '<span>' + APP.icon('file') + E(APP.fmtRange(job)) + '</span>' +
+    (APP.SHOW_RATES ? '<span>' + APP.icon('file') + E(APP.fmtRange(job)) + '</span>' : '') +
     (job.duration ? '<span>' + APP.icon('check') + E(job.duration) + '</span>' : '') +
     '</div></header>' +
     '<div class="jd-grid"><div class="jd-main card">' +
