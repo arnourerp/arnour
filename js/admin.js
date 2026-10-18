@@ -4,7 +4,7 @@
   var B = APP.backend, h = APP.h;
   if (!B) return;
 
-  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', conv: null, imp: { text: '', rows: null, error: '', result: null, busy: false } };
+  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, imp: { text: '', rows: null, error: '', result: null, busy: false } };
   var REASONS = [
     ['spam', 'Spam or advertising'], ['abuse', 'Harassment or abuse'], ['fake', 'Fake or misleading'],
     ['inappropriate', 'Inappropriate content'], ['privacy', 'Shares private information'], ['other', 'Something else']
@@ -93,14 +93,14 @@
   }
 
   /* ---------- views ---------- */
-  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['community', 'Community'], ['settings', 'Settings & log']];
+  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
 
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0;
     return '<div class="adm"><header class="adm-top"><a class="brand-logo" href="#/" aria-label="Arnour home">A</a><strong>Arnour admin</strong><span class="grow"></span>' +
       '<a class="btn btn-ghost btn-sm" href="#/">← Back to site</a></header>' +
       '<nav class="adm-tabs" aria-label="Admin sections">' + TABS.map(function (t) {
-        return '<a class="adm-tab' + (t[0] === tab ? ' on' : '') + '" href="#/admin/' + t[0] + '">' + t[1] + (t[0] === 'reports' && open ? ' <em>' + open + '</em>' : '') + '</a>';
+        return '<a class="adm-tab' + (t[0] === tab ? ' on' : '') + '" href="#/admin/' + t[0] + '">' + t[1] + (t[0] === 'reports' && open ? ' <em>' + open + '</em>' : '') + (t[0] === 'feedback' && A.data.health && A.data.health.openFeedback ? ' <em>' + A.data.health.openFeedback + '</em>' : '') + '</a>';
       }).join('') + '</nav><main class="adm-main">' + inner + '</main></div>';
   }
   function need(key, fn, args) {
@@ -270,6 +270,49 @@
     return html;
   }
 
+
+  /* ---------- problem reports, error log, usage ---------- */
+  var CAT = { problem: 'Problem', suggestion: 'Suggestion', other: 'Other' };
+  function shortUa(ua) {
+    ua = String(ua || ''); var b = /(Edg|Chrome|CriOS|Firefox|FxiOS|Safari)\/[\d.]+/.exec(ua);
+    var os = /iPhone|iPad|Android|Windows|Mac OS X|Linux/.exec(ua);
+    return (b ? b[1].replace('Edg', 'Edge').replace('CriOS', 'Chrome').replace('FxiOS', 'Firefox') : 'Browser') + ' · ' + (os ? os[0] : '');
+  }
+  function vFeedback() {
+    var key = 'feedback:' + A.fstatus;
+    var w = need(key, 'admin_feedback', { p_status: A.fstatus, p_limit: 100 }); if (w) return w;
+    var list = A.data[key];
+    return '<h1>Feedback</h1><div class="adm-actions"><button class="btn btn-sm ' + (A.fstatus === 'open' ? 'btn-primary' : 'btn-outline') + '" data-action="adm-fstatus" data-s="open">Open</button>' +
+      '<button class="btn btn-sm ' + (A.fstatus === 'done' ? 'btn-primary' : 'btn-outline') + '" data-action="adm-fstatus" data-s="done">Done</button></div>' +
+      (list.length ? list.map(function (f) {
+        var errs = (f.ctx && f.ctx.errors) || [];
+        return '<article class="adm-card"><div class="adm-row"><span class="pill">' + h(CAT[f.category] || f.category) + '</span> <strong>' + h(f.email || 'Anonymous') + '</strong>' +
+          (f.role ? ' <span class="pill muted-pill">' + h(f.role) + '</span>' : '') + ' <span class="muted small">' + whenT(f.created_ts) + '</span></div>' +
+          '<p style="white-space:pre-line">' + h(f.message) + '</p>' +
+          '<p class="fb-meta">' + h(f.page) + ' · ' + h(shortUa(f.ua)) + (f.ctx && f.ctx.viewport ? ' · ' + h(f.ctx.viewport) : '') + '</p>' +
+          (errs.length ? '<details class="fb-meta"><summary>' + errs.length + ' recent error(s)</summary>' + errs.map(function (e) { return '<div>' + h(e.t + ' ' + e.m + ' ' + (e.s || '')) + '</div>'; }).join('') + '</details>' : '') +
+          '<div class="adm-actions">' +
+          (f.shot ? '<button class="btn btn-outline btn-sm" data-action="adm-fb-shot" data-p="' + h(f.shot) + '">View screenshot</button>' : '') +
+          (f.email ? '<a class="btn btn-outline btn-sm" href="mailto:' + h(f.email) + '?subject=' + encodeURIComponent('Re: your Arnour report') + '&body=' + encodeURIComponent('Hi,\n\nThank you for your report:\n"' + f.message.slice(0, 300) + '"\n\n') + '">Reply by email</a>' : '') +
+          '<button class="btn btn-outline btn-sm" data-action="adm-fb-set" data-id="' + f.id + '" data-s="' + (f.status === 'open' ? 'done' : 'open') + '">' + (f.status === 'open' ? 'Mark done' : 'Reopen') + '</button></div></article>';
+      }).join('') : '<div class="empty">Nothing here.</div>');
+  }
+  function vHealth() {
+    var w = need('health', 'admin_health'); if (w) return w;
+    var H = A.data.health, errs = H.errors || [], use = H.usage || [];
+    var names = {}, days = {};
+    use.forEach(function (u) { names[u.name] = names[u.name] || {}; names[u.name][u.d] = u.n; days[u.d] = 1; });
+    var dl = Object.keys(days).sort().reverse().slice(0, 7), nl = Object.keys(names).sort();
+    return '<h1>Health</h1><h2>Errors from users\' browsers</h2><p class="muted small">Recorded automatically, grouped by message. No names or typed text are stored.</p>' +
+      (errs.length ? '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-clear-errors">Clear all</button></div><table class="adm-table"><thead><tr><th>Error</th><th>Times</th><th>Last seen</th><th>Where</th></tr></thead><tbody>' +
+        errs.map(function (e) { return '<tr><td>' + h(e.message) + '<div class="fb-meta">' + h(e.src) + '</div></td><td>' + e.n + '</td><td>' + whenT(e.last_ts) + '</td><td>' + h(e.page) + '<div class="fb-meta">' + h(shortUa(e.ua)) + '</div></td></tr>'; }).join('') + '</tbody></table>'
+        : '<div class="empty">No errors recorded. 🎉</div>') +
+      '<h2>Usage (last 7 days)</h2><p class="muted small">Counts of page views by section (v:…), external-apply clicks and applications. No cookies, no personal data.</p>' +
+      (nl.length ? '<table class="adm-table"><thead><tr><th></th>' + dl.map(function (d) { return '<th>' + h(d.slice(5)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        nl.map(function (n) { return '<tr><td>' + h(n) + '</td>' + dl.map(function (d) { return '<td>' + (names[n][d] || '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>'
+        : '<div class="empty">No data yet.</div>');
+  }
+
   function vCommunity() {
     var key = 'community:' + (A.q.community || '');
     var w = need(key, 'admin_posts', { p_q: A.q.community || '', p_limit: 100 }); if (w) return w;
@@ -298,7 +341,8 @@
     if (!B.isAdmin) return '<div class="empty">Not available.</div>';
     var tab = (ctx && ctx.p && ctx.p[0]) || 'overview', rest = ctx && ctx.p && ctx.p[1];
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
+    if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -373,6 +417,12 @@
         }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
         break;
       }
+      case 'adm-fstatus': A.fstatus = d.s; APP.render(); break;
+      case 'adm-fb-set': act('admin_feedback_set', { p_id: Number(d.id), p_status: d.s, p_note: '' }, d.s === 'done' ? 'Marked done ✓' : 'Reopened', ['feedback:open', 'feedback:done', 'health']); break;
+      case 'adm-fb-shot':
+        B.sb.storage.from('feedback').createSignedUrl(d.p, 300).then(function (r) { if (r.error || !r.data) APP.toast('Could not open the screenshot'); else window.open(r.data.signedUrl, '_blank', 'noopener'); });
+        break;
+      case 'adm-clear-errors': act('admin_clear_errors', {}, 'Cleared', ['health']); break;
       case 'adm-samples': act('admin_set_hide_samples', { p_on: d.on === '1' }, d.on === '1' ? 'Sample content hidden' : 'Sample content showing', ['settings'].concat(allKeys())); break;
     }
   };

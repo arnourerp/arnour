@@ -2259,7 +2259,7 @@ APP.navbar = function () {
       : '<a class="menu-item" href="' + (APP.pendingIntrosFor() ? '#/e/intros' : '#/e/jobs') + '">My roles' + ((APP.pendingIntrosFor() + APP.newApplicants(u)) ? ' <span class="count-pill">' + (APP.pendingIntrosFor() + APP.newApplicants(u)) + '</span>' : '') + '</a>') +
     '<button class="menu-item" data-action="sign-out">Sign out</button>' +
     (APP.LIVE && APP.backend && APP.backend.isAdmin ? '<a class="menu-item" href="#/admin">Admin</a>' : '') +
-    (APP.LIVE ? '<a class="menu-item" href="#/account">Account</a>' : '<button class="menu-item danger" data-action="reset-demo">Reset demo data</button>') +
+    (APP.LIVE ? '<button class="menu-item" data-action="fb-open">Report a problem</button><a class="menu-item" href="#/account">Account</a>' : '<button class="menu-item danger" data-action="reset-demo">Reset demo data</button>') +
     '</div></div>' +
     '</nav></div>' +
     APP.notifPanelHtml() +
@@ -2884,7 +2884,7 @@ APP.rateHtml = function (c) {
 APP.footerHtml = function () {
   return '<footer class="site-footer"><div class="site-footer-inner">' +
     '<span class="brand sm"><span class="brand-logo" aria-hidden="true">A</span>Arnour</span>' +
-    '<nav aria-label="Footer">' + (APP.db.session ? '<a href="#/home">Home page</a>' : '') + '<a href="#/jobs">Open roles</a><a href="#/community">Community</a><a href="#/login">Sign in</a><a href="#/register">Join</a><a href="mailto:contact@arnour.com">Contact</a></nav>' +
+    '<nav aria-label="Footer">' + (APP.db.session ? '<a href="#/home">Home page</a>' : '') + '<a href="#/jobs">Open roles</a><a href="#/community">Community</a><a href="#/login">Sign in</a><a href="#/register">Join</a><a href="mailto:contact@arnour.com">Contact</a>' + (APP.LIVE ? '<a href="#" data-action="fb-open">Report a problem</a>' : '') + '</nav>' +
     '<small>Prototype for customer validation — all companies, profiles and roles shown are sample data.</small>' +
     '</div></footer>';
 };

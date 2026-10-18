@@ -33,7 +33,7 @@
     });
   }
   function rpc(fn, args) {
-    return B.sb.rpc(fn, args || {}).then(function (r) { if (r.error) { if (/account suspended/i.test(r.error.message || '')) B.onSuspended(); throw r.error; } return r.data; });
+    return B.sb.rpc(fn, args || {}).then(function (r) { if (r.error) { if (/account suspended/i.test(r.error.message || '')) B.onSuspended(); if (B.onRpcError) { try { B.onRpcError(fn, r.error); } catch (e) { /* ignore */ } } throw r.error; } return r.data; });
   }
   B.rpc = rpc;
   /* an account suspended while the page is open: reload so the notice shows */
@@ -666,7 +666,8 @@
       '<h3>How it is used</h3><p>To run the marketplace: match roles and professionals, deliver messages and notifications, and keep the site secure. We do not sell your data.</p>' +
       '<h3>Where it is stored</h3><p>Data is stored with our hosting and database providers (Supabase and Netlify). Emails are sent from noreply@arnour.com.</p>' +
       '<h3>Your rights</h3><p>You can edit your profile at any time and delete your account from the Account page, which removes your profile, messages and applications. To ask for a copy of your data or raise a concern, write to <a href="mailto:contact@arnour.com">contact@arnour.com</a>.</p>' +
-      '<h3>Cookies</h3><p>We use browser storage only to keep you signed in. We do not use advertising cookies.</p>');
+      '<h3>Cookies</h3><p>We use browser storage only to keep you signed in. We do not use advertising cookies.</p>'+
+      '<h3>Problem reports and error logs</h3><p>If you send us a problem report we keep it with the page, browser and your account email so we can fix the issue and reply. We also record technical errors from the site (the message and page, never what you typed) and anonymous page-view counts, with no cookies and no personal data.</p>');
   };
 
   /* footer: real wording */
@@ -675,7 +676,7 @@
       '<span class="brand sm"><span class="brand-logo" aria-hidden="true">A</span>Arnour</span>' +
       '<nav aria-label="Footer">' + (B.user ? '<a href="#/home">Home page</a>' : '') + '<a href="#/jobs">Open roles</a><a href="#/community">Community</a>' +
       (B.user ? '<a href="#/account">Account</a>' : '<a href="#/login">Sign in</a><a href="#/register">Join</a>') +
-      '<a href="#/terms">Terms</a><a href="#/privacy">Privacy</a><a href="mailto:contact@arnour.com">Contact</a></nav>' +
+      '<a href="#/terms">Terms</a><a href="#/privacy">Privacy</a><a href="mailto:contact@arnour.com">Contact</a><a href="#" data-action="fb-open">Report a problem</a></nav>' +
       '<small>© Arnour. The talent network for the SAP ecosystem.</small></div></footer>';
   };
 
