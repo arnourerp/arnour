@@ -30,7 +30,7 @@ const PORT_LIVE = 8123, PORT_DEMO = 8124;
 const servers = [await serve(ROOT, PORT_LIVE), await serve(DEMO, PORT_DEMO)];
 
 const SQL = ['sqltest', 'sqltest2', 'sqltest3', 'notif_test', 'gender_test', 'applyurl_test', 'exttest', 'fbtest', 'rates_api_test'];
-const UI = ['e2e', 'e2e2', 'e2e3', 'e2e4', 'nav4', 'roles_test', 'rates_off', 'extapply', 'coedit', 'skills_block', 'exttest_ui', 'longtext', 'fbui', 'fbmenu_live', 'poll_test', 'longwrap', 'polish_test'];
+const UI = ['e2e', 'e2e2', 'e2e3', 'e2e4', 'nav4', 'roles_test', 'rates_off', 'extapply', 'coedit', 'skills_block', 'exttest_ui', 'longtext', 'fbui', 'fbmenu_live', 'poll_test', 'longwrap', 'polish_test', 'captcha_test'];
 const only = process.argv.slice(2);
 const list = (only.length ? only : SQL.concat(UI));
 const env = Object.assign({}, process.env, { ARNOUR_ROOT: ROOT, ARNOUR_DEMO: DEMO, ARNOUR_TESTS: TESTS, PORT_LIVE: String(PORT_LIVE), PORT_DEMO: String(PORT_DEMO) });

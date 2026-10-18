@@ -55,6 +55,7 @@
   }
   function authError(e) {
     var m = String((e && e.message) || '');
+    if (/captcha/i.test(m)) return 'The security check did not pass. Please try again.';
     if (/invalid login/i.test(m)) return 'Email or password is incorrect.';
     if (/not confirmed/i.test(m)) return 'NOT_CONFIRMED';
     if (/rate limit|too many|seconds/i.test(m)) return 'Too many attempts — please wait a minute and try again.';
@@ -515,14 +516,65 @@
   };
   B.metaRole = function () { var r = B.user && B.user.user_metadata && B.user.user_metadata.role; return r === 'employer' || r === 'e' ? 'e' : 'c'; };
 
+  /* ---------- bot check (Cloudflare Turnstile) ----------
+     Shown only on the real site (arnour.com). Supabase verifies the token when CAPTCHA protection is switched on there;
+     until then the token is simply ignored, so turning it on later needs no code change. */
+  var TS_HOSTS = /(^|\.)arnour\.com$/i;
+  B.tsToken = null; B.tsWidgets = [];
+  B.captchaOn = function () { return !!(CFG.turnstileSiteKey && (TS_HOSTS.test(location.hostname) || window.ARNOUR_FORCE_CAPTCHA)); };
+  function tsBox() { return B.captchaOn() ? '<div class="ts-box" data-ts></div>' : ''; }
+  function loadTs() {
+    if (window.turnstile) return Promise.resolve(window.turnstile);
+    if (B._tsP) return B._tsP;
+    B._tsP = new Promise(function (res, rej) {
+      var sc = document.createElement('script');
+      sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; sc.async = true;
+      sc.onload = function () { if (window.turnstile) res(window.turnstile); else rej(new Error('no turnstile')); };
+      sc.onerror = function () { B._tsP = null; rej(new Error('turnstile blocked')); };
+      document.head.appendChild(sc);
+    });
+    return B._tsP;
+  }
+  B.mountCaptcha = function () {
+    if (!B.captchaOn()) return;
+    var boxes = [].slice.call(document.querySelectorAll('[data-ts]:not([data-ts-on])'));
+    if (!boxes.length) return;
+    boxes.forEach(function (el) { el.setAttribute('data-ts-on', '1'); });
+    B.tsToken = null;
+    loadTs().then(function (ts) {
+      B.tsFailed = false;
+      boxes.forEach(function (el) {
+        if (!document.body.contains(el)) return;
+        try {
+          B.tsWidgets.push(ts.render(el, { sitekey: CFG.turnstileSiteKey, action: 'auth',
+            callback: function (t) { B.tsToken = t; var er = document.getElementById('live-err'); if (er && /security check/i.test(er.textContent)) er.textContent = ''; },
+            'expired-callback': function () { B.tsToken = null; }, 'error-callback': function () { B.tsToken = null; } }));
+        } catch (e) { /* ignore */ }
+      });
+    }, function () { B.tsFailed = true; });
+  };
+  B.captchaToken = function () { return B.captchaOn() ? (B.tsToken || undefined) : undefined; };
+  B.captchaReset = function () {
+    B.tsToken = null;
+    if (window.turnstile) B.tsWidgets = B.tsWidgets.filter(function (id) { try { window.turnstile.reset(id); return true; } catch (e) { return false; } });
+  };
+  /* returns an error message when the check is needed but not done yet */
+  B.captchaMissing = function () {
+    if (!B.captchaOn() || B.tsToken) return '';
+    return B.tsFailed ? 'The security check could not load. Please turn off any ad blocker or try another browser.' : 'Please wait a moment for the security check to finish, then try again.';
+  };
+  if (window.MutationObserver) new MutationObserver(function () { if (document.querySelector('[data-ts]:not([data-ts-on])')) B.mountCaptcha(); }).observe(document.documentElement, { childList: true, subtree: true });
+
   B.signIn = function (email, password) {
-    return B.sb.auth.signInWithPassword({ email: email, password: password }).then(function (r) {
+    return B.sb.auth.signInWithPassword({ email: email, password: password, options: { captchaToken: B.captchaToken() } }).then(function (r) {
+      B.captchaReset();
       if (r.error) throw r.error;
       return B.hydrate(r.data.session);
     });
   };
   B.signUp = function (email, password, role) {
-    return B.sb.auth.signUp({ email: email, password: password, options: { emailRedirectTo: location.origin + '/', data: { role: role === 'e' ? 'employer' : 'consultant' } } }).then(function (r) {
+    return B.sb.auth.signUp({ email: email, password: password, options: { emailRedirectTo: location.origin + '/', data: { role: role === 'e' ? 'employer' : 'consultant' }, captchaToken: B.captchaToken() } }).then(function (r) {
+      B.captchaReset();
       if (r.error) throw r.error;
       return r.data;
     });
@@ -616,7 +668,7 @@
       '<form data-form="live-login" novalidate>' +
       '<label class="field"><span class="label">Email</span><input class="input" type="email" name="email" autocomplete="email" value="' + esc(email) + '" required></label>' +
       '<label class="field"><span class="label">Password</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>' +
-      '<p class="field-error" id="live-err" role="alert"></p>' +
+      tsBox() + '<p class="field-error" id="live-err" role="alert"></p>' +
       '<button class="btn btn-primary btn-block" type="submit">Sign in</button></form>' +
       '<p class="center small"><a href="#/forgot">Forgot your password?</a></p>' +
       '<div class="or"><span>New to Arnour?</span></div>' +
@@ -637,7 +689,7 @@
       '<label class="field"><span class="label">Password</span><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required>' + pwHint() + '</label>' +
       '<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;opacity:0">' +
       '<label class="chk-line"><input type="checkbox" name="terms" required> <span>I agree to the <a href="#/terms" target="_blank" rel="noopener">Terms</a> and the <a href="#/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>' +
-      '<p class="field-error" id="live-err" role="alert"></p>' +
+      tsBox() + '<p class="field-error" id="live-err" role="alert"></p>' +
       '<button class="btn btn-primary btn-block" type="submit">Create account</button></form>' +
       '<p class="center small">Already have an account? <a href="#/login">Sign in</a></p>');
   };
@@ -648,7 +700,7 @@
     return card('<h1>Check your email</h1>' +
       '<p class="center">We sent a confirmation link to <strong>' + esc(email) + '</strong>.</p>' +
       '<p class="muted small center">Open it on any device to confirm, then come back and sign in. It can take a minute — check your spam folder too.</p>' +
-      '<button class="btn btn-outline btn-block" data-action="live-resend">Send the email again</button>' +
+      tsBox() + '<button class="btn btn-outline btn-block" data-action="live-resend">Send the email again</button>' +
       '<a class="btn btn-ghost btn-block" href="#/login">Back to sign in</a>');
   };
 
@@ -658,7 +710,7 @@
       '<p class="muted small center">Enter your email and we will send you a link to choose a new password.</p>' +
       '<form data-form="live-forgot" novalidate>' +
       '<label class="field"><span class="label">Email</span><input class="input" type="email" name="email" autocomplete="email" value="' + esc(APP.state.liveEmail || '') + '" required></label>' +
-      '<p class="field-error" id="live-err" role="alert"></p>' +
+      tsBox() + '<p class="field-error" id="live-err" role="alert"></p>' +
       '<button class="btn btn-primary btn-block" type="submit">Send reset link</button></form>' +
       '<p class="center small"><a href="#/login">Back to sign in</a></p>');
   };
@@ -800,8 +852,9 @@
     if (a === 'live-resend') {
       var em = APP.state.liveEmail; if (!em) { APP.go('#/login'); return; }
       if (B._resendAt && Date.now() - B._resendAt < 30000) { APP.toast('Please wait a few seconds before asking again'); return; }
+      if (B.captchaMissing()) { APP.toast(B.captchaMissing()); return; }
       B._resendAt = Date.now();
-      B.sb.auth.resend({ type: 'signup', email: em, options: { emailRedirectTo: location.origin + '/' } }).then(function (r) { APP.toast(r.error ? authError(r.error) : 'Confirmation email sent'); }, function () { B._resendAt = 0; APP.toast('Could not send the email — check your connection and try again.'); });
+      B.sb.auth.resend({ type: 'signup', email: em, options: { emailRedirectTo: location.origin + '/', captchaToken: B.captchaToken() } }).then(function (r) { B.captchaReset(); APP.toast(r.error ? authError(r.error) : 'Confirmation email sent'); }, function () { B._resendAt = 0; APP.toast('Could not send the email — check your connection and try again.'); });
       return;
     }
     if (a === 'live-delete') {
@@ -860,6 +913,7 @@
     if (type === 'live-login') {
       var email = g('email'), pw = String(fd.get('password') || '');
       if (!email || !pw) return setErr('Enter your email and password.');
+      if (B.captchaMissing()) return setErr(B.captchaMissing());
       APP.state.liveEmail = email; APP.state.liveNotConfirmed = false; busy(f, true, 'Signing in…');
       B.signIn(email, pw).then(function () { B.afterSignedIn(); }, function (e) {
         busy(f, false); var m = authError(e);
@@ -871,6 +925,7 @@
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return setErr('Please enter a valid email address.');
       if (p.length < 8) return setErr('Choose a password with at least 8 characters.');
       if (!fd.get('terms')) return setErr('Please accept the Terms and Privacy Policy to continue.');
+      if (B.captchaMissing()) return setErr(B.captchaMissing());
       APP.state.liveEmail = em; busy(f, true, 'Creating account…');
       B.signUp(em, p, f.dataset.role).then(function (d) {
         if (d && d.session) { return B.hydrate(d.session).then(function () { B.afterSignedIn(); }); }
@@ -878,9 +933,11 @@
       }, function (e) { busy(f, false); setErr(authError(e)); });
     } else if (type === 'live-forgot') {
       var fe = g('email'); if (!fe) return setErr('Enter your email.');
+      if (B.captchaMissing()) return setErr(B.captchaMissing());
       APP.state.liveEmail = fe; busy(f, true, 'Sending…');
-      B.sb.auth.resetPasswordForEmail(fe, { redirectTo: location.origin + '/' }).then(function (r) {
-        busy(f, false);
+      B.sb.auth.resetPasswordForEmail(fe, { redirectTo: location.origin + '/', captchaToken: B.captchaToken() }).then(function (r) {
+        B.captchaReset(); busy(f, false);
+        if (r.error && /captcha/i.test(r.error.message)) return setErr(authError(r.error));
         if (r.error && /rate|seconds/i.test(r.error.message)) return setErr(authError(r.error));
         f.innerHTML = '<p class="center">If an account exists for <strong>' + esc(fe) + '</strong>, a reset link is on its way. Check your inbox and spam folder.</p><a class="btn btn-ghost btn-block" href="#/login">Back to sign in</a>';
       });

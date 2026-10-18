@@ -1708,3 +1708,7 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 #save-ind{position:fixed;left:16px;bottom:16px;z-index:56;padding:7px 12px;border-radius:999px;background:#0f172a;color:#fff;font-size:12.5px;font-weight:600;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s;pointer-events:none}
 #save-ind.show{opacity:.92;transform:none}
 @media (max-width:600px){#save-ind{bottom:calc(72px + env(safe-area-inset-bottom));left:12px}}
+
+/* bot check */
+.ts-box{display:flex;justify-content:center;min-height:65px;margin:6px 0 4px}
+.ts-box:empty{min-height:0}
