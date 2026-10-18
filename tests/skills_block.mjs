@@ -1,0 +1,12 @@
+import {createRequire} from 'module'; import {execSync} from 'child_process';
+const require=createRequire(import.meta.url);
+const {chromium}=require('playwright');
+const b=await chromium.launch(); const p=await b.newPage();
+await p.route('**/fonts.googleapis.com/**',r=>r.abort());
+await p.goto('http://localhost:'+(process.env.PORT_DEMO||8124)+'/index.html'); await p.waitForSelector('.hero');
+await p.evaluate(()=>{ APP.wizC={step:3,data:Object.assign(APP.wizCDefaults(),{roleType:'functional',roleTypes:['functional'],skills:[],_rtFor:'functional'})}; APP._formSyncSkip=['wiz-c']; location.hash='#/onboard'; APP.render(); });
+await p.waitForTimeout(300);
+await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(300);
+const r=await p.evaluate(()=>({step:APP.wizC.step,err:!!document.querySelector('.wiz-sec.has-err .field-error')}));
+console.log(r.step===3&&r.err?'ok   empty skills blocks Continue with inline error':'FAIL '+JSON.stringify(r));
+await b.close();

@@ -1,0 +1,49 @@
+# Runs every test before anything reaches the live site.
+# Work is pushed to the "staging" branch. When all tests pass, this workflow moves "main" forward to the
+# same commit, and Netlify publishes "main". If a test fails, main (and the live site) stays as it was.
+name: Tests
+
+on:
+  push:
+    branches: [staging, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Syntax check
+        run: for f in js/*.js netlify/edge-functions/*.js netlify/functions/*.js; do node --check "$f"; done
+
+      - name: Install test tools
+        working-directory: tests
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run all tests
+        working-directory: tests
+        run: node run.mjs
+
+      - name: Publish (move main to this commit)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+        run: git push origin HEAD:main

@@ -1,0 +1,22 @@
+[
+  {
+    "title": "SAP C4C Technical Lead (SDK & Functional)",
+    "extEmployer": "Cognizant",
+    "extSource": "Company career page",
+    "applyUrl": "https://careers.cognizant.com/global-en/jobs/00070406491/sap-c2c/",
+    "roleType": "technical",
+    "requires": [
+      { "productId": "cx", "moduleId": "salescloud" },
+      { "productId": "cx", "moduleId": "servicecloud", "orPrev": true },
+      { "productId": "btp", "moduleId": "integration" }
+    ],
+    "country": "ae",
+    "city": "Dubai",
+    "remote": false,
+    "employmentType": "Full-time",
+    "duration": "Permanent",
+    "minExp": 5,
+    "level": "Senior",
+    "description": "About the role\nCognizant is hiring an SAP C4C consultant and technical lead in Dubai who combines SDK development (Cloud Applications Studio / PDI) with functional depth in Sales and Service. You will own C4C solutions end to end, from requirements and process design through custom development, integration with SAP S/4HANA and post go-live support. Hybrid role, day shift, no travel.\n\nWhat you'll do\n- Gather business requirements and turn them into C4C functional designs and technical specifications\n- Configure business roles and access restrictions, org structure (sales org, distribution channel, division, sales office), involved parties, workflows, approvals, surveys and KPIs/reporting\n- Build in Cloud Applications Studio: custom business objects, extension fields, embedded components, BO actions and validations, mass data runs and web services\n- Write ABSL logic and events for business rules and validations (e.g. duplicate checks on key fields, mandatory-field and save-time checks)\n- Design and support the C4C to S/4HANA integration through Integration Suite (CPI): OData APIs, ID mapping, employee and customer master replication\n- Diagnose replication and sync issues (ID mapping gaps, master data mismatches with ERP) and drive them to resolution\n- Support data migration: templates, data loads, validation and post-migration reconciliation\n- Write functional and technical documentation, run unit and integration testing, and support UAT and cutover\n- Provide AMS support: incident analysis, root-cause identification and corrective code or data fixes\n- Work with integration, Basis and frontend teams on cross-system changes\n- Lead technical design of solutions that bring together generative AI, middleware (CPI, PI) and customer-facing applications\n- Build and improve user interfaces and Ruby scripting components that reduce manual work\n- Manage the lifecycle of custom objects and extensions with a focus on reuse and scalability\n- Design secure, performant OData services for analytics, reporting, digital channels and partner systems\n- Define data models, mappings and validation routines for trustworthy reporting\n- Run technical reviews, testing and performance tuning across integrations, scripts and extensions\n- Provide documentation and knowledge transfer to project and support teams\n- Monitor usage and user feedback to drive continuous improvement\n\nWhat you bring\n- 5+ years of hands-on SAP C4C covering both SDK development and functional configuration (the posting cites 5-8 years overall)\n- Strong SDK skills: PDI, ABSL, BODL, custom BOs, extension fields, embedded components, OData services, and patch/assemble/deploy lifecycle\n- Functional C4C Sales (accounts, contacts, leads, opportunities, activities, visits) and/or Service (tickets, SLAs, categorisation)\n- C4C master data experience: business partners, employees, org management and ID mapping with ERP/S/4HANA\n- CPI / Integration Suite and standard C4C to ERP/S/4 prepackaged content; comfortable with OData/SOAP APIs and message monitoring\n- A track record fixing replication and sync defects between C4C and ERP or S/4HANA\n- Practical generative AI use cases, middleware design (CPI, PI), UI development and Ruby scripting\n- Good understanding of sales and service processes, data sources and reporting structures\n- Background in user experience and IT business support\n- Strong analysis and communication; able to work directly with business users\n- Bachelor's degree in Computer Science, Engineering, Information Systems or equivalent experience\n\nNice to have\n- Sales/Service Cloud V2 or migration from C4C to V2\n- SAP certification in C4C / Sales Cloud or Cloud Applications Studio\n- Industry sales process experience (e.g. automotive, retail or financial services)"
+  }
+]

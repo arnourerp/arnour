@@ -4,3 +4,10 @@
   to = "/index.html"
   status = 404
   force = true
+
+# test files are for the build check only, not part of the site
+[[redirects]]
+  from = "/tests/*"
+  to = "/index.html"
+  status = 404
+  force = true
