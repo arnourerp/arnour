@@ -445,7 +445,7 @@ APP.views['e-jobs'] = function () {
     '<div class="card job-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer">' +
     '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title) + (j.status !== 'open' ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h3>' +
     '<p class="muted">' + APP.h(APP.locText(j)) + (j.remote ? ' · Remote-friendly' : '') + ' · Posted ' + APP.timeAgo(j.postedTs) + '</p></div>' +
-    '<span class="match m-mid">' + (j.applicants || []).length + ' applicant(s)</span></div>' +
+    '<span class="match m-mid">' + (j.applicants || []).length + ' applicant(s)</span>' + (APP.safeApplyUrl(j) ? '<span class="pill ext-pill" title="Candidates apply on your career portal">' + APP.icon('ext', 12) + ' Applies on your site</span>' : '') + '</div>' +
     '<div class="job-reqs">' + APP.reqChipsHtml(j, '') + (APP.jobIndustries(j).length ? '<span class="chip" title="' + APP.h(APP.jobIndustries(j).join(', ')) + '">' + APP.h(APP.jobIndustryLabel(j, 2)) + '</span>' : '') + (j.certification ? '<span class="chip">' + APP.h('Cert: ' + (j.certification === 'required' ? 'required' : 'preferred')) + '</span>' : '') + (j.preferredLangs && j.preferredLangs.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredLangs.join(', ')) + '</span>' : '') + (j.preferredSpecialties && j.preferredSpecialties.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredSpecialties.map(id => APP.specialtyName(id)).join(', ')) + '</span>' : '') + '</div>' +
     '<div class="job-foot"><span class="muted small">' + (j.editedTs ? 'Edited ' + APP.timeAgo(j.editedTs) : '') + '</span><button class="btn btn-outline btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Edit</button></div>' +
     '</div>'
@@ -501,6 +501,8 @@ APP.jobFormView = function (mode) {
     '<label class="field"><span class="label">Type</span><select name="employmentType" class="input">' + APP.opt(APP.jobTypes.map(t => [t, t]), d.employmentType) + '</select></label>' +
     '<label class="field"><span class="label">Duration</span><select name="duration" class="input">' + APP.opt(((d.employmentType === 'Full-time') ? ['Permanent'] : APP.durations.filter(x => x !== 'Permanent')).map(x => [x, x]), d.duration) + '</select></label>' +
     '</div>' +
+    '<label class="field"><span class="label">Apply on your own career portal <span class="muted">(optional)</span></span><input name="applyUrl" type="url" inputmode="url" class="input" value="' + APP.h(d.applyUrl || '') + '" placeholder="https://careers.yourcompany.com/job/123"' + (!editing && APP.state.jobErr && APP.state.jobErr.applyUrl ? ' aria-invalid="true"' : '') + '>' + err('applyUrl') +
+      '<p class="field-hint">Add a link and candidates apply on your site instead of on Arnour. Leave it empty to receive applications here.</p></label>' +
     '<label class="field checkbox-field"><input type="checkbox" name="remote" ' + (d.remote ? 'checked' : '') + '> Remote-friendly</label>' +
     '<label class="field checkbox-field chk-line"><input type="checkbox" name="confidential" ' + (APP.coHidden(co, d) ? 'checked' : '') + '> <span>Keep my company confidential for this role<small class="muted"> — professionals see “Confidential company” until you accept an introduction.</small></span></label>';
 
@@ -696,7 +698,8 @@ APP.views['e-job-detail'] = function (ctx) {
     (APP.SHOW_RATES ? '<span>' + APP.icon('file') + E(APP.fmtRange(job)) + '</span>' : '') +
     (job.duration ? '<span>' + APP.icon('check') + E(job.duration) + '</span>' : '') +
     '</div>' +
-    '<p class="muted small jd-posted">Posted ' + APP.timeAgo(job.postedTs) + (job.editedTs ? ' · Edited ' + APP.timeAgo(job.editedTs) : '') + '</p></header>' +
+    '<p class="muted small jd-posted">Posted ' + APP.timeAgo(job.postedTs) + (job.editedTs ? ' · Edited ' + APP.timeAgo(job.editedTs) : '') + '</p>' +
+    (APP.safeApplyUrl(job) ? '<p class="ext-note-e">' + APP.icon('ext', 14) + '<span>Candidates apply on <a class="ext-link" href="' + E(APP.safeApplyUrl(job)) + '" target="_blank" rel="noopener noreferrer">' + E(new URL(APP.safeApplyUrl(job)).hostname.replace(/^www\./, '')) + '</a>. Professionals who tell us they applied there appear below as applicants.</span></p>' : '') + '</header>' +
     '<div class="jd-grid"><div class="jd-left">' + tabs + body + '</div>' + side + '</div></div>';
 };
 

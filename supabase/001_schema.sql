@@ -279,7 +279,7 @@ $$ select case when public._co_hidden(co, null::public.jobs)
 create or replace function public.list_jobs() returns setof jsonb
 language plpgsql stable security definer set search_path = public as
 $$
-declare jb public.jobs; co public.companies; ent text := my_entity(); out_co text;
+declare jb public.jobs; co public.companies; ent text := my_entity(); out_co text; d jsonb;
 begin
   for jb in select * from public.jobs j
             where public._visible(j.owner, j.sample) and (j.status = 'open' or j.owner = auth.uid()
@@ -290,7 +290,9 @@ begin
     if _co_hidden(co, jb) then
       out_co := case when jb.confidential is true then jb.alias else co.alias end;
     else out_co := jb.company_id; end if;
-    return next (jb.data || jsonb_build_object('id', jb.id, 'companyId', out_co, 'status', jb.status,
+    d := jb.data;
+    if auth.uid() is null then d := d - 'applyUrl'; end if; /* the external apply link is for signed-in people only */
+    return next (d || jsonb_build_object('id', jb.id, 'companyId', out_co, 'status', jb.status,
                   'postedTs', jb.posted_ts, 'confidential', jb.confidential, 'sample', jb.sample,
                   'mine', jb.owner is not distinct from auth.uid() and auth.uid() is not null));
   end loop;

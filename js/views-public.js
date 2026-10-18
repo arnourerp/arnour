@@ -574,7 +574,12 @@ APP.views['job-detail'] = function (ctx) {
     } else if (!open) {
       act = '<div class="jd-applied closed">This role is closed</div><div class="btn-row"><button class="btn btn-ghost btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button></div>';
     } else {
-      act = '<button class="btn btn-primary jd-apply" data-action="apply" data-id="' + job.id + '">Apply now</button>' +
+      const ext = APP.safeApplyUrl(job), opened = !!(APP.state.extOpened && APP.state.extOpened[job.id]);
+      act = (ext
+        ? '<button class="btn btn-primary jd-apply" data-action="ext-apply" data-id="' + job.id + '">Apply on company site ' + APP.icon('ext', 15) + '</button>' +
+          '<p class="muted small ext-note">You will leave Arnour to apply on ' + E(APP.applyDomain(job)) + '.</p>' +
+          (opened ? '<div class="ext-after"><span>Finished applying?</span><button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button></div>' : '')
+        : '<button class="btn btn-primary jd-apply" data-action="apply" data-id="' + job.id + '">Apply now</button>') +
         '<div class="btn-row"><button class="btn btn-outline btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button>' +
         '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button></div>';
     }

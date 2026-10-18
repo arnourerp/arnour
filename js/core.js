@@ -967,6 +967,25 @@ APP.h = function (s) {
 };
 
 /* Normalizes a user-typed profile URL: trims, adds https:// when missing. */
+/* External apply link on a role: only plain http(s) links are ever used. Returns the clean URL or ''. */
+APP.safeApplyUrl = function (job) {
+  const raw = job && job.applyUrl ? APP.normUrl(job.applyUrl) : '';
+  if (!raw || raw.length > 500) return '';
+  try { const u = new URL(raw); return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.indexOf('.') > 0 ? u.href : ''; } catch (e) { return ''; }
+};
+/* What we show next to the button: the site's domain — but never for a confidential role, where the domain would name the company. */
+APP.applyDomain = function (job) {
+  const u = APP.safeApplyUrl(job); if (!u) return '';
+  const hidden = job.confidential || APP.coHidden(APP.company(job.companyId), job);
+  return hidden ? 'the company career portal' : new URL(u).hostname.replace(/^www\./, '');
+};
+APP.openExternalApply = function (jobId) {
+  const job = APP.job(jobId); const u = job && APP.safeApplyUrl(job);
+  if (!u) return;
+  window.open(u, '_blank', 'noopener,noreferrer');
+  APP.state.extOpened = APP.state.extOpened || {}; APP.state.extOpened[jobId] = true;
+  APP.render();
+};
 APP.normUrl = function (v) {
   v = String(v == null ? '' : v).trim();
   if (!v) return '';
@@ -1999,7 +2018,7 @@ APP.jobActionButtons = function (job, kind) {
     return html;
   }
   const applied = APP.userKey() && (job.applicants || []).includes(APP.userKey());
-  if (!applied) html += '<button class="btn btn-primary btn-sm" data-action="apply" data-id="' + job.id + '">Apply</button>';
+  if (!applied) html += APP.safeApplyUrl(job) ? '<button class="btn btn-primary btn-sm" data-action="ext-apply" data-id="' + job.id + '">Apply on company site ' + APP.icon('ext', 13) + '</button>' + (APP.state.extOpened && APP.state.extOpened[job.id] ? '<button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button>' : '') : '<button class="btn btn-primary btn-sm" data-action="apply" data-id="' + job.id + '">Apply</button>';
   else html += '<button class="btn btn-outline btn-sm" disabled>' + APP.icon('check', 14) + ' Applied</button>';
   html += '<button class="btn btn-ghost btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button>';
   if (APP.canSeeCompany(APP.company(job.companyId), job)) html += '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button>';
@@ -2544,6 +2563,7 @@ APP.jobStepErrors = function (d, step) {
     if (!String(d.title || '').trim()) e.title = 'Add a job title';
     if (!APP.roleTypeById[d.roleType]) e.roleType = 'Choose the type of role — it decides how professionals are ranked';
     if (!d.country) e.country = 'Select the country for this role';
+    if (d.applyUrl && String(d.applyUrl).trim() && !APP.safeApplyUrl(d)) e.applyUrl = 'Enter a full link such as https://careers.yourcompany.com/job/123';
     if (APP.SHOW_RATES && d.rateMin && d.rateMax && +d.rateMin > +d.rateMax) e.pay = 'Pay minimum should be lower than the maximum';
   }
   if (step === 2) {
@@ -3496,6 +3516,14 @@ APP.onClick = function (el, e) {
       APP.confirmApply(d.id);
       break;
 
+    case 'ext-apply':
+      APP.openExternalApply(d.id);
+      break;
+
+    case 'ext-applied':
+      APP.applyToJob(d.id, 'Applied on the company career portal');
+      break;
+
     case 'withdraw':
       APP.confirmWithdraw(d.id);
       break;
@@ -4093,6 +4121,9 @@ APP.onSubmit = function (f) {
         d.rateMin = +g('rateMin') || 0;
         d.rateMax = +g('rateMax') || 0;
       }
+      d.applyUrl = APP.normUrl(g('applyUrl'));
+      if (d.applyUrl && !APP.safeApplyUrl(d)) { APP.toast('The apply link looks invalid — use a full link such as https://careers.yourcompany.com/job/123'); return; }
+      if (!d.applyUrl) delete d.applyUrl;
       d.minExp = +g('minExp') || 0;
       delete d.maxExp;
       d.level = g('level');

@@ -1669,3 +1669,9 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .prod-add-card .pa-t b { font-size: 14.5px; }
 .prod-add-card .pa-t small { color: var(--mut); font-size: 12.5px; }
 @media (max-width: 600px) { .mod-line { grid-template-columns: 1fr 96px !important; } }
+
+/* ---- external apply link ---- */
+.ext-note { margin: 8px 0 0; }
+.ext-after { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #F0F9FF; border: 1px solid #BAE6FD; font-size: 13px; }
+.ext-pill { background: #F0F9FF; color: var(--accent-blue-ink); border: 1px solid #BAE6FD; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 11.5px; }
+.ext-note-e { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: #F0F9FF; border: 1px solid #BAE6FD; font-size: 13px; color: var(--accent-blue-ink); }
