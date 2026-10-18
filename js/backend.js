@@ -411,6 +411,21 @@
     list.forEach(function (c) { ids[c.id] = 1; if (c.id !== me) db.consultants[c.id] = c; });
     Object.keys(db.consultants).forEach(function (id) { if (id !== me && !ids[id] && !(B._authors && B._authors[id])) delete db.consultants[id]; });
   };
+  /* load roles, companies and community right now (used when a link points to a role this tab has not loaded yet) */
+  B.refreshPublicNow = function () {
+    if (!B.sb) return Promise.resolve();
+    return B.fetchPublic().then(function (pub) {
+      if (!B.profile) { /* signed out: just add what came back */
+        pub.jobs.forEach(function (j) { delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = []; APP.db.jobs[j.id] = j; });
+        pub.companies.forEach(function (c) { APP.db.companies[c.id] = c; });
+        return;
+      }
+      if (B.pending()) return;
+      B.applyPublic(APP.db, pub);
+      if (B._lastPrivate) B.applyPrivate(APP.db, B._lastPrivate);
+      B.snap = B.makeSnap();
+    }, function () { /* offline: the page says not found */ });
+  };
   B.poll = function (force) {
     if (B.suspended || !B.profile || document.hidden || B.running || B.polling || B.pending()) return;
     B.polling = true; B.pollN++;

@@ -69,5 +69,15 @@ const v2=(await q(`select id from jobs where status='open' order by id limit 1`)
 await q(`update jobs set status='closed' where id=$1`,[v2]);
 await c.evaluate(()=>{APP.backend.pollN=7; APP.backend.poll();}); await c.waitForTimeout(1200);
 t('closed role removed on public refresh',await c.evaluate(id=>!APP.db.jobs[id],v2));
+
+// a role created after this tab loaded opens from a link instead of "not found"
+const eid=(await q(`select id from companies where sample order by id limit 1`))[0].id;
+const own=(await q(`select owner from companies where id=$1`,[eid]))[0].owner;
+await q(`insert into jobs(id,company_id,owner,status,confidential,data) values ('j-fresh1',$1,$2,'open',true,'{"title":"Fresh Confidential Role","requires":[]}'::jsonb)`,[eid,own]);
+t('new role not yet in this tab',await c.evaluate(()=>!APP.db.jobs['j-fresh1']));
+await go(c,'#/job/j-fresh1'); await c.waitForTimeout(1200);
+const jt=await c.evaluate(()=>document.getElementById('main').innerText);
+t('role opens from the link',/Fresh Confidential Role/.test(jt)&&!/not found/i.test(jt),jt.slice(0,200));
+t('confidential company stays hidden on that page',/Confidential company/i.test(jt),jt.slice(0,300));
 console.log(errors.slice(0,5));
 console.log(fails?'FAILS '+fails:'ALL PASSED'); await browser.close();

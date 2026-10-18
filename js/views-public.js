@@ -552,7 +552,17 @@ APP.jobSections = function (job, me) {
 
 APP.views['job-detail'] = function (ctx) {
   const job = APP.job(ctx.p[0]);
-  if (!job) return '<div class="empty">Job not found — this role may no longer be listed.</div>';
+  if (!job) {
+    /* a role posted moments ago may not be in this tab yet (the role list refreshes every few minutes): fetch once before giving up */
+    const id = ctx && ctx.p && ctx.p[0], B = APP.backend;
+    APP.state.jobTried = APP.state.jobTried || {};
+    if (APP.LIVE && B && B.refreshPublicNow && id && !APP.state.jobTried[id]) {
+      APP.state.jobTried[id] = true;
+      B.refreshPublicNow().then(function () { if (location.hash === '#/job/' + id) APP.render(); });
+      return '<div class="empty">Loading the role…</div>';
+    }
+    return '<div class="empty">Job not found — this role may no longer be listed.</div>';
+  }
   const co = APP.coFor(APP.company(job.companyId), job);
   const sess = APP.db.session;
   const isC = sess && sess.role === 'consultant';
