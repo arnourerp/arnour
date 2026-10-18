@@ -203,7 +203,27 @@
   var ROLE_IDS = ['functional', 'technical', 'basis', 'architect', 'delivery', 'support', 'keyuser', 'junior'];
   function checkImport(text) {
     var arr, out = [];
-    try { arr = JSON.parse(text); } catch (e) { return { error: 'This is not valid JSON: ' + e.message }; }
+    try { arr = JSON.parse(text); } catch (e) {
+      /* be forgiving: strip code fences / smart quotes, and escape raw line breaks that landed inside a text value */
+      var fixed = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");
+      var out2 = '', inStr = false, esc = false, ch, k;
+      for (k = 0; k < fixed.length; k++) {
+        ch = fixed.charAt(k);
+        if (inStr) {
+          if (esc) { esc = false; out2 += ch; }
+          else if (ch === '\\') { esc = true; out2 += ch; }
+          else if (ch === '"') { inStr = false; out2 += ch; }
+          else if (ch === '\n') out2 += '\\n';
+          else if (ch === '\r') { /* drop */ }
+          else if (ch === '\t') out2 += '\\t';
+          else out2 += ch;
+        } else { if (ch === '"') inStr = true; out2 += ch; }
+      }
+      try { arr = JSON.parse(out2); } catch (e2) {
+        var tail = !/\]\s*$/.test(fixed);
+        return { error: (tail ? 'The text looks cut off: it does not end with ]. Copy the whole code block again (use the Copy button on the block). ' : '') + 'This is not valid JSON: ' + e2.message };
+      }
+    }
     if (!Array.isArray(arr)) return { error: 'Expected a list (an array) of roles, starting with [' };
     if (!arr.length) return { error: 'The list is empty.' };
     if (arr.length > 50) return { error: 'Import at most 50 roles at a time.' };
