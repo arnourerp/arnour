@@ -21,7 +21,8 @@ export default async (request, context) => {
       const j = Array.isArray(jobs) ? jobs.find((x) => x.id === id && x.status === 'open') : null;
       if (j) {
         const c = Array.isArray(cos) ? cos.find((x) => x.id === j.companyId) : null;
-        const co = c && c.name ? c.name : '';
+        /* external listings name the real employer, not the Jobs on Arnour board */
+        const co = j.external && j.extEmployer ? String(j.extEmployer) : (c && c.name ? c.name : '');
         title = 'Hiring: ' + (j.title || 'SAP role') + (co ? ' — ' + co : '') + ' | Arnour';
         const bits = [j.level, j.employmentType, [j.city, j.country && String(j.country).toUpperCase()].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
         desc = cut((bits ? bits + '. ' : '') + (j.description || 'Hiring on Arnour, the talent network built for the SAP ecosystem.'), 200);

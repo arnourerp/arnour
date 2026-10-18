@@ -536,7 +536,7 @@
     B.sb.storage.from('cvs').createSignedUrl(path, 120, { download: name || true }).then(function (r) {
       if (r.error || !r.data) { APP.toast('Could not open the file. It may have been removed.'); return; }
       var a = document.createElement('a'); a.href = r.data.signedUrl; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
-    });
+    }, function () { APP.toast('Could not download the file — check your connection and try again.'); });
   };
 
   /* wizards end here: the server creates the profile and gives it its id */
@@ -702,7 +702,7 @@
       '<h3>Where it is stored</h3><p>Data is stored with our hosting and database providers (Supabase and Netlify). Emails are sent from noreply@arnour.com.</p>' +
       '<h3>Your rights</h3><p>You can edit your profile at any time and delete your account from the Account page, which removes your profile, messages and applications. To ask for a copy of your data or raise a concern, write to <a href="mailto:contact@arnour.com">contact@arnour.com</a>.</p>' +
       '<h3>Cookies</h3><p>We use browser storage only to keep you signed in. We do not use advertising cookies.</p>'+
-      '<h3>Problem reports and error logs</h3><p>If you send us a problem report we keep it with the page, browser and your account email so we can fix the issue and reply. We also record technical errors from the site (the message and page, never what you typed) and anonymous page-view counts, with no cookies and no personal data.</p>');
+      '<h3>Problem reports and error logs</h3><p>If you send us a problem report we keep it with the page, browser and your account email so we can fix the issue and reply. For visitors who are not signed in we keep a scrambled form of the network address only, to stop spam. We also record technical errors from the site (the message and page, never what you typed) and anonymous page-view counts, with no cookies and no personal data.</p>');
   };
 
   /* footer: real wording */
@@ -776,7 +776,7 @@
       var em = APP.state.liveEmail; if (!em) { APP.go('#/login'); return; }
       if (B._resendAt && Date.now() - B._resendAt < 30000) { APP.toast('Please wait a few seconds before asking again'); return; }
       B._resendAt = Date.now();
-      B.sb.auth.resend({ type: 'signup', email: em, options: { emailRedirectTo: location.origin + '/' } }).then(function (r) { APP.toast(r.error ? authError(r.error) : 'Confirmation email sent'); });
+      B.sb.auth.resend({ type: 'signup', email: em, options: { emailRedirectTo: location.origin + '/' } }).then(function (r) { APP.toast(r.error ? authError(r.error) : 'Confirmation email sent'); }, function () { B._resendAt = 0; APP.toast('Could not send the email — check your connection and try again.'); });
       return;
     }
     if (a === 'live-delete') {

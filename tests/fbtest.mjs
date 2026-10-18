@@ -47,4 +47,14 @@ r=await as('a',`select admin_health() x`); const u=r[0].x.usage; t('usage counte
 r=await as(null,`select admin_health() x`); t('anon cannot read health',r.err,r);
 r=await as(null,`select * from feedback`); t('table closed to direct reads',r.err,r);
 await as('a',`select admin_clear_errors()`); r=await as('a',`select admin_health() x`); t('clear errors',r[0].x.errors.length===0,r);
+
+// visitors: per network address limit
+await db.exec(`select set_config('request.headers','{"x-forwarded-for":"9.9.9.9, 10.0.0.1"}',false)`);
+for(let i=0;i<5;i++){ const rr=await as(null,`select submit_feedback('problem','visitor flood ${'$'}{i}','','#/','UA','{"_ip":"spoof"}'::jsonb,null) x`.replace('${'+'$'+'}{i}',String(i))); if(rr.err) console.log('unexpected',rr.err); }
+r=await as(null,`select submit_feedback('problem','sixth from same address','','#/','UA','{}'::jsonb,null) x`); t('visitor limit per address',r.err&&/too many/.test(r.err),r);
+await db.exec(`select set_config('request.headers','{"x-forwarded-for":"8.8.8.8"}',false)`);
+r=await as(null,`select submit_feedback('problem','someone else entirely','','#/','UA','{}'::jsonb,null) x`); t('other visitors not blocked',!r.err,r);
+const ipr=(await db.query(`select ctx->>'_ip' ip from feedback where message='someone else entirely'`)).rows[0];
+t('address stored only scrambled',ipr.ip&&ipr.ip!=='8.8.8.8'&&ipr.ip.length===32,ipr);
+await db.exec(`select set_config('request.headers','',false)`);
 console.log(fails?'FAILS '+fails:'ALL PASSED');

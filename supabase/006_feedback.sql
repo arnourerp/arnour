@@ -50,6 +50,7 @@ returns bigint language plpgsql security definer set search_path = public, auth 
 $$
 declare uid uuid := auth.uid(); id bigint; em text := left(btrim(coalesce(p_email,'')), 200); msg text := btrim(coalesce(p_message,''));
         r text := coalesce(public.my_role(), '');
+        ip text := coalesce(split_part(coalesce(nullif(current_setting('request.headers', true), '')::json->>'x-forwarded-for', ''), ',', 1), '');
 begin
   if char_length(msg) < 3 then raise exception 'Please describe the problem'; end if;
   if em <> '' and em !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'That email address does not look right'; end if;
@@ -57,14 +58,16 @@ begin
   if uid is not null then
     if (select count(*) from public.feedback where user_id = uid and created_ts > (extract(epoch from now())*1000)::bigint - 3600000) >= 5 then raise exception 'too many reports'; end if;
   else
-    if (select count(*) from public.feedback where user_id is null and created_ts > (extract(epoch from now())*1000)::bigint - 3600000) >= 30 then raise exception 'too many reports'; end if;
+    /* visitors: 5 per hour from one network address, and a high overall ceiling as a last guard */
+    if ip <> '' and (select count(*) from public.feedback where user_id is null and ctx->>'_ip' = md5(ip) and created_ts > (extract(epoch from now())*1000)::bigint - 3600000) >= 5 then raise exception 'too many reports'; end if;
+    if (select count(*) from public.feedback where user_id is null and created_ts > (extract(epoch from now())*1000)::bigint - 3600000) >= 200 then raise exception 'too many reports'; end if;
   end if;
   if uid is not null and em = '' then select u.email into em from auth.users u where u.id = uid; end if;
   if p_shot is not null and (uid is null or p_shot not like uid::text || '/%') then p_shot := null; end if;
   insert into public.feedback(user_id, role, email, category, message, page, ua, ctx, shot)
   values (uid, r, coalesce(em,''), case when p_category in ('problem','suggestion','other') then p_category else 'problem' end,
           left(msg, 2000), left(coalesce(p_page,''), 300), left(coalesce(p_ua,''), 300),
-          case when jsonb_typeof(p_ctx) = 'object' then p_ctx else '{}'::jsonb end, p_shot)
+          (case when jsonb_typeof(p_ctx) = 'object' then p_ctx - '_ip' else '{}'::jsonb end) || case when uid is null and ip <> '' then jsonb_build_object('_ip', md5(ip)) else '{}'::jsonb end, p_shot)
   returning feedback.id into id;
   return id;
 end $$;

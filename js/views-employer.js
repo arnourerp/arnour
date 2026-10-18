@@ -332,7 +332,7 @@ APP.views['e-talent'] = function () {
   return '<div class="search-layout">' +
     APP.talentFilterPanelHtml(f, active) +
     '<section>' + bar + APP.activeFilterBarHtml(active) +
-    '<div id="tf-results">' + (list || APP.emptyStateHtml({ icon: 'filter', title: 'No SAP talents match these criteria', text: 'Try removing module filters or widening your location search.', action: 'reset-filters', actionLabel: 'Reset all filters' })) + '</div>' +
+    '<div id="tf-results">' + (list || APP.emptyStateHtml({ icon: 'filter', title: 'No SAP professionals match these criteria', text: 'Try removing module filters or widening your location search.', action: 'reset-filters', actionLabel: 'Reset all filters' })) + '</div>' +
     '</section></div>';
 };
 
