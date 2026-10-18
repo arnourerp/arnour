@@ -261,7 +261,8 @@ begin
     select jsonb_build_object(
       'id', j.id, 'title', j.data->>'title', 'status', j.status, 'confidential', coalesce(j.confidential, false),
       'company', co.data->>'name', 'companyId', j.company_id, 'email', u.email, 'sample', j.sample, 'postedTs', j.posted_ts,
-      'applicants', (select count(*) from public.applications a where a.job_id = j.id)) as r
+      'applicants', (select count(*) from public.applications a where a.job_id = j.id),
+      'external', coalesce(j.data->>'external' = 'true', false), 'extEmployer', j.data->>'extEmployer', 'expiresTs', j.data->'expiresTs') as r
     from public.jobs j
     left join public.companies co on co.id = j.company_id
     left join auth.users u on u.id = j.owner
@@ -438,6 +439,46 @@ begin
                    from (select * from public.admin_log order by id desc limit greatest(1, least(coalesce(p_limit,100), 300))) l), '[]'::jsonb);
 end $$;
 
+-- ---------- admin: import roles listed from other employers' career pages ----
+create or replace function public.admin_import_external_jobs(p_jobs jsonb) returns jsonb
+language plpgsql security definer set search_path = public, auth as
+$$
+declare
+  cid text := public._board_company(); uid uuid; it jsonb; n int := 0; skipped jsonb := '[]'::jsonb;
+  url text; nurl text; ttl text; emp text; now_ms bigint := (extract(epoch from now())*1000)::bigint;
+  posted bigint; d jsonb; k text;
+  allowed text[] := array['title','roleType','requires','country','city','remote','employmentType','duration','minExp','level',
+                          'industries','industry','description','languages','certification','extSource','extEmployer','applyUrl'];
+begin
+  perform public._require_admin();
+  if cid is null then raise exception 'The Jobs on Arnour company does not exist yet. Sign up jobs@arnour.com and create its company profile first.'; end if;
+  if jsonb_typeof(p_jobs) <> 'array' then raise exception 'Expected a list of roles'; end if;
+  if jsonb_array_length(p_jobs) > 50 then raise exception 'Import at most 50 roles at a time'; end if;
+  select owner into uid from public.companies where id = cid;
+  for it in select * from jsonb_array_elements(p_jobs) loop
+    ttl := btrim(coalesce(it->>'title','')); emp := btrim(coalesce(it->>'extEmployer','')); url := btrim(coalesce(it->>'applyUrl',''));
+    if ttl = '' or emp = '' then skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'Missing title or employer name'); continue; end if;
+    if url !~* '^https://[^ ]+\.[^ ]+$' or length(url) > 500 then skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'Apply link must be a full https link'); continue; end if;
+    if jsonb_typeof(it->'requires') is distinct from 'array' or jsonb_array_length(it->'requires') = 0 then skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'No SAP skills mapped'); continue; end if;
+    nurl := regexp_replace(lower(url), '(/|#.*)$', '');
+    if exists (select 1 from public.jobs j where j.company_id = cid and regexp_replace(lower(coalesce(j.data->>'applyUrl','')), '(/|#.*)$', '') = nurl) then
+      skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'Already imported (same link)'); continue;
+    end if;
+    d := '{}'::jsonb;
+    foreach k in array allowed loop if it ? k then d := d || jsonb_build_object(k, it->k); end if; end loop;
+    d := d || jsonb_build_object('title', left(ttl, 140), 'extEmployer', left(emp, 120), 'applyUrl', url, 'external', true,
+                                 'description', left(coalesce(it->>'description',''), 3000));
+    if d ? 'extSource' then d := d || jsonb_build_object('extSource', left(d->>'extSource', 80)); end if;
+    posted := now_ms;
+    d := d || jsonb_build_object('expiresTs', posted + 60::bigint*86400000);
+    insert into public.jobs(id, company_id, owner, status, confidential, data, posted_ts)
+    values ('x-' || substr(replace(gen_random_uuid()::text,'-',''),1,10), cid, uid, 'open', false, d, posted);
+    n := n + 1;
+  end loop;
+  perform public._audit('import external roles', cid, n || ' imported, ' || jsonb_array_length(skipped) || ' skipped');
+  return jsonb_build_object('imported', n, 'skipped', skipped);
+end $$;
+
 -- ---------- who may call what ----------------------------------------------
 revoke all on function
   public._is_admin(), public._require_admin(), public._audit(text,text,text), public._notify(text,text,text),
@@ -447,7 +488,7 @@ revoke all on function
   public.admin_jobs(text,int), public.admin_set_job_status(text,text,text), public.admin_delete_job(text,text),
   public.admin_posts(text,int), public._remove_post(text,text,text), public.admin_remove_post(text,text,text),
   public.admin_reports(text,int), public.admin_moderate(bigint,text,text), public.admin_conversation(text),
-  public.admin_settings(), public.admin_set_hide_samples(boolean), public.admin_log_list(int)
+  public.admin_settings(), public.admin_set_hide_samples(boolean), public.admin_log_list(int), public.admin_import_external_jobs(jsonb)
   from public, anon, authenticated;
 
 create or replace function public._grant_admin() returns void language plpgsql as
@@ -459,7 +500,7 @@ begin
     public.admin_jobs(text,int), public.admin_set_job_status(text,text,text), public.admin_delete_job(text,text),
     public.admin_posts(text,int), public.admin_remove_post(text,text,text),
     public.admin_reports(text,int), public.admin_moderate(bigint,text,text), public.admin_conversation(text),
-    public.admin_settings(), public.admin_set_hide_samples(boolean), public.admin_log_list(int)
+    public.admin_settings(), public.admin_set_hide_samples(boolean), public.admin_log_list(int), public.admin_import_external_jobs(jsonb)
     to authenticated;
 end
 $g$;

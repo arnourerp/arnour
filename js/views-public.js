@@ -543,7 +543,11 @@ APP.views['job-detail'] = function (ctx) {
   const secs = APP.jobSections(job, me);
   const descHtml = secs.desc, reqSection = secs.req, factsHtml = secs.facts;
   const coHref = co && !co._anon ? (APP.authorHref(co.id) || ('#/company/' + co.id)) : '';
-  const coSec = !co ? '' : co._anon
+  const isExt = !!job.external;
+  const extSec = '<section class="jd-sec"><h2>About this listing</h2><div class="job-co job-co-flat">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'lg') +
+    '<div class="grow"><strong>' + E(job.extEmployer || 'The employer') + '</strong><small class="muted">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</small></div></div>' +
+    '<p class="muted small" style="margin:10px 0 0">Arnour lists this role to help you find it. ' + E(job.extEmployer || 'The employer') + ' is not an Arnour member, and you apply on their own site.</p></section>';
+  const coSec = isExt ? extSec : !co ? '' : co._anon
     ? '<section class="jd-sec"><h2>About the company</h2><div class="job-co job-co-flat">' + APP.avatarHtml(co.name, 'lg') +
       '<div class="grow"><strong>Confidential company</strong><small class="muted">' + E(co.industry) + ' · ' + E(APP.countryName(co.country) || APP.locText(co)) + '</small></div></div>' +
       '<p class="muted small" style="margin:10px 0 0">' + APP.icon('lock', 12) + ' The company name is shared with you once it accepts your application' + (sess ? '.' : ' — sign up to apply.') + '</p></section>'
@@ -578,10 +582,10 @@ APP.views['job-detail'] = function (ctx) {
       act = (ext
         ? '<button class="btn btn-primary jd-apply" data-action="ext-apply" data-id="' + job.id + '">Apply on company site ' + APP.icon('ext', 15) + '</button>' +
           '<p class="muted small ext-note">You will leave Arnour to apply on ' + E(APP.applyDomain(job)) + '.</p>' +
-          (opened ? '<div class="ext-after"><span>Finished applying?</span><button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button></div>' : '')
+          (opened && !isExt ? '<div class="ext-after"><span>Finished applying?</span><button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button></div>' : '')
         : '<button class="btn btn-primary jd-apply" data-action="apply" data-id="' + job.id + '">Apply now</button>') +
         '<div class="btn-row"><button class="btn btn-outline btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button>' +
-        '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button></div>';
+        (isExt ? '' : '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button>') + '</div>';
     }
     side = '<aside class="jd-side"><div class="card jd-act">' + act + '</div>' +
       '<div class="card jd-match" id="jd-match"><h2>Your match</h2>' +
@@ -603,7 +607,7 @@ APP.views['job-detail'] = function (ctx) {
   return '<div class="jd' + (side ? '' : ' jd-one') + '">' +
     '<div class="crumb"><a class="link" href="#/jobs">← All open roles</a></div>' +
     '<header class="jd-head card">' +
-    (co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm') + '<span>' + E(co.name) + '</span></a>') : '') +
+    (isExt ? '<span class="jd-co">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'sm') + '<span>' + E(job.extEmployer || '') + '</span><span class="pill ext-badge">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</span></span>' : co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm') + '<span>' + E(co.name) + '</span></a>') : '') +
     '<h1 class="jd-title">' + E(job.title) + APP.samplePill(job) + (!open ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h1>' +
     (APP.LIVE && job.sample ? '<p class="sample-note">Sample role, for illustration. Applications to sample roles are not sent to a real company.</p>' : '') +
     (APP.modTools ? APP.modTools('job', job.id, !!(job.mine || (APP.db.session && job.companyId === APP.db.session.companyId)), true) : '') +

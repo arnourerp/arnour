@@ -4,7 +4,7 @@
   var B = APP.backend, h = APP.h;
   if (!B) return;
 
-  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', conv: null };
+  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', conv: null, imp: { text: '', rows: null, error: '', result: null, busy: false } };
   var REASONS = [
     ['spam', 'Spam or advertising'], ['abuse', 'Harassment or abuse'], ['fake', 'Fake or misleading'],
     ['inappropriate', 'Inappropriate content'], ['privacy', 'Shares private information'], ['other', 'Something else']
@@ -93,7 +93,7 @@
   }
 
   /* ---------- views ---------- */
-  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['community', 'Community'], ['settings', 'Settings & log']];
+  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['community', 'Community'], ['settings', 'Settings & log']];
 
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0;
@@ -190,12 +190,64 @@
     var w = need(key, 'admin_jobs', { p_q: A.q.roles || '', p_limit: 100 }); if (w) return w;
     var list = A.data[key];
     return '<h1>Roles</h1>' + searchBar('roles', 'Search title, company, email…') + (list.length ? list.map(function (j) {
-      return '<article class="adm-card"><div class="adm-row"><strong>' + h(j.title) + '</strong> <span class="pill muted-pill">' + h(j.status) + '</span>' + (j.sample ? ' <span class="pill muted-pill">Sample</span>' : '') + (j.confidential ? ' <span class="pill muted-pill">Confidential</span>' : '') + '</div>' +
+      return '<article class="adm-card"><div class="adm-row"><strong>' + h(j.title) + '</strong> <span class="pill muted-pill">' + h(j.status) + '</span>' + (j.sample ? ' <span class="pill muted-pill">Sample</span>' : '') + (j.external ? ' <span class="pill ext-badge">External · ' + h(j.extEmployer || '') + '</span>' : '') + (j.confidential ? ' <span class="pill muted-pill">Confidential</span>' : '') + '</div>' +
         '<p class="muted small">' + h(j.company || '') + ' · ' + h(j.email || '') + ' · posted ' + whenT(j.postedTs) + ' · ' + j.applicants + ' applicants</p>' +
         '<div class="adm-actions"><a class="btn btn-outline btn-sm" href="#/job/' + h(j.id) + '">Open</a>' +
         (j.status === 'open' ? '<button class="btn btn-outline btn-sm" data-action="adm-job-status" data-id="' + h(j.id) + '" data-s="closed">Close role</button>' : '<button class="btn btn-outline btn-sm" data-action="adm-job-status" data-id="' + h(j.id) + '" data-s="open">Reopen</button>') +
         '<button class="btn btn-danger btn-sm" data-action="adm-job-delete" data-id="' + h(j.id) + '">Delete</button></div></article>';
     }).join('') : '<div class="empty">No roles found.</div>');
+  }
+
+
+  /* ---------- import roles from company career pages ---------- */
+  var ROLE_IDS = ['functional', 'technical', 'basis', 'architect', 'delivery', 'support', 'keyuser', 'junior'];
+  function checkImport(text) {
+    var arr, out = [];
+    try { arr = JSON.parse(text); } catch (e) { return { error: 'This is not valid JSON: ' + e.message }; }
+    if (!Array.isArray(arr)) return { error: 'Expected a list (an array) of roles, starting with [' };
+    if (!arr.length) return { error: 'The list is empty.' };
+    if (arr.length > 50) return { error: 'Import at most 50 roles at a time.' };
+    arr.forEach(function (j) {
+      var w = [];
+      j = j || {};
+      if (!String(j.title || '').trim()) w.push('Missing title');
+      if (!String(j.extEmployer || '').trim()) w.push('Missing employer name');
+      if (!/^https:\/\/[^ ]+\.[^ ]+$/.test(String(j.applyUrl || ''))) w.push('Apply link must be a full https link');
+      if (!APP.countriesById[j.country]) w.push('Unknown country “' + (j.country || '') + '”');
+      if (ROLE_IDS.indexOf(j.roleType) === -1) w.push('Unknown role type “' + (j.roleType || '') + '”');
+      if (APP.jobTypes.indexOf(j.employmentType) === -1) w.push('Employment type should be one of ' + APP.jobTypes.join(', '));
+      var req = Array.isArray(j.requires) ? j.requires : [];
+      if (!req.length) w.push('No SAP skills mapped');
+      req.forEach(function (r) {
+        var p = APP.product(r && r.productId);
+        if (!p || !p.modules || !p.modules.length) w.push('Unknown product “' + (r && r.productId) + '”');
+        else if (r.moduleId !== '*' && !p.modules.some(function (m) { return m.id === r.moduleId; })) w.push('Unknown module “' + r.moduleId + '” in ' + p.name);
+      });
+      if (String(j.description || '').length > 1200) w.push('Description is long. Keep it a short summary in our own words');
+      out.push({ job: j, warn: w });
+    });
+    return { rows: out };
+  }
+  function vImport() {
+    var I = A.imp, bad = I.rows ? I.rows.filter(function (r) { return r.warn.length; }).length : 0;
+    var html = '<h1>Import jobs</h1><p class="muted">Paste the JSON produced by the “arnour-external-jobs” skill. Roles appear under <strong>Jobs on Arnour</strong>, labelled “External listing”, and expire after 60 days. Close or delete any of them anytime from the Roles tab.</p>' +
+      '<label class="field"><span class="label">Roles (JSON)</span><textarea id="imp-text" class="input" rows="10" spellcheck="false" placeholder="[ { &quot;title&quot;: &quot;…&quot;, … } ]">' + h(I.text) + '</textarea></label>' +
+      '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-imp-check">Check</button>' +
+      (I.rows && !bad ? '<button class="btn btn-primary btn-sm" data-action="adm-imp-run"' + (I.busy ? ' disabled' : '') + '>Import ' + I.rows.length + ' role' + (I.rows.length === 1 ? '' : 's') + '</button>' : '') + '</div>';
+    if (I.error) html += '<p class="field-error" role="alert">' + h(I.error) + '</p>';
+    if (I.rows) {
+      html += '<h2>' + I.rows.length + ' role' + (I.rows.length === 1 ? '' : 's') + (bad ? ' · ' + bad + ' need fixing' : ' · ready to import') + '</h2>' + I.rows.map(function (r) {
+        var j = r.job;
+        return '<article class="adm-card"><div class="adm-row"><strong>' + h(j.title || '(no title)') + '</strong> ' + (r.warn.length ? '<span class="pill muted-pill">Fix</span>' : '<span class="pill">OK</span>') + '</div>' +
+          '<p class="muted small">' + h(j.extEmployer || '') + ' · ' + h(j.extSource || '') + ' · ' + h((APP.countriesById[j.country] || {}).name || j.country || '') + (j.city ? ', ' + h(j.city) : '') + ' · ' + (Array.isArray(j.requires) ? j.requires.length : 0) + ' skill(s)</p>' +
+          (r.warn.length ? '<ul class="small">' + r.warn.map(function (w) { return '<li>' + h(w) + '</li>'; }).join('') + '</ul>' : '') + '</article>';
+      }).join('');
+    }
+    if (I.result) {
+      html += '<article class="adm-card"><strong>Imported ' + I.result.imported + '</strong>' + (I.result.skipped.length ? '<ul class="small">' + I.result.skipped.map(function (s) { return '<li>' + h(s.title || '(no title)') + ': ' + h(s.reason) + '</li>'; }).join('') + '</ul>' : '') +
+        '<div class="adm-actions"><a class="btn btn-outline btn-sm" href="#/admin/roles">See in Roles</a></div></article>';
+    }
+    return html;
   }
 
   function vCommunity() {
@@ -226,7 +278,7 @@
     if (!B.isAdmin) return '<div class="empty">Not available.</div>';
     var tab = (ctx && ctx.p && ctx.p[0]) || 'overview', rest = ctx && ctx.p && ctx.p[1];
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -286,6 +338,21 @@
             });
           } });
         break;
+      case 'adm-imp-check': {
+        var ta = document.getElementById('imp-text'); A.imp.text = ta ? ta.value : A.imp.text; A.imp.result = null;
+        var c = checkImport(A.imp.text); A.imp.error = c.error || ''; A.imp.rows = c.rows || null; APP.render(); break;
+      }
+      case 'adm-imp-run': {
+        var ta2 = document.getElementById('imp-text'); if (ta2) A.imp.text = ta2.value;
+        var c2 = checkImport(A.imp.text); if (c2.error || c2.rows.some(function (r) { return r.warn.length; })) { A.imp.error = c2.error || 'Fix the flagged roles first'; A.imp.rows = c2.rows || null; APP.render(); break; }
+        if (A.imp.busy) break; A.imp.busy = true; APP.render();
+        B.rpc('admin_import_external_jobs', { p_jobs: JSON.parse(A.imp.text) }).then(function (r) {
+          A.imp.busy = false; A.imp.result = r; A.imp.rows = null; A.imp.text = ''; A.imp.error = '';
+          allKeys().forEach(reload); reload('overview'); reload('log');
+          if (B.fetchCommunity) B.fetchCommunity().then(function (cm) { if (cm && !B.commBusy) B.applyCommunity(APP.db, cm); APP.render(); }, function () { APP.render(); }); else APP.render();
+        }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
+        break;
+      }
       case 'adm-samples': act('admin_set_hide_samples', { p_on: d.on === '1' }, d.on === '1' ? 'Sample content hidden' : 'Sample content showing', ['settings'].concat(allKeys())); break;
     }
   };

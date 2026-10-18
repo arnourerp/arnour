@@ -1582,8 +1582,9 @@ APP.locText = function (o, fallback) {
 
 APP.jobCard = function (job, score, actionsHtml, link) {
   const co = APP.coFor(APP.company(job.companyId), job);
-  const coName = co ? co.name : '';
-  const coHref = (co && !co._anon) ? APP.authorHref(co.id) : null;
+  const isExt = !!job.external;
+  const coName = isExt ? (job.extEmployer || '') : (co ? co.name : '');
+  const coHref = (!isExt && co && !co._anon) ? APP.authorHref(co.id) : null;
   if (!link) {
     const s = APP.db.session;
     link = (s && s.role === 'employer' && s.companyId === job.companyId) ? '#/e/jobs/' + job.id : '#/job/' + job.id;
@@ -1600,12 +1601,13 @@ APP.jobCard = function (job, score, actionsHtml, link) {
   const meta = APP.metaBarHtml([APP.h(loc), APP.h(job.employmentType || ''), APP.expLabel(job) ? APP.h(APP.expLabel(job)) + ' exp' : (job.level ? APP.h(job.level) + ' level' : '')]);
   return '<article class="card job-card">' +
     '<div class="card-top">' +
-    (co ? APP.avatarHtml(co.name, 'lg') : '') +
+    (isExt ? APP.avatarHtml(coName || 'Jobs', 'lg') : (co ? APP.avatarHtml(co.name, 'lg') : '')) +
     '<div class="card-id">' +
     '<p class="card-sub">' + (coHref ? '<a class="co-link" href="' + APP.h(coHref) + '">' + APP.h(coName) + '</a>' : APP.h(coName)) + '</p>' +
     '<h3 class="card-title">' + (link ? '<a href="' + APP.h(link) + '">' : '') + APP.h(job.title) + (link ? '</a>' : '') + APP.samplePill(job) +
     (job.status !== 'open' ? ' <span class="pill muted-pill">Closed</span>' : '') +
-    (co && co._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Confidential</span>' : '') +
+    (isExt ? ' <span class="pill ext-badge" title="Listed by Arnour. You apply on the employer\'s own site.">External listing</span>' : '') +
+    (!isExt && co && co._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Confidential</span>' : '') +
     (invited ? ' <span class="pill inv">' + APP.icon('check', 12) + ' Invited</span>' : '') + '</h3>' +
     '</div>' +
     '<div class="card-side">' + APP.matchPillHtml(score) + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.h(APP.fmtRange(job)) + '</span>' : '') + '</div>' +
@@ -1613,7 +1615,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
     meta +
     '<div class="card-pills">' + APP.pillsHtml(reqLabels, 4, link) + '</div>' +
     '<div class="card-foot"><span class="muted small">Posted ' + APP.timeAgo(job.postedTs) + '</span><span class="grow"></span>' +
-    (job.status === 'open' ? APP.shareIconBtn({ title: job.title, url: APP.shareUrl('#/job/' + job.id), text: job.title + (co && !co._anon ? ' at ' + co.name : '') + ' — hiring on Arnour, the SAP talent network.', tags: '#SAP #SAPJobs #Hiring' }) : '') +
+    (job.status === 'open' ? APP.shareIconBtn({ title: job.title, url: APP.shareUrl('#/job/' + job.id), text: job.title + (isExt ? (coName ? ' at ' + coName : '') : co && !co._anon ? ' at ' + co.name : '') + ' — hiring on Arnour, the SAP talent network.', tags: '#SAP #SAPJobs #Hiring' }) : '') +
     (canBreak ? '<button type="button" class="link" data-action="match-drawer" data-cid="' + fitC.id + '" data-jid="' + job.id + '">Match breakdown</button>' : '') +
     (actionsHtml || '') + '</div>' +
     '</article>';
@@ -2018,10 +2020,10 @@ APP.jobActionButtons = function (job, kind) {
     return html;
   }
   const applied = APP.userKey() && (job.applicants || []).includes(APP.userKey());
-  if (!applied) html += APP.safeApplyUrl(job) ? '<button class="btn btn-primary btn-sm" data-action="ext-apply" data-id="' + job.id + '">Apply on company site ' + APP.icon('ext', 13) + '</button>' + (APP.state.extOpened && APP.state.extOpened[job.id] ? '<button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button>' : '') : '<button class="btn btn-primary btn-sm" data-action="apply" data-id="' + job.id + '">Apply</button>';
+  if (!applied) html += APP.safeApplyUrl(job) ? '<button class="btn btn-primary btn-sm" data-action="ext-apply" data-id="' + job.id + '">Apply on company site ' + APP.icon('ext', 13) + '</button>' + (!job.external && APP.state.extOpened && APP.state.extOpened[job.id] ? '<button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button>' : '') : '<button class="btn btn-primary btn-sm" data-action="apply" data-id="' + job.id + '">Apply</button>';
   else html += '<button class="btn btn-outline btn-sm" disabled>' + APP.icon('check', 14) + ' Applied</button>';
   html += '<button class="btn btn-ghost btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button>';
-  if (APP.canSeeCompany(APP.company(job.companyId), job)) html += '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button>';
+  if (!job.external && APP.canSeeCompany(APP.company(job.companyId), job)) html += '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button>';
   return html;
 };
 

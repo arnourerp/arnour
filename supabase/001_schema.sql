@@ -282,7 +282,10 @@ $$
 declare jb public.jobs; co public.companies; ent text := my_entity(); out_co text; d jsonb;
 begin
   for jb in select * from public.jobs j
-            where public._visible(j.owner, j.sample) and (j.status = 'open' or j.owner = auth.uid()
+            where public._visible(j.owner, j.sample)
+               and (j.owner is not distinct from auth.uid() and auth.uid() is not null
+                    or not (j.data ? 'expiresTs') or (j.data->>'expiresTs')::bigint > (extract(epoch from now())*1000)::bigint)
+               and (j.status = 'open' or j.owner = auth.uid()
                or exists (select 1 from public.applications a where a.job_id = j.id and a.consultant_id = ent)
                or exists (select 1 from public.invites i where i.job_id = j.id and i.consultant_id = ent))
   loop
@@ -361,20 +364,31 @@ begin
   end if;
 end $$;
 
+-- the one company that carries listings taken from other employers' career pages
+create or replace function public._board_company() returns text
+language sql stable security definer set search_path = public, auth as
+$$ select co.id from public.companies co join auth.users u on u.id = co.owner
+   where lower(u.email) = 'jobs@arnour.com' order by co.updated_at limit 1 $$;
+
 create or replace function public.save_job(p_id text, p_data jsonb) returns text
 language plpgsql security definer set search_path = public as
 $$
-declare uid uuid := auth.uid(); eid text := my_entity(); jid text := p_id; conf boolean; st text;
+declare uid uuid := auth.uid(); eid text := my_entity(); jid text := p_id; conf boolean; st text; old jsonb;
 begin
   if my_role() <> 'employer' then raise exception 'employers only'; end if;
   conf := case when p_data ? 'confidential' and jsonb_typeof(p_data->'confidential') = 'boolean' then (p_data->>'confidential')::boolean end;
   st := coalesce(nullif(p_data->>'status',''), 'open');
   if st not in ('open','closed','filled','draft') then st := 'open'; end if;
-  p_data := p_data - array['id','companyId','status','postedTs','applicants','appliedTs','applyNotes','invited','sample','mine','confidential'];
+  p_data := p_data - array['id','companyId','status','postedTs','applicants','appliedTs','applyNotes','invited','sample','mine','confidential','external','extEmployer','extSource','expiresTs'];
   if jid is null or jid = '' or not exists (select 1 from public.jobs where id = jid) then
     jid := coalesce(nullif(p_id,''), 'j-' || substr(replace(gen_random_uuid()::text,'-',''),1,10));
     insert into public.jobs(id, company_id, owner, status, confidential, data) values (jid, eid, uid, st, conf, p_data);
   else
+    /* labels set by the import tool survive edits, and cannot be added by anyone else */
+    select data into old from public.jobs where id = jid and owner = uid;
+    if old is not null then
+      p_data := p_data || (select coalesce(jsonb_object_agg(k, old->k), '{}'::jsonb) from unnest(array['external','extEmployer','extSource','expiresTs']) k where old ? k);
+    end if;
     update public.jobs set data = p_data, status = st, confidential = conf, updated_at = now()
      where id = jid and owner = uid and company_id = eid;
     if not found then raise exception 'not your role'; end if;
@@ -393,6 +407,7 @@ declare ent text := my_entity();
 begin
   if my_role() <> 'consultant' then raise exception 'professionals only'; end if;
   if not exists (select 1 from public.jobs where id = p_job and status = 'open') then raise exception 'role not open'; end if;
+  if exists (select 1 from public.jobs where id = p_job and data->>'external' = 'true') then raise exception 'apply on the employer site'; end if;
   insert into public.applications(job_id, consultant_id, note) values (p_job, ent, left(coalesce(p_note,''), 2000))
   on conflict (job_id, consultant_id) do nothing;
 end $$;
