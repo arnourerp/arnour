@@ -47,6 +47,7 @@
   var F = { open: false, busy: false, err: '', done: false, cat: 'problem', text: '', email: '', fileName: '' };
   function root() { return document.getElementById('fb-root'); }
   function render() {
+    fab();
     var r = root(); if (!r) { r = document.createElement('div'); r.id = 'fb-root'; document.body.appendChild(r); }
     if (!F.open) { r.innerHTML = ''; r.className = ''; document.body.classList.remove('no-scroll'); return; }
     document.body.classList.add('no-scroll');
@@ -94,7 +95,19 @@
       render();
     });
   }
-  var prevClick = APP.onClick;
+  /* always-visible Feedback button (outside #app so page renders never remove it) */
+  function fab() {
+    var f = document.getElementById('fb-fab');
+    if (!f) {
+      f = document.createElement('button'); f.type = 'button'; f.id = 'fb-fab'; f.setAttribute('data-action', 'fb-open');
+      f.setAttribute('aria-label', 'Report a problem or send feedback');
+      f.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Feedback</span>';
+      document.body.appendChild(f);
+    }
+    f.style.display = (/^#\/admin/.test(location.hash) || F.open) ? 'none' : '';
+  }
+  window.addEventListener('hashchange', fab); fab();
+
   APP.onClick = function (el, e) {
     var a = el.dataset && el.dataset.action;
     if (a === 'fb-open') { if (e && e.preventDefault) e.preventDefault(); APP.openFeedback(); return; }
