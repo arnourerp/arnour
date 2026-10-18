@@ -69,7 +69,17 @@
     r.className = 'open';
     var t = document.getElementById('fb-text'); if (t && !F.done) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
   }
-  APP.openFeedback = function () { F = { open: true, busy: false, err: '', done: false, cat: 'problem', text: '', email: '', fileName: '' }; render(); };
+  APP.openFeedback = function (prefill) { F = { open: true, busy: false, err: '', done: false, cat: 'problem', text: prefill ? String(prefill) : '', email: '', fileName: '' }; render(); };
+  /* failure messages get a "Report this" link, which opens the form with the message already filled in */
+  var oToast = APP.toast;
+  APP.toast = function (msg) {
+    oToast.apply(this, arguments);
+    if (!/could not|couldn.t|failed|went wrong/i.test(String(msg))) return;
+    var slot = document.getElementById('toasts'), el = slot && slot.lastElementChild; if (!el) return;
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'toast-report'; b.textContent = 'Report this';
+    b.setAttribute('data-action', 'fb-open'); b.setAttribute('data-prefill', 'Message I saw: ' + String(msg).slice(0, 200) + '\n\nWhat I was doing: ');
+    el.appendChild(b);
+  };
   function readForm() {
     var t = document.getElementById('fb-text'), e = document.getElementById('fb-email');
     if (t) F.text = t.value; if (e) F.email = e.value;
@@ -110,7 +120,7 @@
 
   APP.onClick = function (el, e) {
     var a = el.dataset && el.dataset.action;
-    if (a === 'fb-open') { if (e && e.preventDefault) e.preventDefault(); APP.openFeedback(); return; }
+    if (a === 'fb-open') { if (e && e.preventDefault) e.preventDefault(); APP.openFeedback(el.dataset.prefill); return; }
     if (a === 'fb-close') { F.open = false; render(); return; }
     if (a === 'fb-cat') { readForm(); F.cat = el.dataset.v; render(); return; }
     if (a === 'fb-send') { send(); return; }

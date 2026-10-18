@@ -1694,3 +1694,6 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 #fb-fab:hover{box-shadow:0 6px 18px rgb(15 23 42 / .2)}
 @media (max-width:600px){#fb-fab{bottom:calc(72px + env(safe-area-inset-bottom));right:12px;padding:9px 12px}}
 @media print{#fb-fab{display:none!important}}
+
+.toast .toast-report{margin-left:12px;padding:0;border:0;background:none;color:#fff;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.toast:has(.toast-report){pointer-events:auto}
