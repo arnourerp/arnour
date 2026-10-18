@@ -4,6 +4,13 @@
   var B = APP.backend, h = APP.h;
   if (!B) return;
 
+  /* the backend client is created a moment after the page loads; wait for it and never let a logging call throw */
+  function later(fn, tries) {
+    try { if (B.sb) { fn(); return; } } catch (e) { return; }
+    if ((tries || 0) < 40) setTimeout(function () { later(fn, (tries || 0) + 1); }, 500);
+  }
+  function quiet(fn, args) { later(function () { try { B.rpc(fn, args).then(null, function () { /* never loop on our own failure */ }); } catch (e) { /* ignore */ } }); }
+
   /* ---------- recent errors kept in memory so a report can include them ---------- */
   var recent = [], sent = {}, sentN = 0;
   function pageNow() { return String(location.hash || '#/').replace(/[?].*$/, '').slice(0, 120).replace(/\/(?:[0-9a-f]{8}-[0-9a-f-]{20,}|[a-z]-[0-9a-z]{6,})/gi, '/…'); }
@@ -15,7 +22,7 @@
     var key = msg + '|' + src;
     if (sent[key] || sentN >= 10) return;
     sent[key] = 1; sentN++;
-    B.rpc('log_client_error', { p_message: msg, p_src: String(src || ''), p_page: pageNow(), p_ua: navigator.userAgent }).then(null, function () { /* never loop on our own failure */ });
+    quiet('log_client_error', { p_message: msg, p_src: String(src || ''), p_page: pageNow(), p_ua: navigator.userAgent });
   }
   window.addEventListener('error', function (e) {
     if (e && e.target && e.target !== window) return; /* images / scripts failing to load */
@@ -34,7 +41,7 @@
 
   /* ---------- usage counts: page views by section, no cookies, no identity ---------- */
   var lastSeen = '';
-  function track(name) { if (name && name !== lastSeen) { lastSeen = name; B.rpc('track_usage', { p_name: name }).then(null, function () {}); } }
+  function track(name) { if (name && name !== lastSeen) { lastSeen = name; quiet('track_usage', { p_name: name }); } }
   function trackRoute() {
     var seg = String(location.hash || '#/').replace(/^#\/?/, '').split(/[/?]/)[0].toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24) || 'home';
     track('v:' + seg);
@@ -118,6 +125,7 @@
   }
   window.addEventListener('hashchange', fab); fab();
 
+  var prevClick = APP.onClick;
   APP.onClick = function (el, e) {
     var a = el.dataset && el.dataset.action;
     if (a === 'fb-open') { if (e && e.preventDefault) e.preventDefault(); APP.openFeedback(el.dataset.prefill); return; }
