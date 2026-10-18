@@ -87,20 +87,20 @@
     db.questions = {}; db.articles = {};
     (c.questions || []).forEach(function (q) { db.questions[q.id] = q; });
     (c.articles || []).forEach(function (a) { db.articles[a.id] = a; });
-    (c.authors || []).forEach(function (a) { if (!db.consultants[a.id]) db.consultants[a.id] = a; });
+    B._authors = {}; (c.authors || []).forEach(function (a) { B._authors[a.id] = 1; if (!db.consultants[a.id]) db.consultants[a.id] = a; });
   };
-  B.fetchPrivate = function () {
+  B.fetchPrivate = function (noDir) {
     return Promise.all([
-      B.sb.rpc('list_consultants'),
+      noDir ? Promise.resolve({ data: null }) : B.sb.rpc('list_consultants'),
       B.sb.from('applications').select('*'),
       B.sb.from('invites').select('*'),
       B.sb.rpc('my_intros'),
       B.sb.rpc('my_conversations'),
-      B.sb.from('messages').select('*').order('ts', { ascending: true }).limit(5000),
+      B.sb.from('messages').select('*').order('ts', { ascending: false }).limit(5000), /* newest first, so a long history never hides new messages */
       B.sb.from('notifications').select('*').order('ts', { ascending: false }).limit(200)
     ]).then(function (r) {
       r.forEach(function (x) { if (x.error) throw x.error; });
-      return { consultants: unwrap(r[0], 'list_consultants'), apps: r[1].data || [], invs: r[2].data || [], intros: r[3].data || [], convs: r[4].data || [], msgs: r[5].data || [], nots: r[6].data || [] };
+      return { consultants: r[0].data === null ? null : unwrap(r[0], 'list_consultants'), apps: r[1].data || [], invs: r[2].data || [], intros: r[3].data || [], convs: r[4].data || [], msgs: (r[5].data || []).slice().reverse(), nots: r[6].data || [] };
     });
   };
 
@@ -165,7 +165,7 @@
         if (B.profile.role === 'consultant' && db.consultants[ent]) db.session = { role: 'consultant', consultantId: ent };
         else if (B.profile.role === 'employer' && db.companies[ent]) db.session = { role: 'employer', companyId: ent };
         else B.profile = null;
-        if (B.profile) B.applyPrivate(db, priv);
+        if (B.profile) { B.applyPrivate(db, priv); B._lastPrivate = priv; }
       }
       if (APP.migrateSpecialties) { try { APP.migrateSpecialties(db); } catch (e) { /* ignore */ } }
       APP.db = db;
@@ -368,28 +368,60 @@
     ]);
   };
 
-  B.poll = function () {
+  /* Background refresh, light by default:
+     - every 15 s: one tiny check (my_pulse). Messages, introductions, applications and notifications are reloaded only when it changes.
+     - every 2 min (or when the tab comes back after a while): roles, companies, community and the professionals directory.
+     - every 5 min: a full private reload as a safety net.
+     Anything the server no longer returns (deleted, closed to me, expired) is removed here too. */
+  var PUB_EVERY = 8, SAFE_EVERY = 20;
+  B.applyPublic = function (db, pub) {
+    var me = B.profile.entity_id;
+    var jobIds = {}, coIds = {};
+    pub.companies.forEach(function (c) { coIds[c.id] = 1; if (c.id !== me) db.companies[c.id] = c; });
+    Object.keys(db.companies).forEach(function (id) { if (id !== me && !coIds[id]) delete db.companies[id]; });
+    if (!B.commBusy && pub.community) B.applyCommunity(db, pub.community);
+    pub.jobs.forEach(function (j) {
+      jobIds[j.id] = 1;
+      var old = db.jobs[j.id];
+      if (old && old.companyId === me) return;
+      delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = [];
+      db.jobs[j.id] = j;
+    });
+    Object.keys(db.jobs).forEach(function (id) { if (!jobIds[id]) delete db.jobs[id]; });
+  };
+  B.applyDirectory = function (db, list) {
+    var me = B.profile.entity_id, ids = {};
+    list.forEach(function (c) { ids[c.id] = 1; if (c.id !== me) db.consultants[c.id] = c; });
+    Object.keys(db.consultants).forEach(function (id) { if (id !== me && !ids[id] && !(B._authors && B._authors[id])) delete db.consultants[id]; });
+  };
+  B.poll = function (force) {
     if (B.suspended || !B.profile || document.hidden || B.running || B.polling || B.pending()) return;
     B.polling = true; B.pollN++;
-    var full = B.pollN % 5 === 0;
+    var pub = force || B.pollN % PUB_EVERY === 0, safe = B.pollN % SAFE_EVERY === 0;
     var before = B.viewSig();
-    Promise.all([B.fetchPrivate(), full ? B.fetchPublic() : null]).then(function (r) {
-      if (B.pending()) return; /* the user did something meanwhile — keep their changes, try again next time */
-      var db = APP.db;
-      if (r[1]) {
-        r[1].companies.forEach(function (c) { if (c.id !== B.profile.entity_id) db.companies[c.id] = c; });
-        if (!B.commBusy && r[1].community) B.applyCommunity(db, r[1].community);
-        r[1].jobs.forEach(function (j) {
-          var old = db.jobs[j.id];
-          if (old && old.companyId === B.profile.entity_id) return;
-          delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = [];
-          db.jobs[j.id] = j;
-        });
-      }
-      r[0].consultants.forEach(function (c) { if (c.id !== B.profile.entity_id) db.consultants[c.id] = c; });
-      B.applyPrivate(db, r[0]);
-      B.snap = B.makeSnap();
-      if (B.viewSig() !== before) B.softRefresh();
+    var pulse = B.noPulse ? Promise.resolve(null) : B.sb.rpc('my_pulse').then(function (r) {
+      if (r.error) { if (/my_pulse|PGRST202|does not exist|not find/i.test((r.error.code || '') + ' ' + (r.error.message || ''))) B.noPulse = true; return null; }
+      return r.data;
+    }, function () { return null; });
+    pulse.then(function (sig) {
+      var changed = B.noPulse || sig === null || sig !== B._pulse;
+      if (!changed && !pub && !safe) return null;
+      return Promise.all([B.fetchPrivate(), pub ? B.fetchPublic() : null]).then(function (r) {
+        if (B.pending()) return; /* the user did something meanwhile — keep their changes, try again next time */
+        var db = APP.db;
+        if (r[1]) B.applyPublic(db, r[1]);
+        if (r[0]) {
+          if (r[0].consultants) B.applyDirectory(db, r[0].consultants);
+          B.applyPrivate(db, r[0]);
+        } else if (r[1]) {
+          /* roles were rebuilt: put applications and invitations back from the last private load */
+          if (B._lastPrivate) B.applyPrivate(db, B._lastPrivate);
+        }
+        if (r[0]) B._lastPrivate = r[0];
+        if (sig !== null) B._pulse = sig;
+        B.snap = B.makeSnap();
+        if (B.viewSig() !== before || r[1]) B.softRefresh();
+      });
     }).catch(function (e) { if (e && /account suspended/i.test(e.message || '')) B.onSuspended(); /* otherwise offline: next poll */ }).then(function () { B.polling = false; });
   };
   B.softRefresh = function () {
@@ -417,8 +449,11 @@
     }
   };
   B.startPolling = function () {
-    setInterval(B.poll, POLL_MS);
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) B.poll(); });
+    setInterval(function () { B.poll(); }, POLL_MS);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { B._hiddenAt = Date.now(); return; }
+      B.poll(B._hiddenAt && Date.now() - B._hiddenAt > 120000);
+    });
   };
 
   /* ------------------------------ auth ------------------------------ */

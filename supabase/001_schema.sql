@@ -727,6 +727,31 @@ grant execute on function public.list_consultants(), public.my_conversations(), 
 grant execute on function public.list_jobs(), public.list_companies(), public.get_public_profile(text), public.get_public_company(text) to anon, authenticated;
 -- helpers used inside other functions run as the function owner; they need no public grant
 
+-- a short fingerprint of everything private that can change for me; the site checks it often and
+-- reloads my messages, introductions and applications only when it changes
+create or replace function public.my_pulse() returns text
+language plpgsql stable security definer set search_path = public as
+$$
+declare ent text := my_entity(); r text := my_role(); s text;
+begin
+  if auth.uid() is null or ent is null then return ''; end if;
+  select concat_ws('|',
+    (select count(*) || ':' || coalesce(max(m.ts),0) || ':' || count(*) filter (where m.call->>'status' in ('accepted','declined'))
+       from public.messages m join public.conversations v on v.id = m.conv_id where v.c_id = ent or v.e_id = ent),
+    (select count(*) || ':' || coalesce(sum(v.c_read + v.e_read),0) || ':' || coalesce(max(v.last_ts),0)
+       from public.conversations v where v.c_id = ent or v.e_id = ent),
+    (select count(*) || ':' || coalesce(max(n.ts),0) from public.notifications n where n.user_key = ent),
+    (select count(*) || ':' || coalesce(max(greatest(i.ts, coalesce(i.resp_ts,0))),0) || ':' || count(*) filter (where i.status <> 'pending')
+       from public.intros i where i.cid = ent or i.eid = ent),
+    case when r = 'consultant' then (select count(*) || ':' || coalesce(max(a.ts),0) from public.applications a where a.consultant_id = ent)
+         else (select count(*) || ':' || coalesce(max(a.ts),0) from public.applications a join public.jobs j on j.id = a.job_id where j.company_id = ent) end,
+    case when r = 'consultant' then (select count(*)::text from public.invites x where x.consultant_id = ent)
+         else (select count(*)::text from public.invites x join public.jobs j on j.id = x.job_id where j.company_id = ent) end
+  ) into s;
+  return s;
+end $$;
+grant execute on function public.my_pulse() to authenticated;
+
 -- ---------- CV files (private storage bucket "cvs") -------------------------
 create or replace function public.can_read_cv(p_name text) returns boolean
 language sql stable security definer set search_path = public as
