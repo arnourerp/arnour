@@ -267,10 +267,20 @@ APP.ROLE_PROFILE = {
   technical:  { skills: 'optional', ind: 'many',     lvl: 1, prog: '' },
   basis:      { skills: 'products', ind: '',         lvl: 1, prog: '' },
   architect:  { skills: 'modules',  ind: 'many',     lvl: 1, prog: 'Programs delivered' },
-  delivery:   { skills: 'products', ind: 'many',     lvl: 1, prog: 'Projects led' },
+  delivery:   { skills: 'modules',  ind: 'many',     lvl: 1, prog: 'Projects led' },
   support:    { skills: 'modules',  ind: 'optional', lvl: 1, prog: '' },
   keyuser:    { skills: 'modules',  ind: 'one',      lvl: 0, prog: '' },
   junior:     { skills: 'products', ind: '',         lvl: 0, prog: '' }
+};
+/* Leadership / design roles describe themselves by specialties first; SAP products are required, modules optional. */
+APP.LEAD_RTS = ['architect', 'delivery'];
+APP.isLeadRole = function (d) { const rt = d && (APP.rtList(d)[0] || d.roleType); return APP.LEAD_RTS.indexOf(rt) !== -1; };
+/* products with no module ticked are kept as product-level rows (moduleId '*') */
+APP.normalizeLandscape = function (skills) {
+  const out = [], seen = {};
+  (skills || []).forEach(k => { if (k.productId && k.moduleId && k.moduleId !== '*') { out.push(k); seen[k.productId] = 1; } });
+  (skills || []).forEach(k => { if (k.productId && !seen[k.productId]) { seen[k.productId] = 1; out.push(Object.assign({}, k, { moduleId: '*', projects: +k.projects || 0 })); } });
+  return out;
 };
 APP.ROLE_SPECIALTIES = {
   functional: ['fit-standard', 'process-mining', 'greenfield', 'brownfield', 'activate', 'data-migration', 'mdg', 'cutover', 'localization', 'testing', 'hypercare', 'training'],
@@ -2479,6 +2489,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
   const order = []; skills.forEach(k => { if (k.productId && order.indexOf(k.productId) === -1) order.push(k.productId); });
   const unused = CATALOG.products.filter(p => order.indexOf(p.id) === -1);
   let nMods = 0;
+  const leadT = APP.isLeadRole(target === 'wizC' ? (APP.wizC && APP.wizC.data) : APP.profileDraft); /* leadership: modules optional */
   const cards = order.map(function (pid) {
     const idxs = []; skills.forEach((k, i) => { if (k.productId === pid) idxs.push(i); });
     const sel = idxs.filter(i => real(skills[i])).map(i => skills[i].moduleId); nMods += sel.length;
@@ -2497,7 +2508,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
     return '<div class="prod-card" data-prod="' + APP.h(pid) + '">' +
       '<div class="req-card-h"><label class="field prod-sel"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="' + target + '" data-pid="' + APP.h(pid) + '">' + opts + '</select></label>' +
       '<button type="button" class="icon-btn" data-action="prod-rm" data-target="' + target + '" data-pid="' + APP.h(pid) + '" title="Remove this product" aria-label="Remove this product">' + APP.icon('x', 15) + '</button></div>' +
-      '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you have delivered') + ' <span class="muted">— tick all that apply</span></span>' +
+      '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you have delivered') + ' <span class="muted">— ' + (leadT ? 'optional' : 'tick all that apply') + '</span></span>' +
       APP.moduleChipsHtml(pid, sel, 'data-target="' + target + '" data-pid="' + APP.h(pid) + '"', target + ':' + pid, false) + '</div>' +
       (lines ? '<div class="mod-lines"><div class="mod-lines-h">' + (mode === 'optional' ? 'How many projects? <span class="muted">(optional)</span>' : 'How many projects?') + '</div>' + lines + '</div>' : '') +
       (sel.length ? '<div class="cert-box"><div class="mod-lines-h"><b>SAP certification</b> <span class="muted">(optional)</span> <span class="muted small">— tap the modules you hold a certificate in</span></div><div class="chip-wrap">' + certChips + '</div></div>' : '') +
@@ -2508,7 +2519,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
     '<option value="">Choose your SAP product…</option>' + APP.opt(CATALOG.products.map(p => [p.id, p.name]), '') + '</select></label></div>' +
     '<p class="muted small prod-empty-h">Pick a product to see its modules.</p></div>';
   return '<div class="prod-cards">' + cards + emptyCard + '</div>' +
-    (unused.length && nMods ? '<button type="button" class="prod-add-card" data-action="prod-add" data-target="' + target + '"><span class="pa-ico">' + APP.icon('plus', 18) + '</span><span class="pa-t"><b>Add another SAP product</b><small>e.g. BTP, SuccessFactors, Ariba</small></span></button>' : '') +
+    (unused.length && (nMods || (leadT && order.length)) ? '<button type="button" class="prod-add-card" data-action="prod-add" data-target="' + target + '"><span class="pa-ico">' + APP.icon('plus', 18) + '</span><span class="pa-t"><b>Add another SAP product</b><small>e.g. BTP, SuccessFactors, Ariba</small></span></button>' : '') +
     (nMods ? '<p class="muted small prod-count">' + nMods + ' module' + (nMods === 1 ? '' : 's') + ' across ' + order.length + ' product' + (order.length === 1 ? '' : 's') + '</p>' : '');
 };
 /* Products only (Basis, Project / Delivery Manager, Junior): tick the SAP products you work with — no modules, no counts. */
@@ -3854,8 +3865,12 @@ APP.onClick = function (el, e) {
       /* finish early from step 3 on: validate the skills, then submit the last step with whatever is filled in */
       if (!APP.wizC) return;
       APP.syncFormsToDrafts(null);
-      const okSk = (APP.wizC.data.skills || []).some(k => k.productId && k.moduleId);
-      if (!okSk) { APP.toast('Add at least one complete skill (product + module) first'); return; }
+      const w0 = APP.wizC.data, lead0 = APP.isLeadRole(w0);
+      if (lead0) w0.skills = APP.normalizeLandscape(w0.skills);
+      const back = (st, key, msg) => { APP.wizC.step = st; APP.wizC.err = { [key]: msg }; APP.toast(msg); APP._formSyncSkip = ['wiz-c']; APP.render(); };
+      if (lead0 && (w0.specialties || []).length < 2) { back(4, 'spec', 'Pick at least 2 specialties first'); return; }
+      const okSk = (w0.skills || []).some(k => k.productId && k.moduleId);
+      if (!okSk) { if (lead0) back(3, 'skills', 'Pick at least one SAP product first'); else APP.toast('Add at least one complete skill (product + module) first'); return; }
       APP.wizC.step = 6;
       APP.render();
       const fin = document.querySelector('form[data-form="wiz-c"]');
@@ -3937,22 +3952,32 @@ APP.onSubmit = function (f) {
           return;
         }
         APP.wizC.err = null;
-        if (d._rtFor !== d.roleType) { d.skills = APP.defaultSkillsFor(d); d._rtFor = d.roleType; } /* a new role starts from the skills it needs */
+        d._rtFor = d.roleType; /* changing role reorders the steps; nothing already entered is dropped */
         if (d.roleType === 'junior') d.level = 'Junior';
       } else if (step === 2) {
         d.yearsExp = Math.max(1, +g('yearsExp') || 1);
         d.level = APP.roleProfile(d).lvl ? (g('level') || 'Mid') : (d.roleType === 'junior' ? 'Junior' : APP.levelFromYears(d.yearsExp));
         d.availability = g('availability') || APP.availability[0];
       } else if (step === 3) {
-        const pm = APP.roleProfile(d).skills;
+        const pm = APP.roleProfile(d).skills, lead = APP.isLeadRole(d);
+        if (lead) d.skills = APP.normalizeLandscape(d.skills);
         const ok = (d.skills || []).some(k => k.productId && k.moduleId && (+k.projects || 0) >= 0);
         if (!ok) {
-          const msg = pm === 'products' ? 'Tick at least one SAP product you work with' : 'Add at least one complete skill (product + module)';
+          const msg = (pm === 'products' || lead) ? 'Pick at least one SAP product you work with' : 'Add at least one complete skill (product + module)';
           APP.wizC.err = { skills: msg }; APP.toast(msg); APP._formSyncSkip = ['wiz-c']; APP.render();
           const el = document.querySelector('.wiz-sec.has-err'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
         }
         if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
+      } else if (step === 4) {
+        if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
+        if (f.querySelector('[name="otherSkills"]')) d.otherSkills = g('otherSkills');
+        if (APP.isLeadRole(d) && (d.specialties || []).length < 2) {
+          const msg = 'Pick at least 2 specialties — for your role they matter most to companies';
+          APP.wizC.err = { spec: msg }; APP.toast(msg); APP._formSyncSkip = ['wiz-c']; APP.render();
+          const el = document.querySelector('.wiz-sec.has-err'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
       } else if (step === 5 && APP.SHOW_RATES) {
         d.currency = g('currency') || APP.defaultCurrency(d.country); d.currencyChosen = true;
         d.ratePeriod = g('ratePeriod') || 'day';
@@ -4041,7 +4066,8 @@ APP.onSubmit = function (f) {
         d.dailyRate = +g('dailyRate') || user.dailyRate;
       }
       d.summary = g('summary') || user.summary;
-      if (APP.profileDraft) { d.skills = (APP.profileDraft.skills || []).filter(k => k.productId && k.moduleId); d.industries = APP.profileDraft.industries || []; }
+      if (APP.profileDraft) { d.skills = (APP.isLeadRole(d) ? APP.normalizeLandscape(APP.profileDraft.skills) : (APP.profileDraft.skills || [])).filter(k => k.productId && k.moduleId); d.industries = APP.profileDraft.industries || []; }
+      if (APP.isLeadRole(d) && !(d.skills || []).length) { APP.toast('Pick at least one SAP product you work with'); return; }
       d.workPrefs = (APP.profileDraft && Array.isArray(APP.profileDraft.workPrefs) ? APP.profileDraft.workPrefs : user.workPrefs) || [];
       d.specialties = (APP.profileDraft && Array.isArray(APP.profileDraft.specialties) ? APP.profileDraft.specialties : user.specialties) || [];
       d.otherSkills = APP.tagList(g('otherSkills') || ((APP.profileDraft || user).otherSkills || ''));

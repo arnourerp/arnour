@@ -27,7 +27,7 @@ t('step 1 blocks without required fields + inline errors',await ev(()=>APP.wizC.
 t('gender required',await ev(()=>/gender/i.test(Array.from(document.querySelectorAll('.field-error')).map(x=>x.textContent).join(' '))||!!document.querySelector('.gender-seg')));
 t('no "Primary" badge / make-primary at sign-up',(await p.locator('.rt-make').count())===0&&!/Primary/.test(await p.textContent('form[data-form=wiz-c]')));
 // walk each role through steps 2-4 and check what is asked
-const modes={functional:'full',technical:'optional',basis:'products',architect:'modules',delivery:'products',support:'modules',keyuser:'modules',junior:'products'};
+const modes={functional:'full',technical:'optional',basis:'products',architect:'modules',delivery:'modules',support:'modules',keyuser:'modules',junior:'products'};
 for(const rt of Object.keys(modes)){
   await ev((rt)=>{ APP.wizC={step:1,data:Object.assign(APP.wizCDefaults(),{firstName:'A',lastName:'B',gender:'male',headline:'H',nationality:'Egypt',country:'ae',languages:['English']})}; APP.rtSet(APP.wizC.data,[rt]); APP._formSyncSkip=['wiz-c']; APP.render(); },rt);
   await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(150);
@@ -36,6 +36,11 @@ for(const rt of Object.keys(modes)){
   const wantLvl=!['keyuser','junior'].includes(rt);
   t(rt+': level '+(wantLvl?'asked':'not asked'),(lvl>0)===wantLvl);
   await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(150);
+  const lead=['architect','delivery'].includes(rt);
+  if(lead){ t(rt+': expertise (specialties) comes before SAP skills',await ev(()=>APP.wizC.step===4&&/Your expertise/.test(document.querySelector('.wiz-title').textContent)),await ev(()=>APP.wizC.step));
+    await ev(()=>{ APP.wizC.step=3; APP._formSyncSkip=['wiz-c']; APP.render(); }); await p.waitForTimeout(100);
+    t(rt+': skills step is called SAP landscape',await ev(()=>/SAP landscape/.test(document.querySelector('.wiz-title').textContent))); }
+  else t(rt+': SAP skills come right after experience',await ev(()=>APP.wizC.step===3));
   t(rt+': step 3 mode = '+modes[rt],await ev((m)=>APP.roleProfile(APP.wizC.data).skills===m,modes[rt]));
   t(rt+': no product/module preselected',await ev(()=>!(APP.wizC.data.skills||[]).length));
   if(modes[rt]!=='products'){
@@ -57,13 +62,15 @@ for(const rt of Object.keys(modes)){
   if(modes[rt]==='products') t(rt+': product chips, no module cards',h.chips>5&&h.cards===0&&h.proj===0,h);
   if(modes[rt]==='modules') t(rt+': module cards, no project counts',h.cards>0&&h.proj===0,h);
   if(modes[rt]==='full'||modes[rt]==='optional') t(rt+': module cards with project counts',h.cards>0&&h.proj>0,h);
-  const wantProg={architect:1,delivery:1}[rt]||0;
-  t(rt+': programs number '+(wantProg?'asked':'not asked'),h.prog===!!wantProg,h);
+  t(rt+': programs number not on the skills step',h.prog===false,h);
   const wantInd=!['basis','junior'].includes(rt);
   t(rt+': industries '+(wantInd?'asked':'hidden'),h.ind===wantInd,h);
   // step 3 → 4: specialties suggested for the role
   await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(150);
-  t(rt+': reaches step 4',await ev(()=>APP.wizC.step===4),await ev(()=>APP.wizC.step));
+  if(lead){ t(rt+': after the SAP landscape comes the finish step',await ev(()=>APP.wizC.step===6),await ev(()=>APP.wizC.step));
+    await ev(()=>{ APP.wizC.step=4; APP._formSyncSkip=['wiz-c']; APP.render(); }); await p.waitForTimeout(100);
+    t(rt+': programmes asked on the expertise step',await ev(()=>!!document.querySelector('form[data-form=wiz-c] [name=programs]'))); }
+  else t(rt+': reaches step 4',await ev(()=>APP.wizC.step===4),await ev(()=>APP.wizC.step));
   const sug=await ev(()=>Array.from(document.querySelectorAll('.spec-suggest [data-action=chip]')).map(x=>x.dataset.value));
   t(rt+': suggested specialties = agreed list',JSON.stringify(sug.slice().sort())===JSON.stringify(cat.sz&&await ev((r)=>APP.ROLE_SPECIALTIES[r].slice().sort(),rt)),sug);
   t(rt+': full list behind "Add other specialties"',await p.locator('details.spec-more').count()===1);
@@ -82,14 +89,15 @@ t('profile created with programs and product-level skill',me&&me.programs===9&&m
 // edit profile: add a second role → its fields appear; remove → data kept
 await ev(()=>{ location.hash='#/c/profile'; }); await p.waitForTimeout(300);
 await p.click('[data-action=profile-edit-on]'); await p.waitForTimeout(200);
-t('edit: Delivery shows programs + products chips',await ev(()=>!!document.querySelector('input[name=programs]')&&document.querySelectorAll('[data-action=prod-chip]').length>5));
+t('edit: Delivery shows programs + product cards (modules optional)',await ev(()=>!!document.querySelector('input[name=programs]')&&document.querySelectorAll('.prod-card, .prod-empty').length>0));
+t('edit: Delivery lists specialties before SAP skills',await ev(()=>{ const f=document.querySelector('form[data-form=profile-edit]'); const sp=f.querySelector('.spec-panel'), sk=f.querySelector('.skill-rows'); return !!sp&&!!sk&&(sp.compareDocumentPosition(sk)&Node.DOCUMENT_POSITION_FOLLOWING)>0; }));
 t('edit: multi-select picker still allows several roles',await p.locator('[data-action=rt-toggle]:not([data-single])').count()===8);
 await p.click('[data-action=rt-toggle][data-value=functional]'); await p.waitForTimeout(200);
 t('edit: adding Functional reveals module cards + project counts',await ev(()=>document.querySelectorAll('.prod-card').length>0&&document.querySelectorAll('input[data-skill-field=projects]').length>=0&&APP.roleProfile(APP.profileDraft).skills==='full'));
 t('edit: "added role" note shown',(await p.locator('.role-added').count())===1);
 t('edit: specialties now show both roles',await ev(()=>{ const s=Array.from(document.querySelectorAll('.spec-suggest [data-action=chip]')).map(x=>x.dataset.value); return s.includes('pmo'.replace('pmo','activate'))&&s.includes('localization')&&s.includes('release'); }));
 await p.click('[data-action=rt-toggle][data-value=functional]'); await p.waitForTimeout(150);
-t('edit: removing the role hides its fields but keeps data',await ev(()=>APP.roleProfile(APP.profileDraft).skills==='products'&&APP.profileDraft.skills.length>=1));
+t('edit: removing the role hides its fields but keeps data',await ev(()=>APP.roleProfile(APP.profileDraft).skills==='modules'&&APP.profileDraft.skills.length>=1));
 // matching: counts not required for non-counting roles
 const m=await ev(()=>{ const c={roleType:'support',roleTypes:['support'],skills:[{productId:'s4onprem',moduleId:'fi',projects:0}],languages:['English'],yearsExp:5,level:'Mid',availability:'Immediate',country:'ae'};
   const full={roleType:'functional',roleTypes:['functional'],skills:[{productId:'s4onprem',moduleId:'fi',projects:0}],languages:['English'],yearsExp:5,level:'Mid',availability:'Immediate',country:'ae'};

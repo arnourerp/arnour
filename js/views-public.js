@@ -198,7 +198,7 @@ APP.wizCDefaults = function () {
     roleType: '', languages: [], yearsExp: 5, level: 'Mid', availability: 'Immediate',
     workPrefs: [],
     currency: 'USD', dailyRate: '', summary: '', cv: null,
-    skills: [{ productId: 's4onprem', moduleId: 'fi', projects: 1 }],
+    skills: [], /* no product preselected: the person chooses their own */
     industries: [], specialties: [], otherSkills: '',
     anon: true /* private by default: Mutual Reveal */
   };
@@ -206,7 +206,12 @@ APP.wizCDefaults = function () {
 
 APP.wizStepsC = ['About you', 'Experience', 'SAP skills', 'Specialties', 'Your rate', 'CV & finish'];
 /* Steps people actually see: the rate step (5) is skipped while APP.SHOW_RATES is off. */
-APP.wizVisible = () => APP.SHOW_RATES ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 6];
+APP.wizVisible = () => {
+  const d = APP.wizC && APP.wizC.data;
+  const base = d && APP.isLeadRole(d) ? [1, 2, 4, 3, 5, 6] : [1, 2, 3, 4, 5, 6]; /* leadership roles: expertise before the SAP landscape */
+  return APP.SHOW_RATES ? base : base.filter(n => n !== 5);
+};
+APP.wizStepTitle = (n, d) => (d && APP.isLeadRole(d) && { 3: 'SAP landscape', 4: 'Your expertise' }[n]) || APP.wizStepsC[n - 1];
 APP.wizNextStep = (st) => { const v = APP.wizVisible(); return v[Math.min(v.length - 1, v.indexOf(st) + 1)] || st; };
 APP.wizPrevStep = (st) => { const v = APP.wizVisible(); return v[Math.max(0, v.indexOf(st) - 1)] || 1; };
 
@@ -217,7 +222,7 @@ APP.views['wiz-c'] = function () {
   const rp = APP.roleProfile(d);
   const vis = APP.wizVisible();
   const progress = vis.map((n, i) =>
-    '<div class="wiz-step ' + (n === step ? 'active' : '') + (n < step ? 'done' : '') + '"><span class="wiz-dot">' + (n < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + APP.wizStepsC[n - 1] + '</small></div>'
+    '<div class="wiz-step ' + (n === step ? 'active' : '') + (i < vis.indexOf(step) ? 'done' : '') + '"><span class="wiz-dot">' + (i < vis.indexOf(step) ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + APP.wizStepTitle(n, d) + '</small></div>'
   ).join('');
 
   let body = '';
@@ -279,23 +284,29 @@ APP.views['wiz-c'] = function () {
       modules: 'Tag the SAP products and modules you work with. No project counts needed.',
       products: 'Tick the SAP products you work with. No modules or project counts needed.'
     }[rp.skills];
+    const lead = APP.isLeadRole(d);
+    const hint3 = lead ? 'Pick the SAP products you have worked across. Ticking modules is optional — add them only where they matter. Companies search by product, so at least one is needed.' : hint;
     const indLabel = { many: 'Industries you\'ve worked in', optional: 'Industries you\'ve worked in (optional)', one: 'Your industry' }[rp.ind];
     body = '<form data-form="wiz-c" data-step="3">' +
-      sec('skills', 'spark', 'Your SAP skills',
-        '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint + '</p>' +
+      sec('skills', 'spark', lead ? 'SAP products you have worked across' : 'Your SAP skills',
+        '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint3 + '</p>' +
         '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>' +
         (er.skills ? '<p class="field-error" role="alert">' + APP.h(er.skills) + '</p>' : '')) +
-      (rp.prog ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
+      (rp.prog && !lead ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
         '<label class="field"><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       (rp.ind ? sec('ind', 'building', indLabel,
         '<div class="chip-wrap">' + APP.chipGroup('wizC', 'industries', APP.industries, d.industries) + '</div>') : '') +
       APP.wizNav(3, 6) +
       '</form>';
   } else if (step === 4) {
+    const lead4 = APP.isLeadRole(d);
     body = '<form data-form="wiz-c" data-step="4">' +
-      sec('spec', 'spark', 'SAP specialties',
-        '<p class="field-hint">' + APP.icon('spark', 15) + ' Pick the specialties you\'re known for' + (rp.rts[0] === 'junior' ? ' — optional for now' : ' (up to 6 reads strongest)') + '. They sharpen matching and appear on your profile.</p>' +
-        '<div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div>') +
+      sec('spec', 'spark', lead4 ? 'What you are known for' : 'SAP specialties',
+        '<p class="field-hint">' + APP.icon('spark', 15) + (lead4 ? ' This is the heart of your profile: pick at least 2 specialties (up to 6 reads strongest)' : ' Pick the specialties you\'re known for' + (rp.rts[0] === 'junior' ? ' — optional for now' : ' (up to 6 reads strongest)')) + '. They sharpen matching and appear on your profile.</p>' +
+        '<div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div>' +
+        (er.spec ? '<p class="field-error" role="alert">' + APP.h(er.spec) + '</p>' : '')) +
+      (lead4 && rp.prog ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
+        '<label class="field"><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       sec('own', 'plus', 'Your own specialties <span class="muted">(optional)</span>',
         '<label class="field"><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS, MDG rollout — comma separated" aria-label="Your own specialties"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>') +
       APP.wizNav(4, 6) +
@@ -337,7 +348,7 @@ APP.views['wiz-c'] = function () {
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
     '<div class="card wizard-card wiz-flat">' +
     '<div class="wiz-progress">' + progress + '</div>' +
-    '<h1 class="wiz-title">' + APP.wizStepsC[step - 1] + '</h1>' +
+    '<h1 class="wiz-title">' + APP.wizStepTitle(step, d) + '</h1>' +
     '<p class="muted small wiz-time">Step ' + (vis.indexOf(step) + 1) + ' of ' + vis.length + ' · about ' + Math.max(1, Math.ceil((vis.length - vis.indexOf(step)) * 0.4)) + ' min left · you can edit everything later</p>' +
     body +
     '</div></div>';
@@ -347,7 +358,7 @@ APP.wizNav = function (step, total, last) {
   return '<div class="wiz-nav">' +
     (step > 1 ? '<button type="button" class="btn btn-ghost" data-action="wiz-back" data-target="wizC">← Back</button>' : '') +
     '<span class="grow"></span>' +
-    (!last && step >= 3 ? '<button type="button" class="btn btn-outline" data-action="wiz-skip">Skip the rest and create my profile</button>' : '') +
+    (!last && APP.wizVisible().indexOf(step) >= (APP.wizC && APP.isLeadRole(APP.wizC.data) ? 3 : 2) ? '<button type="button" class="btn btn-outline" data-action="wiz-skip">Skip the rest and create my profile</button>' : '') +
     (last
       ? '<button type="submit" class="btn btn-primary btn-lg">' + APP.icon('check', 16) + ' Create my profile</button>'
       : '<button type="submit" class="btn btn-primary btn-lg">Continue →</button>') +

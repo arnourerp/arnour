@@ -430,7 +430,7 @@ APP.views['e-talent-detail'] = function (ctx) {
     '<div class="td-keys">' + (APP.SHOW_RATES ? '<span class="td-key"><small>Rate</small><b>' + APP.rateHtml(c) + '</b></span>' : '') +
     (c.linkedin ? '<a class="ext-link" href="' + E(APP.normUrl(c.linkedin)) + '" target="_blank" rel="noopener">' + APP.icon('ext', 14) + ' LinkedIn</a>' : '') +
     '</div></div></header>' +
-    '<div class="jd-grid"><div class="jd-main card">' + aboutSec + expSec + detSec + commSec + '</div>' + side + '</div>' +
+    '<div class="jd-grid"><div class="jd-main card">' + aboutSec + (APP.isLeadRole(c) ? detSec + expSec : expSec + detSec) + commSec + '</div>' + side + '</div>' +
     (similar.length ? '<div class="feed-head mt16"><h3>Similar talent</h3></div><div>' + similar.map(x => APP.talentCard(x)).join('') + '</div>' : '') +
     '</div>';
 };
