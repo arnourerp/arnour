@@ -3545,6 +3545,13 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'long-toggle': {
+      const box = el.closest('.long-text'); if (!box) break;
+      const open = box.classList.toggle('is-open');
+      el.textContent = open ? 'Show less' : 'Show more'; el.setAttribute('aria-expanded', open ? 'true' : 'false');
+      break;
+    }
+
     case 'toggle-save':
       APP.toggleSaveJob(d.id);
       break;

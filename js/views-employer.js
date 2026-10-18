@@ -539,7 +539,7 @@ APP.jobFormView = function (mode) {
     '</div><p class="field-hint">Leave both blank and the role shows “Pay not disclosed”. One figure alone shows as “From” or “Up to”.</p>' + err('pay');
 
   const desc =
-    '<label class="field"><textarea name="description" class="input" rows="10" aria-label="Description" placeholder="Scope, team, duration, what success looks like… Paste a full job ad if you have one — line breaks are kept.">' + APP.h(d.description) + '</textarea></label>';
+    '<label class="field"><textarea name="description" class="input" rows="12" maxlength="8000" aria-label="Description" placeholder="Scope, team, duration, what success looks like… Paste a full job ad if you have one — line breaks are kept.">' + APP.h(d.description) + '</textarea></label>';
 
   const crumb = '<div class="crumb"><a class="link" href="' + (editing ? '#/e/jobs/' + d.editId : '#/e/jobs') + '">' + (editing ? '← Back to the role' : '← Your roles') + '</a></div>';
 

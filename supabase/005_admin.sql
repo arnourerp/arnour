@@ -467,7 +467,7 @@ begin
     d := '{}'::jsonb;
     foreach k in array allowed loop if it ? k then d := d || jsonb_build_object(k, it->k); end if; end loop;
     d := d || jsonb_build_object('title', left(ttl, 140), 'extEmployer', left(emp, 120), 'applyUrl', url, 'external', true,
-                                 'description', left(coalesce(it->>'description',''), 3000));
+                                 'description', left(coalesce(it->>'description',''), 8000));
     if d ? 'extSource' then d := d || jsonb_build_object('extSource', left(d->>'extSource', 80)); end if;
     posted := now_ms;
     d := d || jsonb_build_object('expiresTs', posted + 60::bigint*86400000);

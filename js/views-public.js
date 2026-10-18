@@ -461,6 +461,24 @@ APP.views['jobs'] = function () {
 /* ------------------------------ public job detail ------------------------------ */
 
 /* Sections shared by the professional's job page and the company's role page. `me` (a consultant or null) adds personal status tags. */
+/* Long text: paragraphs + bullet lists, collapsed to ~8 lines with Show more */
+APP.longTextHtml = function (text) {
+  const E = APP.h, lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  let out = '', list = false, para = [];
+  const flush = () => { if (para.length) { out += '<p>' + para.map(E).join('<br>') + '</p>'; para = []; } };
+  const close = () => { if (list) { out += '</ul>'; list = false; } };
+  lines.forEach(raw => {
+    const l = raw.trim(), m = /^(?:[-*\u2022\u00b7\u25aa])\s+(.*)$/.exec(l);
+    if (!l) { flush(); close(); return; }
+    if (m) { flush(); if (!list) { out += '<ul>'; list = true; } out += '<li>' + E(m[1]) + '</li>'; return; }
+    close(); para.push(l);
+  });
+  flush(); close();
+  const est = lines.reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 95)), 0);
+  const long = est > 9;
+  return '<div class="long-text' + (long ? ' is-clamped' : '') + '"><div class="long-body job-desc-full">' + out + '</div>' +
+    (long ? '<button type="button" class="link-btn long-toggle" data-action="long-toggle" aria-expanded="false">Show more</button>' : '') + '</div>';
+};
 APP.jobSections = function (job, me) {
   const E = APP.h;
   /* ---- requirement rows with the viewer's own status ---- */
@@ -524,7 +542,7 @@ APP.jobSections = function (job, me) {
 
   /* ---- description: keep paragraphs ---- */
   const descHtml = job.description
-    ? '<section class="jd-sec"><h2>About the role</h2><div class="job-desc-full">' + E(job.description) + '</div></section>' : '';
+    ? '<section class="jd-sec"><h2>About the role</h2>' + APP.longTextHtml(job.description) + '</section>' : '';
 
   return { desc: descHtml, req: reqSection, facts: factsHtml };
 };

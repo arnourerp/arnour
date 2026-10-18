@@ -223,7 +223,7 @@
         if (!p || !p.modules || !p.modules.length) w.push('Unknown product “' + (r && r.productId) + '”');
         else if (r.moduleId !== '*' && !p.modules.some(function (m) { return m.id === r.moduleId; })) w.push('Unknown module “' + r.moduleId + '” in ' + p.name);
       });
-      if (String(j.description || '').length > 1200) w.push('Description is long. Keep it a short summary in our own words');
+      if (String(j.description || '').length > 8000) w.push('Description is over 8,000 characters and will be cut');
       out.push({ job: j, warn: w });
     });
     return { rows: out };
