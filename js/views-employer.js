@@ -127,7 +127,7 @@ APP.views['e-company'] = function () {
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Industry</span><select name="industry" class="input">' + APP.opt(APP.industries.map(i => [i, i]), d.industry) + '</select></label>' +
       '<label class="field"><span class="label">Size</span><select name="size" class="input">' + APP.opt(APP.companySizes.map(s => [s, s]), d.size) + '</select></label>' +
-      '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select>' + err('country') + '</label>' +
+      '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select>' + '</label>' +
       APP.cityInputHtml(d.country, d.city) +
       '<label class="field"><span class="label">Website</span><input name="website" class="input" value="' + APP.h(d.website) + '"></label>' +
       '</div>' +
