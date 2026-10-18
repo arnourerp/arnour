@@ -405,7 +405,6 @@ APP.views['wiz-e'] = function () {
       '<div class="muted small">' + APP.h(d.industry) + ' · ' + APP.h(d.size) + ' · ' + APP.h(APP.locText(d)) +
       '<br>Systems: ' + APP.h((d.sapSystems || []).map(id => APP.productShort(id)).join(', ') || '—') +
       '<br>Contact: ' + APP.h(d.contactName || '—') + (d.contactTitle ? ' (' + APP.h(d.contactTitle) + ')' : '') + '</div></div>' +
-      APP.wizPrivacyHtml('e', d) +
       '<p class="muted small">After creating your profile you can post your first job and start searching talent.</p>' +
       APP.wizNav2(3, 3, true) +
       '</form>';

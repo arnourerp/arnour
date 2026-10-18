@@ -478,7 +478,7 @@ APP.jobFormView = function (mode) {
   const co = APP.company(APP.db.session.companyId);
   if (!co) return '<div class="empty">Company not found.</div>';
   const editing = mode === 'edit';
-  if (!editing && (!APP.jobNewDraft || APP.jobNewDraft.editId)) { APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), { country: co.country, city: co.city, confidential: !!co.anon }); APP.state.jobStep = 1; APP.state.jobErr = null; }
+  if (!editing && (!APP.jobNewDraft || APP.jobNewDraft.editId)) { APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), { country: co.country, city: co.city, confidential: false }); APP.state.jobStep = 1; APP.state.jobErr = null; }
   const d = APP.jobNewDraft;
 
   const st = APP.state.jobDet || {};
@@ -504,7 +504,7 @@ APP.jobFormView = function (mode) {
     '<label class="field"><span class="label">Apply on your own career portal <span class="muted">(optional)</span></span><input name="applyUrl" type="url" inputmode="url" class="input" value="' + APP.h(d.applyUrl || '') + '" placeholder="https://careers.yourcompany.com/job/123"' + (!editing && APP.state.jobErr && APP.state.jobErr.applyUrl ? ' aria-invalid="true"' : '') + '>' + err('applyUrl') +
       '<p class="field-hint">Add a link and candidates apply on your site instead of on Arnour. Leave it empty to receive applications here.</p></label>' +
     '<label class="field checkbox-field"><input type="checkbox" name="remote" ' + (d.remote ? 'checked' : '') + '> Remote-friendly</label>' +
-    '<label class="field checkbox-field chk-line"><input type="checkbox" name="confidential" ' + (APP.coHidden(co, d) ? 'checked' : '') + '> <span>Keep my company confidential for this role<small class="muted"> — professionals see “Confidential company” until you accept an introduction.</small></span></label>';
+    '<label class="field checkbox-field chk-line"><input type="checkbox" name="confidential" ' + (APP.coHidden(co, d) ? 'checked' : '') + '> <span>Keep my company confidential for this role<small class="muted"> — professionals see “Confidential company” on this role until an introduction about it is accepted. Your other roles and company page are not affected.</small></span></label>';
 
   const reqPart =
     '<div class="skill-rows req-list' + ((!editing && APP.state.jobErr && APP.state.jobErr.req) ? ' has-err' : '') + '">' + APP.jobReqRowsHtml(d.requires) + '</div>' +
@@ -729,7 +729,7 @@ APP.asPublicHtml = function (fn) { const was = APP.asPublic; APP.asPublic = true
     const pp = APP.state.previewPublic, s = APP.db.session;
     if (!pp || !s || s.role !== 'employer' || pp.href !== location.hash) return orig(ctx);
     const banner = '<div class="card preview-banner">' + APP.icon('lock', 16) + '<div><b>Preview: this is how professionals see it</b>' +
-      '<div class="muted small">Confidential details stay hidden until you accept an introduction.</div></div>' +
+      '<div class="muted small">On confidential roles your company stays hidden until an introduction about that role is accepted.</div></div>' +
       '<a class="btn btn-outline btn-sm" href="' + APP.h(pp.back) + '" style="margin-left:auto">Back</a></div>';
     return APP.asPublicHtml(() => banner + orig(ctx));
   };

@@ -795,14 +795,19 @@ APP.cv = function (c, force) {
   const role = APP.roleTypeLabel(APP.rtList(c)[0]) || 'SAP professional';
   return Object.assign({}, c, { _anon: true, _title: c.headline, firstName: String(c.headline || '').trim() || 'SAP professional', lastName: '', headline: [c.level, mods, role].filter(Boolean).join(' · '), city: '', nationality: '', summary: '', linkedin: '', cv: null });
 };
-APP.coHidden = (co, job) => !!co && ((job && job.confidential !== undefined && job.confidential !== null) ? !!job.confidential : !!co.anon);
+/* confidentiality lives on the role only: a confidential role hides its company until an introduction about that role is accepted */
+APP.coHidden = (co, job) => !!co && !!job && job.confidential === true;
+APP.revealedJob = function (cid, eid, jobId) {
+  if (!cid || !eid || !jobId) return false;
+  return Object.values(APP.intros()).some(i => i.cid === cid && i.eid === eid && i.jobId === jobId && i.status === 'accepted');
+};
 APP.canSeeCompany = function (co, job) {
   if (!co || !APP.coHidden(co, job)) return true;
   if (APP.asPublic) return false; /* a company previewing its own role or page sees what professionals see */
   const s = APP.db && APP.db.session;
   if (!s) return false;
   if (s.role === 'employer') return s.companyId === co.id;
-  if (s.role === 'consultant') return APP.revealed(s.consultantId, co.id);
+  if (s.role === 'consultant') return APP.revealedJob(s.consultantId, co.id, job && job.id);
   return false;
 };
 APP.coFor = function (co, job) {
@@ -811,7 +816,7 @@ APP.coFor = function (co, job) {
 };
 /* viewer-independent labels for notifications (they are written by one side and read by the other) */
 APP.personLabel = (c, eid) => (!c.anon || APP.revealed(c.id, eid)) ? c.firstName + ' ' + c.lastName : APP.anonLabel(c);
-APP.coLabel = (co, job, cid) => (!APP.coHidden(co, job) || APP.revealed(cid, co.id)) ? co.name : 'A confidential company';
+APP.coLabel = (co, job, cid) => (!APP.coHidden(co, job) || APP.revealedJob(cid, co.id, job && job.id)) ? co.name : 'A confidential company';
 APP.introFor = function (cid, eid, jobId) {
   return Object.values(APP.intros()).filter(i => i.cid === cid && i.eid === eid && (!jobId || i.jobId === jobId)).sort((a, b) => b.ts - a.ts)[0] || null;
 };
@@ -863,7 +868,7 @@ APP.confirmRequestIntro = function (cid) {
     sub: APP.h(nm) + ' keeps their identity private. If they accept, you both see each other’s details and can chat.',
     body: '<label class="field"><span class="label">Which role is this about?</span><select id="dlg-sel" class="input">' + jobs.map(j => '<option value="' + j.id + '">' + APP.h(j.title) + '</option>').join('') + '</select></label>' +
       '<label class="field"><span class="label">Message <span class="muted">(optional)</span></span><textarea id="dlg-note" class="input" rows="3" maxlength="300" placeholder="Why you would like to talk…"></textarea><span class="muted small dlg-count" id="dlg-count">0 / 300</span></label>' +
-      (APP.coHidden(APP.company(s.companyId), APP.job(jobs[0].id)) ? '<p class="muted small">Your company is confidential too — your name is only shared if they accept.</p>' : ''),
+      '<p class="muted small">If the role is confidential, your company name is shared only if they accept.</p>',
     confirmLabel: 'Send request',
     onConfirm: function (v) {
       if (!v.sel) return;
@@ -912,6 +917,7 @@ APP.introStatusPill = function (i) {
 /* Privacy switch + live preview of what the other side sees */
 APP.privacyCardHtml = function () {
   const s = APP.db.session, isC = s.role === 'consultant';
+  if (!isC) return ''; /* companies are never anonymous as a whole: confidentiality is set on each role */
   const me = isC ? APP.consultant(s.consultantId) : APP.company(s.companyId);
   if (!me) return '';
   const on = !!me.anon;
@@ -4003,7 +4009,7 @@ APP.onSubmit = function (f) {
         APP.wizE = null;
         APP.save();
         APP.go('#/e/dashboard');
-        APP.toast(co.anon ? 'Company profile created — shown as “Confidential company” 🔒' : 'Company profile created 🎉');
+        APP.toast('Company profile created 🎉');
         return;
       }
       APP.wizE.step = step + 1;

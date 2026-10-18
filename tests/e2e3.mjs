@@ -98,7 +98,7 @@ t('comment deleted on server',(await sql('select count(*)::int n from article_co
 // hidden-company author shows as company for others
 await sql(`update companies set anon=true where id=$1`,[ent.e]);
 await B.reload(); await B.waitForFunction(()=>APP.backend.ready); await go(B,'#/community/a/'+aid);
-t('confidential company author is not named',!/Acme Corp/.test(await B.textContent('body')));
+t('company author is named (anonymity is per role only)',/Acme Corp/.test(await B.textContent('body')));
 await sql(`update companies set anon=false where id=$1`,[ent.e]);
 // sample vote then failure rollback
 await go(B,'#/community/q/q2'); const before=await B.evaluate(()=>APP.db.questions.q2.upvotes);

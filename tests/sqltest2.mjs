@@ -72,7 +72,7 @@ t('cannot accept own answer',!!(await as('c2',`select accept_answer('${qa}','ca1
 // confidential company author shows alias
 const hq=val(await as('e2',`select post_question(null,'Hidden co asks','b','s4onprem','fi','',false) x`),'x');
 L=(await as(null,'select list_community() x'))[0].x; let hqq=L.questions.find(x=>x.id===hq);
-t('hidden company shown as alias',/^cx:/.test(hqq.authorId),hqq.authorId);
+t('company posts show the company (no company-level anonymity)',!/^cx:/.test(hqq.authorId),hqq.authorId);
 L=(await as('e2',`select list_community() x`))[0].x; hqq=L.questions.find(x=>x.id===hq);
 t('hidden company owner sees own id',hqq.authorId===ee2);
 // votes

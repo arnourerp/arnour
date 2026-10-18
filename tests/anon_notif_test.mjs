@@ -42,4 +42,20 @@ n=await notes('c'); t('introduction request hides the company',n.length>=4&&!/Se
 // the job page and the notification agree
 const lj=(await as('c',`select list_jobs() x`)).map(r=>r.x).find(x=>x.title==='Secret FICO');
 t('job list hides the company id too',lj&&lj.companyId!==ee,lj);
+
+// per-role reveal: an accepted introduction about one role does not reveal the company on another confidential role
+await db.query(`update companies set anon=false where id=$1`,[ee]);
+const jOpen=(await as('e',`select save_job('', $1::jsonb) x`,[JSON.stringify({title:'Public BW',confidential:false,requires:[]})]))[0].x;
+const iA=(await as('e',`select create_intro('e',$1,$2,$3,'about public role') x`,[cc,ee,jOpen]))[0].x;
+let rr=await as('c',`select respond_intro($1,true) x`,[iA]); t('introduction about the public role accepted',!rr.err,rr);
+const jNew=(await as('e',`select save_job('', $1::jsonb) x`,[JSON.stringify({title:'Hush Basis',confidential:true,requires:[]})]))[0].x;
+let L=(await as('c',`select list_jobs() x`)).map(r=>r.x);
+t('another confidential role stays hidden after an earlier introduction',L.find(x=>x.id===jNew).companyId!==ee,L.find(x=>x.id===jNew));
+t('the public role shows the company',L.find(x=>x.id===jOpen).companyId===ee);
+await as('e',`select send_notification($1,'job','x','#/job/'||$2)`,[cc,jNew]);
+n=await notes('c'); t('its notification stays anonymous too',/confidential company/i.test(n[n.length-1])&&!/SecretCo/.test(n[n.length-1]),n.slice(-2));
+const iB=(await as('e',`select create_intro('e',$1,$2,$3,'about the hush role') x`,[cc,ee,jNew]))[0].x;
+rr=await as('c',`select respond_intro($1,true) x`,[iB]); t('introduction about that role accepted',!rr.err,rr);
+L=(await as('c',`select list_jobs() x`)).map(r=>r.x);
+t('after an introduction about that role, it shows the company',L.find(x=>x.id===jNew).companyId===ee,L.find(x=>x.id===jNew));
 console.log(fails?'FAILS '+fails:'ALL PASSED');

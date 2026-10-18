@@ -172,15 +172,21 @@ $$ select case
      else t end $$;
 
 -- is this company hidden from the current viewer, for this job (or in general)?
+-- confidentiality lives on the role only (companies are never anonymous as a whole).
+-- A confidential role hides its company from everyone except the company itself and a professional
+-- who accepted an introduction about that same role.
+create or replace function public.is_revealed_job(p_cid text, p_eid text, p_job text) returns boolean
+language sql stable security definer set search_path = public as
+$$ select p_job is not null and exists (select 1 from public.intros
+                  where cid = p_cid and eid = p_eid and job_id = p_job and status = 'accepted') $$;
+
 create or replace function public._co_hidden(co public.companies, jb public.jobs) returns boolean
 language plpgsql stable security definer set search_path = public as
 $$
-declare hidden boolean;
 begin
-  hidden := coalesce(case when jb.id is not null then jb.confidential end, co.anon);
-  if not hidden then return false; end if;
+  if jb.id is null or jb.confidential is not true then return false; end if;
   if co.owner is not null and co.owner = auth.uid() then return false; end if;
-  if my_role() = 'consultant' and is_revealed(my_entity(), co.id) then return false; end if;
+  if my_role() = 'consultant' and is_revealed_job(my_entity(), co.id, jb.id) then return false; end if;
   return true;
 end $$;
 
@@ -220,7 +226,7 @@ create or replace function public._full_company(co public.companies) returns jso
 language sql stable security definer set search_path = public as
 $$ select (case when co.owner is not distinct from auth.uid() and auth.uid() is not null then co.data
                 else public._pick(co.data, array['name','about','description','city','country','industry','size','website','sapSystems','contactName','contactTitle','linkedin']) end)
-          || jsonb_build_object('id', co.id, 'anon', co.anon, 'sample', co.sample) $$;
+          || jsonb_build_object('id', co.id, 'anon', false, 'sample', co.sample) $$;
 
 -- ---------- reading (everything goes through these) ------------------------
 -- Gender is shown only to the owner and to signed-in companies (so it can be filtered on). Never to visitors, other professionals,
@@ -348,7 +354,7 @@ begin
     insert into public.consultants(id, owner, anon, data) values (eid, uid, anon, p_data || jsonb_build_object('id', eid));
   else
     eid := 'co-' || substr(replace(gen_random_uuid()::text,'-',''),1,10);
-    insert into public.companies(id, owner, anon, data) values (eid, uid, anon, p_data || jsonb_build_object('id', eid));
+    insert into public.companies(id, owner, anon, data) values (eid, uid, false, (p_data - 'anon') || jsonb_build_object('id', eid));
   end if;
   insert into public.profiles(user_id, role, entity_id) values (uid, p_role, eid);
   return eid;
@@ -364,7 +370,7 @@ begin
   if r = 'consultant' then
     update public.consultants set data = p_data, anon = coalesce((p_data->>'anon')::boolean, false), updated_at = now() where id = eid;
   else
-    update public.companies set data = p_data, anon = coalesce((p_data->>'anon')::boolean, false), updated_at = now() where id = eid;
+    update public.companies set data = p_data - 'anon', anon = false, updated_at = now() where id = eid;
   end if;
 end $$;
 
@@ -559,7 +565,6 @@ begin
   end if;
   select * into co from public.companies where id = p_ent;
   if co.id is not null then
-    if co.anon and not public.is_revealed(p_viewer, co.id) then return 'A confidential company'; end if;
     return coalesce(nullif(co.data->>'name',''), 'A company');
   end if;
   return 'Someone';
@@ -575,10 +580,9 @@ begin
   select * into co from public.companies where id = p_ent;
   if co.id is not null and p_job is not null then
     select * into jb from public.jobs where id = p_job and company_id = co.id;
-    if jb.id is not null and coalesce(jb.confidential, co.anon) and not public.is_revealed(p_viewer, co.id) then
+    if jb.id is not null and jb.confidential is true and not public.is_revealed_job(p_viewer, co.id, jb.id) then
       return 'A confidential company';
     end if;
-    if jb.id is not null and jb.confidential is false then return coalesce(nullif(co.data->>'name',''), 'A company'); end if;
   end if;
   return public._ent_label(p_ent, p_viewer);
 end $$;
@@ -740,7 +744,7 @@ revoke update on public.notifications from authenticated;
 grant update (read) on public.notifications to authenticated;
 
 -- who may call what
-grant execute on function public.my_entity(), public.my_role(), public.is_revealed(text,text) to authenticated;
+grant execute on function public.my_entity(), public.my_role(), public.is_revealed(text,text), public.is_revealed_job(text,text,text) to authenticated;
 grant execute on function public.in_conversation(text) to authenticated;   -- used by the messages policy
 grant execute on function public.list_consultants(), public.my_conversations(), public.my_intros(),
   public.claim_profile(text,jsonb), public.save_profile(jsonb), public.save_job(text,jsonb), public.delete_job(text),

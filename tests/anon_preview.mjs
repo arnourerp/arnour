@@ -27,18 +27,31 @@ t('no banner when not previewing',!/how professionals see it/i.test(await main()
 await p.evaluate(()=>{location.hash='#/e/company';}); await p.waitForTimeout(300);
 const hasLink=await p.locator('[data-action=preview-public][data-href^="#/company/"]').count();
 if(hasLink){ await p.click('[data-action=preview-public][data-href^="#/company/"]'); await p.waitForTimeout(400); tx=await main();
-  t('company page preview hides name and about',!/SecretCo/.test(tx),tx.slice(0,400)); } else t('company preview link present',false);
+  t('company page preview shows the company (only roles are confidential)',/SecretCo/.test(tx)&&/how professionals see it/i.test(tx),tx.slice(0,400)); } else t('company preview link present',false);
 // job form preview card
 await p.evaluate(id=>{location.hash='#/e/jobs/'+id+'/edit';},ids.j); await p.waitForTimeout(400);
 const pv=await p.evaluate(()=>{const el=document.querySelector('.job-preview'); return el?el.innerText:null;});
 if(pv!==null) t('form preview card hides the company',!/SecretCo/.test(pv),pv); else {
   await p.evaluate(()=>{location.hash='#/e/jobs/new';}); await p.waitForTimeout(300);
-  const pv2=await p.evaluate(()=>{ APP.jobNewDraft=Object.assign(APP.jobNewDraft||{}, {confidential:true,title:'T'}); APP.state.jobStep=3; APP.render(); const el=document.querySelector('.job-preview'); return el?el.innerText:'(none)'; });
+  const pv2=await p.evaluate(()=>{ APP.jobNewDraft=Object.assign(APP.jobNewDraft||{}, {confidential:true,title:'T'}); APP.state.jobStep=3; APP._formSyncSkip=['job-post']; APP.render(); const el=document.querySelector('.job-preview'); return el?el.innerText:'(none)'; });
   t('new-role preview card hides the company',!/SecretCo/.test(pv2)&&pv2!=='(none)',pv2);
 }
 // professional side: notification text written for them never names the company
 await p.evaluate(()=>{ const co=APP.db.session.companyId; const c=Object.values(APP.db.consultants).find(x=>!APP.revealed(x.id,co)); window.__cid=c.id; });
 const lbl=await p.evaluate(id=>{ const j=APP.db.jobs[id]; return APP.coLabel(APP.company(j.companyId), j, window.__cid); },ids.j);
 t('notification label for professionals is anonymous',lbl==='A confidential company',lbl);
+
+// professional view: introduced to the company about another role -> a confidential role still hides the company
+const r2=await p.evaluate(id=>{ const j=APP.db.jobs[id]; const co=APP.company(j.companyId);
+  const other=Object.values(APP.db.jobs).find(x=>x.companyId===co.id&&x.id!==id) || Object.assign({},j,{id:'jX',confidential:false});
+  APP.db.jobs[other.id]=other; other.confidential=false;
+  const cid=window.__cid; APP.intros()['inT']={id:'inT',from:'e',cid:cid,eid:co.id,jobId:other.id,status:'accepted',ts:Date.now()};
+  APP.db.session={role:'consultant',consultantId:cid};
+  const hidden=APP.coFor(co,j).name, shown=APP.coFor(co,other).name;
+  APP.intros()['inT2']={id:'inT2',from:'e',cid:cid,eid:co.id,jobId:id,status:'accepted',ts:Date.now()};
+  const after=APP.coFor(co,j).name; return {hidden,shown,after}; },ids.j);
+t('earlier introduction does not reveal a different confidential role',r2.hidden==='Confidential company',r2);
+t('public role shows the company',r2.shown==='SecretCo Holdings',r2);
+t('introduction about this role reveals it',r2.after==='SecretCo Holdings',r2);
 t('no page errors',errs.length===0,errs);
 console.log(f?'FAILS '+f:'ALL PASSED'); await b.close();

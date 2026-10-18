@@ -54,18 +54,18 @@ let jobs=await as('c','select list_jobs() x'); let cos=await as('c','select list
 const J1=jobs.find(r=>r.x.id===j1).x,J2=jobs.find(r=>r.x.id===j2).x,J3=jobs.find(r=>r.x.id===j3).x;
 t('public job real company',J1.companyId===ee);
 t('confidential job pseudonym',J2.companyId!==ee&&J2.companyId.startsWith('cj:'),J2.companyId);
-t('anon-co job pseudonym',J3.companyId.startsWith('cx:'));
+t('company-level anonymity is ignored: non-confidential role shows the company',J3.companyId===ee2,J3.companyId);
 const coMap=Object.fromEntries(cos.map(r=>[r.x.id,r.x]));
 t('real company visible',coMap[ee]&&coMap[ee].name==='Acme Corp'&&coMap[ee].website==='acme.com');
 t('pseudo company redacted',coMap[J2.companyId]&&coMap[J2.companyId].name==='Confidential company'&&!coMap[J2.companyId].website,coMap[J2.companyId]);
-t('anon company id not exposed',!coMap[ee2]&&coMap[J3.companyId]&&coMap[J3.companyId].name==='Confidential company');
-t('no real hidden name in any output',!JSON.stringify([jobs,cos]).includes('Hidden Co')&&!JSON.stringify([jobs,cos]).includes('hid.com')&&!JSON.stringify([jobs,cos]).includes('Bob'));
+t('company page always public now',coMap[ee2]&&coMap[ee2].name==='Hidden Co',coMap[ee2]);
+t('confidential role entry reveals nothing',!JSON.stringify(coMap[J2.companyId]).includes('Acme')&&!JSON.stringify(J2).includes(ee));
 // owner sees real
 jobs=await as('e2','select list_jobs() x'); cos=await as('e2','select list_companies() x');
 t('owner sees own anon company',cos.some(r=>r.x.id===ee2&&r.x.name==='Hidden Co'));
 t('owner job real company',jobs.find(r=>r.x.id===j3).x.companyId===ee2&&jobs.find(r=>r.x.id===j3).x.mine===true);
 t('logged-out sees jobs',(await as(null,'select list_jobs() x')).length>=20);
-t('logged-out company redaction',!JSON.stringify(await as(null,'select list_companies() x')).includes('Hidden Co'));
+t('logged-out sees company pages (no company-level anonymity)',JSON.stringify(await as(null,'select list_companies() x')).includes('Hidden Co'));
 // apply
 t('apply',!(await as('c',`select apply_to_job('${j2}','hello')`)).err);
 t('employer cannot apply',!!(await as('e',`select apply_to_job('${j1}','x')`)).err);
