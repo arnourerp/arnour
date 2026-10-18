@@ -205,7 +205,11 @@
     var me = role === 'consultant' ? db.consultants[ent] : db.companies[ent];
     if (me) {
       var psig = JSON.stringify(clean(me));
-      if (psig !== S.profile) ops.push({ run: function () { return rpc('save_profile', { p_data: JSON.parse(psig) }); }, done: function () { S.profile = psig; } });
+      if (psig !== S.profile) {
+        var oldCv = null; try { oldCv = role === 'consultant' && S.profile ? (JSON.parse(S.profile).cv || {}).path : null; } catch (e) { oldCv = null; }
+        ops.push({ run: function () { return rpc('save_profile', { p_data: JSON.parse(psig) }); }, done: function () { S.profile = psig; },
+          after: function () { B.dropOldCv(oldCv, (JSON.parse(psig).cv || {}).path); } });
+      }
     }
 
     if (role === 'employer') {
@@ -298,10 +302,21 @@
   };
 
   B.schedule = function () { clearTimeout(B._t); B._t = setTimeout(B.flush, 350); };
+  /* small "Saving… / Saved" note while changes go to the server */
+  B.saveState = function (st) {
+    var el = document.getElementById('save-ind');
+    if (!el) { el = document.createElement('div'); el.id = 'save-ind'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+    clearTimeout(B._siT); clearTimeout(B._siShow);
+    if (st === 'saving') { B._siShow = setTimeout(function () { el.textContent = 'Saving…'; el.className = 'show'; }, 250); }
+    else if (st === 'saved') { if (el.className === 'show') { el.textContent = 'Saved ✓'; B._siT = setTimeout(function () { el.className = ''; }, 1400); } }
+    else el.className = '';
+  };
   B.flush = function () {
     if (B.running) { B._again = true; return Promise.resolve(); }
     if (!B.profile) return Promise.resolve();
     B.running = true; B._again = false;
+    B._flushFailed = false;
+    if (B.diff().length) B.saveState('saving');
     var loop = function () {
       var ops = B.diff();
       if (!ops.length) return Promise.resolve();
@@ -309,18 +324,19 @@
       var next = function () {
         if (i >= ops.length) return Promise.resolve();
         var op = ops[i++];
-        return op.run().then(function () { if (op.done) op.done(); return next(); }, function (e) {
+        return op.run().then(function () { if (op.done) op.done(); if (op.after) { try { op.after(); } catch (x) { /* ignore */ } } return next(); }, function (e) {
           if (isTransient(e)) { var err = new Error('transient'); err.transient = true; throw err; }
           if (op.done) op.done();
           if (op.fail) op.fail();
-          APP.toast(friendly(e)); failed = true;
+          APP.toast(friendly(e)); failed = true; B._flushFailed = true;
           B._realign = true;
           return null; /* stop this batch; the next diff starts clean */
         });
       };
       return next().then(function () { return loop(); });
     };
-    return loop().then(function () { B._retry = 0; }, function (e) {
+    return loop().then(function () { B._retry = 0; B.saveState(B._flushFailed ? 'off' : 'saved'); }, function (e) {
+      B.saveState('off');
       if (e && e.transient) {
         B._retry = Math.min((B._retry || 0) + 1, 6);
         B.sb.auth.refreshSession().catch(function () {});
@@ -527,10 +543,19 @@
     if (file.size > 5 * 1024 * 1024) { APP.toast('That file is larger than 5 MB'); return Promise.resolve(null); }
     var path = B.user.id + '/' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.' + ext;
     APP.toast('Uploading your CV…');
-    return B.sb.storage.from('cvs').upload(path, file, { contentType: file.type || undefined, upsert: false }).then(function (r) {
+    /* some systems give Word files no type at all; storage only accepts PDF and Word types, so name it from the extension */
+    var TYPE = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+    return B.sb.storage.from('cvs').upload(path, file, { contentType: TYPE[ext] || file.type || undefined, upsert: false }).then(function (r) {
       if (r.error) { APP.toast('Could not upload the CV. Please try again.'); return null; }
       return { name: file.name, size: APP.fmtSize(file.size), path: path };
     }, function () { APP.toast('Could not upload the CV. Please try again.'); return null; });
+  };
+  /* a replaced CV file is deleted, unless it was sent in a message (companies may still open it from the chat) */
+  B.dropOldCv = function (oldPath, newPath) {
+    if (!oldPath || oldPath === newPath || !B.user || oldPath.indexOf(B.user.id + '/') !== 0) return;
+    var used = Object.values(APP.db.conversations || {}).some(function (cv) { return (cv.messages || []).some(function (m) { return m.cv && m.cv.path === oldPath; }); });
+    if (used) return;
+    B.sb.storage.from('cvs').remove([oldPath]).then(null, function () { /* best effort */ });
   };
   B.downloadCv = function (path, name) {
     B.sb.storage.from('cvs').createSignedUrl(path, 120, { download: name || true }).then(function (r) {

@@ -1703,3 +1703,8 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 #main a:not(.btn):not(.chip):not(.pill), #main .grow span, #main .card-sub, #main .jd-co span, #main .profile-meta span, #main .job-meta span,
 #main .profile-name, #main .td-headline { overflow-wrap: anywhere; }
 #main .grow, #main .card-id, #main .jd-co, #main .profile-card-top > *, #main .person-row > *, #main .app-item > * { min-width: 0; }
+
+/* saving indicator */
+#save-ind{position:fixed;left:16px;bottom:16px;z-index:56;padding:7px 12px;border-radius:999px;background:#0f172a;color:#fff;font-size:12.5px;font-weight:600;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s;pointer-events:none}
+#save-ind.show{opacity:.92;transform:none}
+@media (max-width:600px){#save-ind{bottom:calc(72px + env(safe-area-inset-bottom));left:12px}}

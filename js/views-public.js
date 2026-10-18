@@ -34,8 +34,11 @@ APP.views.landing = function () {
     ['Hire without the noise', 'Shortlist in minutes — every result already speaks your SAP language.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
 
-  const companies = Object.values(SAMPLE.companies).map(c =>
-    '<div class="logo-tile">' + APP.h(c.name) + '</div>'
+  /* live: the companies the server actually returns (sample ones carry a Sample pill); demo: the bundled examples */
+  const coList = APP.LIVE ? Object.values(APP.db.companies || {}).filter(c => c && c.name && !c.anon && !c._anon && !c.private).slice(0, 12)
+    : (window.SAMPLE ? Object.values(SAMPLE.companies) : []);
+  const companies = coList.map(c =>
+    '<div class="logo-tile">' + APP.h(c.name) + APP.samplePill(c) + '</div>'
   ).join('');
 
   const fresh = Object.values(APP.db.questions || {})
@@ -93,8 +96,8 @@ APP.views.landing = function () {
     '<div class="card how-card"><div class="how-title">' + APP.icon('building', 18) + ' For companies & recruiters</div>' + eSteps + '</div>' +
     '</div></section>' +
 
-    '<section class="section hide-m"><div class="section-head center"><h2>' + (APP.LIVE ? 'Companies on Arnour' : 'Companies in this prototype') + '</h2><p class="muted">' + (APP.LIVE ? 'Examples are marked Sample. Real employers appear here as they join.' : 'Sample data. Real employers appear here once they join.') + '</p></div>' +
-    '<div class="logo-row">' + companies + '</div></section>' +
+    (companies ? '<section class="section hide-m"><div class="section-head center"><h2>' + (APP.LIVE ? 'Companies on Arnour' : 'Companies in this prototype') + '</h2><p class="muted">' + (APP.LIVE ? 'Examples are marked Sample. Real employers appear here as they join.' : 'Sample data. Real employers appear here once they join.') + '</p></div>' +
+    '<div class="logo-row">' + companies + '</div></section>' : '') +
 
     '<section class="section alt"><div class="section-head"><h2>Fresh from the community</h2><p class="muted">Open questions from SAP people — in their own words, with real answers.</p></div>' +
     '<div class="why-grid fresh-grid">' + fresh + '</div>' +

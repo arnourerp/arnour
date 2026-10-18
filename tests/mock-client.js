@@ -25,7 +25,7 @@
       async exchangeCodeForSession(){return {data:{},error:{message:'code verifier not found'}}},
       async refreshSession(){return {data:{session:store.get()},error:null}}
     },
-    storage:{from(b){return {async upload(path,file){window.__uploads=(window.__uploads||[]).concat(path);return {data:{path},error:null}},async createSignedUrl(path,ttl,o){window.__signed=path;return {data:{signedUrl:'http://localhost:8123/index.html#signed'},error:null}},async list(){return {data:[],error:null}},async remove(){return {data:[],error:null}}}}},
+    storage:{from(b){return {async upload(path,file,o){window.__uploads=(window.__uploads||[]).concat(path);window.__upTypes=(window.__upTypes||[]).concat([o&&o.contentType]);return {data:{path},error:null}},async createSignedUrl(path,ttl,o){window.__signed=path;return {data:{signedUrl:'http://localhost:8123/index.html#signed'},error:null}},async list(){return {data:[],error:null}},async remove(p){window.__removed=(window.__removed||[]).concat(p||[]);return {data:[],error:null}}}}},
     rpc(fn,args){return call({t:'rpc',fn,args:args||{},uid:uid()})},
     from(t){return builder(t)}};
   }

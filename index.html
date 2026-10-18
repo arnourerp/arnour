@@ -25,7 +25,7 @@
   <script src="js/config.js"></script>
   <script src="js/vendor/supabase.js"></script>
   <script src="js/catalog.js"></script>
-  <script src="js/sample-data.js"></script>
+  <script>/* the demo data is only needed when the site runs without a live database */ if (!(window.ARNOUR_CONFIG && window.ARNOUR_CONFIG.url)) document.write('<script src="js/sample-data.js"><\/script>');</script>
   <script src="js/core.js"></script>
   <script src="js/views-public.js"></script>
   <script src="js/views-consultant.js"></script>
