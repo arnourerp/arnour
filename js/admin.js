@@ -252,7 +252,7 @@
     var I = A.imp, bad = I.rows ? I.rows.filter(function (r) { return r.warn.length; }).length : 0;
     var html = '<h1>Import jobs</h1><p class="muted">Paste the JSON produced by the “arnour-external-jobs” skill. Roles appear under <strong>Jobs on Arnour</strong>, labelled “External listing”, and expire after 60 days. Close or delete any of them anytime from the Roles tab.</p>' +
       '<label class="field"><span class="label">Roles (JSON)</span><textarea id="imp-text" class="input" rows="10" spellcheck="false" placeholder="[ { &quot;title&quot;: &quot;…&quot;, … } ]">' + h(I.text) + '</textarea></label>' +
-      '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-imp-check">Check</button>' +
+      '<div class="adm-actions"><label class="btn btn-ghost btn-sm" for="imp-file" style="cursor:pointer">Open a .json file…</label><input id="imp-file" type="file" accept=".json,.txt,application/json,text/plain" style="display:none"><button class="btn btn-outline btn-sm" data-action="adm-imp-check">Check</button>' +
       (I.rows && !bad ? '<button class="btn btn-primary btn-sm" data-action="adm-imp-run"' + (I.busy ? ' disabled' : '') + '>Import ' + I.rows.length + ' role' + (I.rows.length === 1 ? '' : 's') + '</button>' : '') + '</div>';
     if (I.error) html += '<p class="field-error" role="alert">' + h(I.error) + '</p>';
     if (I.rows) {
@@ -378,6 +378,15 @@
   };
   function allKeys() { return Object.keys(A.data).filter(function (k) { return k !== 'overview' && k !== 'log'; }); }
 
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t || t.id !== 'imp-file' || !t.files || !t.files[0]) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      A.imp.text = String(rd.result || ''); A.imp.result = null;
+      var c = checkImport(A.imp.text); A.imp.error = c.error || ''; A.imp.rows = c.rows || null; APP.render();
+    };
+    rd.readAsText(t.files[0]); t.value = '';
+  });
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'adm-del') window.__admDel = e.target.value.trim(); });
 
   APP.onSubmit = function (f) {
