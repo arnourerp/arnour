@@ -530,6 +530,10 @@ APP.jobSections = function (job, me) {
     const ok = me ? job.preferredLangs.some(l => (me.languages || []).includes(l)) : null;
     nice.push(plainLine('<b>Languages</b> ' + E(job.preferredLangs.join(', ')), me ? (ok ? { cls: 'ok', t: 'You speak one' } : null) : null));
   }
+  if (+job.minPrograms > 0) {
+    const pl0 = (APP.ROLE_PROFILE[APP.jobRoleType(job)] || {}).prog || 'Programs delivered';
+    nice.push(plainLine('<b>' + E(pl0) + '</b> ' + Number(job.minPrograms) + '+', me ? ((+me.programs || 0) >= +job.minPrograms ? { cls: 'ok', t: 'You have ' + me.programs } : { cls: 'mid', t: me.programs ? 'You have ' + me.programs : 'Not on your profile' }) : null));
+  }
   if (job.preferredSpecialties && job.preferredSpecialties.length) nice.push(plainLine('<b>Specialties</b> ' + E(job.preferredSpecialties.map(id => APP.specialtyName(id)).join(', ')), null));
   const inds = APP.jobIndustries(job);
   if (inds.length) nice.push(plainLine('<b>Industry</b> ' + E(inds.join(', ')), me && inds.some(i => (me.industries || []).includes(i)) ? { cls: 'ok', t: 'In your industries' } : null));

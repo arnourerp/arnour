@@ -515,7 +515,14 @@ APP.jobFormView = function (mode) {
     '<details class="opt-box" data-det="spec"' + (openSpec ? ' open' : '') + '><summary>Preferred specialties <span class="muted">(optional)</span>' + (nSpec ? ' <span class="count-pill">' + nSpec + ' selected</span>' : '') + '</summary>' +
     '<p class="field-hint">Ranks the role higher for professionals with these — never hides it.</p>' +
     '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties', { roles: d.roleType ? [d.roleType] : [], sugLabel: 'Common for this role type' }) + '</div></details>';
-  const skills = '<p class="field-hint">' + APP.icon('spark', 14) + ' These drive matching — professionals whose product + module fits rank at the top of their feed.</p>' + reqPart + specPart;
+  const leadJ = APP.LEAD_RTS.includes(d.roleType);
+  const progLbl = leadJ ? ((APP.ROLE_PROFILE[d.roleType] || {}).prog || 'Programs delivered') : '';
+  const expertise =
+    '<p class="field-hint">' + APP.icon('spark', 14) + ' For this role, expertise matters most. Preferred specialties rank the role higher for professionals who have them — they never hide it.</p>' +
+    '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties', { roles: d.roleType ? [d.roleType] : [], sugLabel: 'Common for this role type' }) + '</div>' +
+    '<label class="field"><span class="label">Minimum ' + APP.h(progLbl.toLowerCase()) + ' <span class="muted">(optional)</span></span><input name="minPrograms" type="number" min="0" max="100" class="input narrow-in" value="' + (d.minPrograms ? Number(d.minPrograms) : '') + '" placeholder="e.g. 3"></label>' +
+    '<div class="field"><span class="label">Industries <span class="muted">(optional)</span></span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div></div>';
+  const skills = '<p class="field-hint">' + APP.icon('spark', 14) + ' These drive matching — professionals whose product + module fits rank at the top of their feed.</p>' + reqPart + (leadJ ? '' : specPart);
 
   const candidate =
     '<div class="form-grid">' +
@@ -526,7 +533,7 @@ APP.jobFormView = function (mode) {
     '<div class="field"><span class="label">Required languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'languages', APP.languages, d.languages) + '</div><p class="field-hint">Professionals who don\'t speak every required language won\'t see this role in their feed.</p></div>' +
     '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>More ranking preferences <span class="muted">(optional)</span>' + (nMore ? ' <span class="count-pill">' + nMore + ' selected</span>' : '') + '</summary>' +
     '<div class="field"><span class="label">Preferred languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'preferredLangs', APP.languages.filter(l => (d.languages || []).indexOf(l) === -1), d.preferredLangs) + '</div><p class="field-hint">Ranks the role higher for professionals who speak them — never hides it.</p></div>' +
-    '<div class="field"><span class="label">Industries</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div><p class="field-hint">Ranks the role higher for professionals with that background — never hides it.</p></div>' +
+    (leadJ ? '' : '<div class="field"><span class="label">Industries</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div><p class="field-hint">Ranks the role higher for professionals with that background — never hides it.</p></div>') +
     '<label class="field"><span class="label">Preferred gender</span><select name="preferredGender" class="input"><option value="">No preference</option>' + APP.opt(APP.genders, d.preferredGender) + '</select><p class="field-hint">Ranks the role higher for matching professionals — never hides it.</p></label>' +
     '</details>';
 
@@ -549,10 +556,11 @@ APP.jobFormView = function (mode) {
       '<p class="muted">Changes are visible to professionals right away. Applicants stay on the role.</p>' +
       '<form data-form="job-post">' +
       sec(1, 'The role', 'What it is and where.', basics) +
-      sec(2, 'Required SAP skills <span class="req-star">*</span>', 'The most important part — it decides who sees your role.', skills) +
-      sec(3, 'Candidate requirements', 'Seniority, experience, certification and languages.', candidate) +
-      (APP.SHOW_RATES ? sec(4, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
-      sec(APP.SHOW_RATES ? 5 : 4, 'Description', 'Optional — scope, team and what success looks like.', desc) +
+      (leadJ ? sec(2, 'Expertise', 'Specialties, programmes and industries.', expertise) + sec(3, 'SAP products <span class="req-star">*</span>', 'At least one product; modules only if essential.', skills)
+        : sec(2, 'Required SAP skills <span class="req-star">*</span>', 'The most important part — it decides who sees your role.', skills)) +
+      sec(leadJ ? 4 : 3, 'Candidate requirements', 'Seniority, experience, certification and languages.', candidate) +
+      (APP.SHOW_RATES ? sec(leadJ ? 5 : 4, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
+      sec((APP.SHOW_RATES ? 5 : 4) + (leadJ ? 1 : 0), 'Description', 'Optional — scope, team and what success looks like.', desc) +
       '<div class="publish-bar"><a class="btn btn-ghost" href="#/e/jobs/' + d.editId + '">Cancel</a>' +
       '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Save changes</button></div>' +
       '</form></div>';
@@ -560,7 +568,7 @@ APP.jobFormView = function (mode) {
 
   /* ---- posting: 3-step wizard. All steps stay in the DOM (hidden) so every field is always submitted and drafts never lose data. ---- */
   const step = Math.min(3, Math.max(1, APP.state.jobStep || 1));
-  const labels = [APP.SHOW_RATES ? 'Role & pay' : 'The role', 'SAP skills', 'Review & publish'];
+  const labels = [APP.SHOW_RATES ? 'Role & pay' : 'The role', leadJ ? 'Expertise & SAP' : 'SAP skills', 'Review & publish'];
   const stepper = '<ol class="wiz-steps" aria-label="Progress">' + labels.map((l, i) => {
     const n = i + 1;
     return '<li class="' + (n === step ? 'cur' : n < step ? 'done' : '') + '"' + (n === step ? ' aria-current="step"' : '') + '>' +
@@ -570,8 +578,8 @@ APP.jobFormView = function (mode) {
   const pl = APP.rtProductLevel(d.roleType);
   const pv = APP.jobPreviewObj(d, co);
   const s1 = card('The role', 'What it is and where.', basics) + (!APP.SHOW_RATES ? '' : card('Pay <span class="muted">(optional)</span>', 'Roles with a pay range get noticeably more applications.', pay));
-  const s2 = card(pl ? 'Which SAP products should they know?' : 'What SAP experience do they need?', pl ? 'For this role the product matters more than individual modules — pick modules only if they are essential. Start with one product.' : 'The most important part — it decides who sees your role. Start with one; add more only if you need them.', reqPart) +
-    card('Nice to have <span class="muted">(optional)</span>', 'Seniority, certification, languages and specialties. Skip this if you are unsure.', candidate + specPart);
+  const s2 = (leadJ ? card('What expertise do you need?', 'Specialties, programmes and industries — what sets a strong candidate apart for this role.', expertise) : '') + card(pl ? 'Which SAP products should they know?' : 'What SAP experience do they need?', pl ? 'For this role the product matters more than individual modules — pick modules only if they are essential. Start with one product.' : 'The most important part — it decides who sees your role. Start with one; add more only if you need them.', reqPart) +
+    card('Nice to have <span class="muted">(optional)</span>', leadJ ? 'Seniority, certification and languages. Skip this if you are unsure.' : 'Seniority, certification, languages and specialties. Skip this if you are unsure.', candidate + (leadJ ? '' : specPart));
   const s3 = card('Description <span class="muted">(optional)</span>', 'Scope, team and what success looks like.', desc) +
     '<div class="preview-h"><h3>This is how professionals will see your role</h3><div id="req-summary-2">' + APP.jobReqSummary(d, true) + '</div></div>' +
     '<div class="job-preview" aria-label="Role preview" tabindex="-1">' + APP.asPublicHtml(() => APP.jobCard(pv, null, '', '')) + '</div>' +

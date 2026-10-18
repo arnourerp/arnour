@@ -1212,8 +1212,8 @@ APP.MATCH_WEIGHTS = {
   technical:  { exp: 3, lvl: 1, ind: 1, spec: 3, lang: 1, cert: 1, loc: 1, avail: 2 },
   basis:      { exp: 3, lvl: 1, ind: 1, spec: 4, lang: 1, cert: 3, loc: 1, avail: 2 },
   support:    { exp: 2, lvl: 1, ind: 2, spec: 2, lang: 3, cert: 1, loc: 3, avail: 3 },
-  architect:  { exp: 4, lvl: 4, ind: 4, spec: 3, lang: 1, cert: 1, loc: 1, avail: 1 },
-  delivery:   { exp: 5, lvl: 3, ind: 4, spec: 4, lang: 3, cert: 1, loc: 2, avail: 2 },
+  architect:  { exp: 4, lvl: 4, ind: 4, spec: 3, lang: 1, cert: 1, loc: 1, avail: 1 , prog: 3 },
+  delivery:   { exp: 5, lvl: 3, ind: 4, spec: 4, lang: 3, cert: 1, loc: 2, avail: 2 , prog: 3 },
   keyuser:    { exp: 2, lvl: 1, ind: 5, spec: 4, lang: 2, cert: 1, loc: 3, avail: 1 },
   junior:     { exp: 0, lvl: 0, ind: 1, spec: 3, lang: 2, cert: 0, loc: 3, avail: 4 }
 };
@@ -1287,6 +1287,10 @@ APP.matchDetail = function (c, job) {
   if (minExp) {
     addCtx('exp', 'Experience', c.yearsExp >= minExp ? 1 : Math.max(0, 1 - (minExp - (c.yearsExp || 0)) * 0.25));
     if (c.yearsExp < minExp) gaps.push('Experience: ' + c.yearsExp + ' yrs, role wants ' + minExp + '+');
+  }
+  if (+job.minPrograms > 0) {
+    const need = +job.minPrograms, have = +c.programs || 0, lbl = APP.ROLE_PROFILE[APP.jobRoleType(job)] && APP.ROLE_PROFILE[APP.jobRoleType(job)].prog || 'Programs delivered';
+    addCtx('prog', lbl, have >= need ? 1 : have > 0 ? have / need : 0.3, have ? have + ' vs ' + need + '+ wanted' : 'Not on the profile');
   }
   if (job.level) { const i = APP.levels.indexOf(c.level), j = APP.levels.indexOf(job.level); addCtx('lvl', 'Seniority', (i < 0 || j < 0) ? (c.level === job.level ? 1 : 0) : Math.max(0, 1 - 0.5 * Math.abs(i - j))); }
   if (APP.jobIndustries(job).length) addCtx('ind', 'Industry', APP.jobIndustries(job).some(i => (c.industries || []).indexOf(i) !== -1) ? 1 : 0);
@@ -4168,6 +4172,7 @@ APP.onSubmit = function (f) {
       if (!d.applyUrl) delete d.applyUrl;
       d.minExp = +g('minExp') || 0;
       delete d.maxExp;
+      if (fd.has('minPrograms')) { d.minPrograms = Math.max(0, +g('minPrograms') || 0); if (!d.minPrograms || !APP.LEAD_RTS.includes(d.roleType)) delete d.minPrograms; }
       d.level = g('level');
       d.industries = (d.industries || []).filter(Boolean);
       d.industry = d.industries[0] || ''; /* kept for older code paths and saved data */
