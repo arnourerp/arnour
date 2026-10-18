@@ -193,7 +193,9 @@ $$ select coalesce((select jsonb_object_agg(e.key, e.value) from jsonb_each(coal
 
 create or replace function public._consultant_public_keys() returns text[]
 language sql immutable as
-$$ select array['firstName','lastName','headline','summary','city','country','nationality','availability','currency','dailyRate','ratePeriod',
+-- pay rates (currency, dailyRate, ratePeriod) are left out while rates are hidden on the site (APP.SHOW_RATES = false);
+-- add them back here when rates return
+$$ select array['firstName','lastName','headline','summary','city','country','nationality','availability',
                'industries','languages','level','linkedin','otherSkills','programs','roleType','roleTypes','skills','specialties','workPrefs','yearsExp'] $$;
 
 create or replace function public._redact_consultant(c public.consultants) returns jsonb
@@ -295,6 +297,8 @@ begin
     else out_co := jb.company_id; end if;
     d := jb.data;
     if auth.uid() is null then d := d - 'applyUrl'; end if; /* the external apply link is for signed-in people only */
+    /* pay is hidden on the site for now: only the company that posted the role receives it */
+    if jb.owner is distinct from auth.uid() or auth.uid() is null then d := d - array['rateMin','rateMax','currency','ratePeriod']; end if;
     return next (d || jsonb_build_object('id', jb.id, 'companyId', out_co, 'status', jb.status,
                   'postedTs', jb.posted_ts, 'confidential', jb.confidential, 'sample', jb.sample,
                   'mine', jb.owner is not distinct from auth.uid() and auth.uid() is not null));

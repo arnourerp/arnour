@@ -1697,3 +1697,9 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 
 .toast .toast-report{margin-left:12px;padding:0;border:0;background:none;color:#fff;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
 .toast:has(.toast-report){pointer-events:auto}
+
+/* long words (pasted links, "S/4HANA/BTP/…" headlines) wrap instead of pushing the page sideways */
+#main h1, #main h2, #main h3, #main h4, #main p, #main li, #main dd, #main dt, #main td, #main small, #main strong, #main b,
+#main a:not(.btn):not(.chip):not(.pill), #main .grow span, #main .card-sub, #main .jd-co span, #main .profile-meta span, #main .job-meta span,
+#main .profile-name, #main .td-headline { overflow-wrap: anywhere; }
+#main .grow, #main .card-id, #main .jd-co, #main .profile-card-top > *, #main .person-row > *, #main .app-item > * { min-width: 0; }
