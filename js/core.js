@@ -798,6 +798,7 @@ APP.cv = function (c, force) {
 APP.coHidden = (co, job) => !!co && ((job && job.confidential !== undefined && job.confidential !== null) ? !!job.confidential : !!co.anon);
 APP.canSeeCompany = function (co, job) {
   if (!co || !APP.coHidden(co, job)) return true;
+  if (APP.asPublic) return false; /* a company previewing its own role or page sees what professionals see */
   const s = APP.db && APP.db.session;
   if (!s) return false;
   if (s.role === 'employer') return s.companyId === co.id;

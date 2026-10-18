@@ -565,6 +565,24 @@ begin
   return 'Someone';
 end $$;
 
+-- the sender's name as the receiver may see it, taking a confidential role into account.
+-- (_co_hidden cannot be used here: it answers for the person calling, and here the caller is the sender)
+create or replace function public._ent_label_job(p_ent text, p_viewer text, p_job text) returns text
+language plpgsql stable security definer set search_path = public as
+$$
+declare co public.companies; jb public.jobs;
+begin
+  select * into co from public.companies where id = p_ent;
+  if co.id is not null and p_job is not null then
+    select * into jb from public.jobs where id = p_job and company_id = co.id;
+    if jb.id is not null and coalesce(jb.confidential, co.anon) and not public.is_revealed(p_viewer, co.id) then
+      return 'A confidential company';
+    end if;
+    if jb.id is not null and jb.confidential is false then return coalesce(nullif(co.data->>'name',''), 'A company'); end if;
+  end if;
+  return public._ent_label(p_ent, p_viewer);
+end $$;
+
 create or replace function public.send_notification(p_key text, p_type text, p_text text, p_link text) returns void
 language plpgsql security definer set search_path = public as
 $$
@@ -591,6 +609,7 @@ begin
   elsif mc is not null then
     select * into v from public.conversations where id = mc[1];
     if v.id is not null and ((v.c_id = me and v.e_id = k) or (v.e_id = me and v.c_id = k)) then
+      who := public._ent_label_job(me, k, v.job_id);
       txt := who || case when p_text ilike '%proposed a call%' then ' proposed a call'
                          when p_text ilike '%accepted your introduction%' then ' accepted your introduction — you can now chat'
                          when p_text ilike '%replied%' then ' replied to your message' else ' sent you a message' end;
@@ -599,6 +618,7 @@ begin
     select * into i from public.intros where (cid = me and eid = k) or (eid = me and cid = k) order by coalesce(resp_ts, ts) desc limit 1;
     if i.id is not null then
       select data->>'title' into ttl from public.jobs where id = i.job_id;
+      who := public._ent_label_job(me, k, i.job_id);
       txt := case
         when i.status = 'pending' and i.from_side = 'e' then who || ' would like to connect' || coalesce(' about "' || ttl || '"', '')
         when i.status = 'pending' then who || ' is interested' || coalesce(' in "' || ttl || '"', '')
@@ -611,7 +631,7 @@ begin
       ttl := coalesce(j.data->>'title', 'a role');
       select * into co from public.companies where id = j.company_id;
       if j.company_id = me and exists (select 1 from public.consultants where id = k) then
-        who := case when public._co_hidden(co, j) and not public.is_revealed(k, co.id) then 'A confidential company' else coalesce(co.data->>'name', 'A company') end;
+        who := public._ent_label_job(me, k, j.id);  /* hidden unless this professional was already introduced */
         txt := case when exists (select 1 from public.invites where job_id = j.id and consultant_id = k)
                     then who || ' invited you to apply for "' || ttl || '"'
                     else 'New role matches your profile: ' || ttl || ' — ' || who end;

@@ -118,7 +118,7 @@ APP.views['e-company'] = function () {
         tags: '#SAP #Hiring',
         url: APP.shareUrl('#/company/' + co.id)
       }) + '</div>' +
-      '<p class="muted small mt8">Anyone with this link can view your public company page — <a class="link" href="#/company/' + co.id + '">open it to preview →</a></p>';
+      '<p class="muted small mt8">Anyone with this link can view your public company page — <a class="link" href="#/company/' + co.id + '" data-action="preview-public" data-href="#/company/' + co.id + '" data-back="#/e/company">open it to preview →</a></p>';
   } else {
     body =
       '<div class="card"><div class="card-h">Edit company profile <button class="link" data-action="co-edit-off">Cancel</button></div>' +
@@ -574,7 +574,7 @@ APP.jobFormView = function (mode) {
     card('Nice to have <span class="muted">(optional)</span>', 'Seniority, certification, languages and specialties. Skip this if you are unsure.', candidate + specPart);
   const s3 = card('Description <span class="muted">(optional)</span>', 'Scope, team and what success looks like.', desc) +
     '<div class="preview-h"><h3>This is how professionals will see your role</h3><div id="req-summary-2">' + APP.jobReqSummary(d, true) + '</div></div>' +
-    '<div class="job-preview" aria-label="Role preview" tabindex="-1">' + APP.jobCard(pv, null, '', '') + '</div>' +
+    '<div class="job-preview" aria-label="Role preview" tabindex="-1">' + APP.asPublicHtml(() => APP.jobCard(pv, null, '', '')) + '</div>' +
     '<p class="muted small preview-edit">Something off? <button type="button" class="link" data-action="job-step" data-step="1">Edit role' + (APP.SHOW_RATES ? ' &amp; pay' : '') + '</button> · <button type="button" class="link" data-action="job-step" data-step="2">Edit skills</button></p>';
   const steps = [s1, s2, s3].map((h, i) => '<div class="jw-step" data-step="' + (i + 1) + '"' + (i + 1 === step ? '' : ' hidden') + '>' + h + '</div>').join('');
   const bar = '<div class="publish-bar">' +
@@ -675,7 +675,7 @@ APP.views['e-job-detail'] = function (ctx) {
   const stat = (n, l) => '<div class="jd-stat"><b>' + n + '</b><span>' + l + '</span></div>';
   const side = '<aside class="jd-side"><div class="card jd-act">' +
     '<a class="btn btn-primary jd-apply" href="#/e/jobs/' + job.id + '/edit">' + APP.icon('plus', 14) + ' Edit role</a>' +
-    '<a class="btn btn-outline btn-sm" href="#/job/' + job.id + '">' + APP.icon('ext', 14) + ' Preview as professional</a>' +
+    '<a class="btn btn-outline btn-sm" href="#/job/' + job.id + '" data-action="preview-public" data-href="#/job/' + job.id + '" data-back="#/e/jobs/' + job.id + '">' + APP.icon('ext', 14) + ' Preview as professional</a>' +
     (open ? '<button type="button" class="btn btn-outline btn-sm jd-close" data-action="close-job" data-id="' + job.id + '">Close role</button>'
       : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + job.id + '">Reopen role</button>') +
     '</div>' +
@@ -719,3 +719,31 @@ APP.views['c-preview'] = function () {
   const s = APP.db.session;
   return APP.views['e-talent-detail']({ p: [s.consultantId], preview: true });
 };
+
+/* ---- "preview as professional": the company sees its own role / page exactly as professionals do ---- */
+APP.asPublicHtml = function (fn) { const was = APP.asPublic; APP.asPublic = true; try { return fn(); } finally { APP.asPublic = was; } };
+['job-detail', 'company-public'].forEach(function (v) {
+  const orig = APP.views[v];
+  if (!orig) return;
+  APP.views[v] = function (ctx) {
+    const pp = APP.state.previewPublic, s = APP.db.session;
+    if (!pp || !s || s.role !== 'employer' || pp.href !== location.hash) return orig(ctx);
+    const banner = '<div class="card preview-banner">' + APP.icon('lock', 16) + '<div><b>Preview: this is how professionals see it</b>' +
+      '<div class="muted small">Confidential details stay hidden until you accept an introduction.</div></div>' +
+      '<a class="btn btn-outline btn-sm" href="' + APP.h(pp.back) + '" style="margin-left:auto">Back</a></div>';
+    return APP.asPublicHtml(() => banner + orig(ctx));
+  };
+});
+window.addEventListener('hashchange', function () { const pp = APP.state.previewPublic; if (pp && pp.href !== location.hash) APP.state.previewPublic = null; });
+(function () {
+  const prev = APP.onClick;
+  APP.onClick = function (el, e) {
+    if (el.dataset && el.dataset.action === 'preview-public') {
+      if (e && e.preventDefault) e.preventDefault();
+      APP.state.previewPublic = { href: el.dataset.href, back: el.dataset.back || '#/e/dashboard' };
+      if (location.hash === el.dataset.href) APP.render(); else location.hash = el.dataset.href;
+      return;
+    }
+    return prev.apply(this, arguments);
+  };
+})();
