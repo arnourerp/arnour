@@ -1717,3 +1717,24 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .rt-tip{display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;border-radius:8px;background:#fff;color:var(--blue,#1D4ED8);font-size:13px;width:fit-content;max-width:100%}
 .rt-tip svg{flex:none;color:var(--blue,#1D4ED8)}
 .rt-tip-sm{margin-top:4px;padding:4px 8px;font-size:12.5px;background:var(--blue-soft,#E8F0FE)}
+
+/* requirement lines: traffic-light status (green met, orange partly, red missing, grey not required) */
+.jd-req { align-items: flex-start; }
+.jd-ico { flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; line-height: 1; background: var(--badge-neutral-bg, #eef1f5); color: var(--text-muted, #64748b); margin-top: 1px; }
+.jd-why { display: block; font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+.st-ok .jd-ico { background: #dcf3e5; color: #157a3f; } .st-ok .jd-why { color: #157a3f; }
+.st-mid .jd-ico { background: #fdf0d5; color: #9a5b00; } .st-mid .jd-why { color: #9a5b00; }
+.st-no .jd-ico { background: #fde2e2; color: #b42318; } .st-no .jd-why { color: #b42318; }
+.st-na .jd-ico { background: var(--badge-neutral-bg, #eef1f5); color: var(--text-muted, #64748b); } .st-na .jd-why { color: var(--text-muted, #64748b); font-weight: 500; }
+.jd-req.st-ok { border-color: #bfe6cd; } .jd-req.st-mid { border-color: #f3d79b; } .jd-req.st-no { border-color: #f5c2c2; }
+.jd-group { list-style: none; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 10px 12px; }
+.jd-group-h { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; margin-bottom: 8px; }
+.jd-opts { list-style: none; margin: 0; padding: 0 0 0 30px; display: flex; flex-direction: column; gap: 6px; }
+.jd-opts .jd-req { padding: 8px 10px; }
+.jd-or { list-style: none; font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted, #64748b); padding-left: 4px; }
+/* side panel "Your match" uses the same traffic light */
+.jd-match .match.m-low { background: #fde2e2; color: #b42318; }
+.jd-big-bar span.m-low { background: #d64545; }
+.jd-match .chip-wrap .chip { background: #dcf3e5; color: #157a3f; border-color: #bfe6cd; }
+.jd-match .mb-gaps li::marker { color: #d99a1c; }
+.jd-match .mb-gaps li { color: #9a5b00; }

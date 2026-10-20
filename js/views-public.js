@@ -494,49 +494,55 @@ APP.longTextHtml = function (text) {
 };
 APP.jobSections = function (job, me) {
   const E = APP.h;
-  /* ---- requirement rows with the viewer's own status ---- */
-  const RANK = { exact: 5, transfer: 4, projects: 3, product: 2, none: 1 };
-  const stFor = (g) => {
+  /* ---- requirement rows with the viewer's own status: green = met, orange = partly (with the reason), red = missing.
+     Missing "nice to have" items are grey, not red: they are not required. One line per option. ---- */
+  const ICO = { ok: '✓', mid: '!', no: '✕', na: '–' };
+  const lineHtml = (inner, st) => '<li class="jd-req st-' + (st ? st.cls : 'none') + '">' +
+    '<span class="jd-ico" aria-hidden="true">' + (st ? ICO[st.cls] : '•') + '</span>' +
+    '<span class="jd-req-t">' + inner + (st ? '<span class="jd-why">' + E(st.t) + '</span>' : '') + '</span></li>';
+  const stSkill = (r) => {
     if (!me) return null;
-    let best = null;
-    g.forEach(r => { const m = APP.reqMatch(me, r); if (!best || RANK[m.kind] > RANK[best.m.kind]) best = { m: m, r: r }; });
-    const k = best.m.kind;
-    if (k === 'exact') return { cls: 'ok', t: 'You have this' };
-    if (k === 'transfer') return { cls: 'mid', t: 'Transferable · ' + APP.productShort(best.m.via.productId) };
-    if (k === 'projects') return { cls: 'mid', t: 'You have ' + best.m.have + ' project' + (best.m.have === 1 ? '' : 's') };
-    if (k === 'product') return { cls: 'no', t: 'Other modules only' };
+    const m = APP.reqMatch(me, r);
+    if (m.kind === 'exact') return { cls: 'ok', t: 'You have this' + (m.have ? ' · ' + m.have + ' project' + (m.have === 1 ? '' : 's') : '') };
+    if (m.kind === 'projects') return { cls: 'mid', t: 'You have ' + m.have + ' of ' + r.minProjects + ' projects' };
+    if (m.kind === 'transfer') return { cls: 'mid', t: 'Transferable from ' + APP.productShort(m.via.productId) + ' ' + APP.skillName(m.via.productId, m.via.moduleId) };
+    if (m.kind === 'product') return { cls: 'mid', t: 'You know ' + APP.productShort(r.productId) + ', other modules only' };
     return { cls: 'no', t: 'Not on your profile' };
   };
+  const skillTxt = (r) => '<b>' + E(APP.productShort(r.productId)) + '</b> ' + E(APP.skillName(r.productId, r.moduleId)) + (r.minProjects ? ' <em>' + r.minProjects + '+ projects</em>' : '');
+  const RANKC = { ok: 3, mid: 2, no: 1 };
   const reqLine = (g) => {
-    const st = stFor(g);
-    const one = (r) => '<b>' + E(APP.productShort(r.productId)) + '</b> ' + E(APP.skillName(r.productId, r.moduleId)) +
-      (r.minProjects ? ' <em>' + r.minProjects + '+ projects</em>' : '');
-    return '<li class="jd-req">' + (st ? '<span class="jd-dot ' + st.cls + '" aria-hidden="true"></span>' : '<span class="jd-dot" aria-hidden="true"></span>') +
-      '<span class="jd-req-t">' + g.map(one).join(' <i class="or-sep">or</i> ') + '</span>' +
-      (st ? '<span class="jd-st ' + st.cls + '">' + E(st.t) + '</span>' : '') + '</li>';
+    if (g.length === 1) return lineHtml(skillTxt(g[0]), stSkill(g[0]));
+    const sts = g.map(stSkill);
+    let best = -1; sts.forEach((x, i) => { if (x && (best < 0 || RANKC[x.cls] > RANKC[sts[best].cls])) best = i; });
+    const top = best >= 0 ? sts[best] : null;
+    const head = top ? (top.cls === 'ok' ? { cls: 'ok', t: 'You meet this (option ' + (best + 1) + ')' } : top.cls === 'mid' ? { cls: 'mid', t: 'Partly met' } : { cls: 'no', t: 'Not met' }) : null;
+    return '<li class="jd-group"><div class="jd-group-h st-' + (head ? head.cls : 'none') + '"><span class="jd-ico" aria-hidden="true">' + (head ? ICO[head.cls] : '•') + '</span>' +
+      '<span><b>Any one of these</b>' + (head ? '<span class="jd-why">' + E(head.t) + '</span>' : '') + '</span></div>' +
+      '<ul class="jd-opts">' + g.map((r, i) => (i ? '<li class="jd-or">or</li>' : '') + lineHtml(skillTxt(r), sts[i])).join('') + '</ul></li>';
   };
   const groups = APP.reqGroups(job);
-  const plainLine = (t, st) => '<li class="jd-req"><span class="jd-dot' + (st ? ' ' + st.cls : '') + '"></span><span class="jd-req-t">' + t + '</span>' + (st ? '<span class="jd-st ' + st.cls + '">' + E(st.t) + '</span>' : '') + '</li>';
+  const plainLine = lineHtml;
+  const myLangs = me ? (me.languages || []) : [];
+  const certAny = me ? (me.skills || []).some(k => k.certified) : false;
   const must = groups.map(reqLine);
-  if (job.languages && job.languages.length) {
-    const ok = me ? job.languages.every(l => (me.languages || []).includes(l)) : null;
-    must.push(plainLine('<b>Languages</b> ' + E(job.languages.join(', ')), me ? (ok ? { cls: 'ok', t: 'You speak these' } : { cls: 'no', t: 'Not on your profile' }) : null));
-  }
-  if (job.certification === 'required') must.push(plainLine('<b>SAP certification</b> required', null));
-  if (job.minExp) must.push(plainLine('<b>Experience</b> ' + E(APP.expLabel(job) || (job.minExp + '+ years')), me ? (me.yearsExp >= job.minExp ? { cls: 'ok', t: 'You have ' + me.yearsExp + ' yrs' } : { cls: 'mid', t: 'You have ' + (me.yearsExp || 0) + ' yrs' }) : null));
+  (job.languages || []).forEach(l => must.push(lineHtml('<b>Language</b> ' + E(l), me ? (myLangs.includes(l) ? { cls: 'ok', t: 'You speak it' } : { cls: 'no', t: 'Not on your profile' }) : null)));
+  if (job.certification === 'required') must.push(lineHtml('<b>SAP certification</b> required', me ? (certAny ? { cls: 'ok', t: 'You are SAP-certified' } : { cls: 'no', t: 'No certification on your profile' }) : null));
+  if (job.minExp) must.push(lineHtml('<b>Experience</b> ' + E(APP.expLabel(job) || (job.minExp + '+ years')), me ? ((me.yearsExp || 0) >= job.minExp ? { cls: 'ok', t: 'You have ' + me.yearsExp + ' yrs' } : { cls: (me.yearsExp || 0) >= job.minExp - 2 ? 'mid' : 'no', t: 'You have ' + (me.yearsExp || 0) + ' yrs' }) : null));
   const nice = [];
-  if (job.certification && job.certification !== 'required') nice.push(plainLine('<b>SAP certification</b> preferred', null));
-  if (job.preferredLangs && job.preferredLangs.length) {
-    const ok = me ? job.preferredLangs.some(l => (me.languages || []).includes(l)) : null;
-    nice.push(plainLine('<b>Languages</b> ' + E(job.preferredLangs.join(', ')), me ? (ok ? { cls: 'ok', t: 'You speak one' } : null) : null));
-  }
+  if (job.certification && job.certification !== 'required') nice.push(lineHtml('<b>SAP certification</b> preferred', me ? (certAny ? { cls: 'ok', t: 'You are SAP-certified' } : { cls: 'na', t: 'Not on your profile' }) : null));
+  (job.preferredLangs || []).forEach(l => nice.push(lineHtml('<b>Language</b> ' + E(l), me ? (myLangs.includes(l) ? { cls: 'ok', t: 'You speak it' } : { cls: 'na', t: 'Not on your profile' }) : null)));
   if (+job.minPrograms > 0) {
     const pl0 = (APP.ROLE_PROFILE[APP.jobRoleType(job)] || {}).prog || 'Programs delivered';
-    nice.push(plainLine('<b>' + E(pl0) + '</b> ' + Number(job.minPrograms) + '+', me ? ((+me.programs || 0) >= +job.minPrograms ? { cls: 'ok', t: 'You have ' + me.programs } : { cls: 'mid', t: me.programs ? 'You have ' + me.programs : 'Not on your profile' }) : null));
+    const have = me ? (+me.programs || 0) : 0;
+    nice.push(lineHtml('<b>' + E(pl0) + '</b> ' + Number(job.minPrograms) + '+', me ? (have >= +job.minPrograms ? { cls: 'ok', t: 'You have ' + have } : have > 0 ? { cls: 'mid', t: 'You have ' + have + ' of ' + job.minPrograms } : { cls: 'na', t: 'Not on your profile' }) : null));
   }
-  if (job.preferredSpecialties && job.preferredSpecialties.length) nice.push(plainLine('<b>Specialties</b> ' + E(job.preferredSpecialties.map(id => APP.specialtyName(id)).join(', ')), null));
-  const inds = APP.jobIndustries(job);
-  if (inds.length) nice.push(plainLine('<b>Industry</b> ' + E(inds.join(', ')), me && inds.some(i => (me.industries || []).includes(i)) ? { cls: 'ok', t: 'In your industries' } : null));
+  const mySpec = me ? (me.specialties || []) : [];
+  (job.preferredSpecialties || []).forEach(id => {
+    const has = mySpec.indexOf(id) !== -1 || mySpec.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id);
+    nice.push(lineHtml('<b>Specialty</b> ' + E(APP.specialtyName(id)), me ? (has ? { cls: 'ok', t: 'On your profile' } : { cls: 'na', t: 'Not on your profile' }) : null));
+  });
+  APP.jobIndustries(job).forEach(i => nice.push(lineHtml('<b>Industry</b> ' + E(i), me ? ((me.industries || []).includes(i) ? { cls: 'ok', t: 'In your industries' } : { cls: 'na', t: 'Not on your profile' }) : null)));
 
   const reqSection = (must.length || nice.length)
     ? '<section class="jd-sec"><h2>Requirements</h2>' +
