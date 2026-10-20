@@ -683,10 +683,18 @@ APP.views['talent-public'] = function (ctx) {
   if (!APP.canSeePerson(c)) {
     document.title = 'Private profile · Arnour';
     const sx = APP.db.session;
+    /* another professional: the anonymous profile (skills first, name second) — no name, photo, LinkedIn, CV, about, city or availability */
+    if (sx && sx.role === 'consultant' && sx.consultantId !== c.id) {
+      const a = Object.assign({}, APP.cv(c, true), { availability: '', gender: '' });
+      return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div>' +
+        '<div class="card anon-note">' + APP.icon('lock', 16) + '<span><b>Private profile</b> — name and contact details are hidden until they choose to share them. You can still send a message.</span></div>' +
+        APP.consultantProfileHtml(a, { public: true, headActions: '<button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button>' + (APP.modTools ? APP.modTools('profile', c.id, false) : '') }) +
+        '</div>';
+    }
     return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div><div class="card empty anon-empty">' + APP.icon('lock', 28) +
       '<h3>This profile is private</h3><p class="muted">This professional uses Mutual Reveal: skills first, name second. Their identity is shared only when they choose to share it.</p>' +
-      (sx && sx.role === 'employer' ? '<a class="btn btn-primary btn-sm" href="#/e/talent/' + c.id + '">View anonymous profile</a>'
-        : sx && sx.role === 'consultant' && sx.consultantId !== c.id ? '<div class="btn-row" style="justify-content:center"><button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button></div>'
+      (!sx ? '<div class="btn-row" style="justify-content:center"><a class="btn btn-primary btn-sm" href="#/login">Sign in to see more</a><a class="btn btn-outline btn-sm" href="#/register">Join free</a></div>'
+        : sx.role === 'employer' ? '<a class="btn btn-primary btn-sm" href="#/e/talent/' + c.id + '">View anonymous profile</a>'
         : '<a class="btn btn-outline btn-sm" href="#/">Back to home</a>') + '</div></div>';
   }
   const name = APP.consultantFullName(c);

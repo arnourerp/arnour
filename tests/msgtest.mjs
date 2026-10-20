@@ -88,6 +88,12 @@ t('unblock',!(await as('c',`select set_block('${p1}',false)`)).err);
 t('can send after unblock',!(await as('c2',`select send_message('${p1}','ok')`)).err);
 t('outsider cannot block',!!(await as('c3',`select set_block('${p1}',true)`)).err);
 t('outsider cannot reveal',!!(await as('c3',`select reveal_in_conversation('${p1}')`)).err);
+// other professionals do not see availability of a private profile; companies do
+await db.exec(`update consultants set data = data || '{"availability":"Available now"}'::jsonb where id='${ce3}' or id='${ce}'`);
+{ const r=(await as('c3','select list_consultants() x')).find(r=>r.x.id===ce);
+  t('peer view of private profile has no availability',r && !r.x.availability && r.x.firstName==='' ,r&&r.x);
+  const r2=(await as('c3','select list_consultants() x')).find(r=>r.x.id===ce);
+  t('peer view keeps skills',r2&&Array.isArray(r2.x.skills)||r2&&r2.x.skills===undefined,r2&&r2.x); }
 // edit / delete
 const mid=(await as('e',`select id from messages where conv_id='${cv1}' and text='great'`))[0].id;
 t('sender edits',!(await as('e',`select edit_message('${mid}','great!')`)).err&&(await as('c',`select text,edited_ts from messages where id='${mid}'`))[0].text==='great!');

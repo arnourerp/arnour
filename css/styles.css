@@ -1774,3 +1774,5 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .attn-line > svg { color: var(--blue); flex: none; }
 .attn-sep { margin: 0 8px; color: var(--mut); }
 .new-pill { background: #fff4e5; color: #9a5b00; border: 1px solid #f3d19c; font-weight: 600; }
+.anon-note { display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin-bottom: 12px; background: var(--blue-soft); font-size: 13.5px; }
+.anon-note > svg { color: var(--blue); flex: none; }

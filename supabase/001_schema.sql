@@ -295,6 +295,7 @@ begin
       return next _full_consultant(c, false) || _emp_gender(c) || case when jsonb_typeof(c.data->'cv') = 'object' then jsonb_build_object('cv', c.data->'cv') else '{}'::jsonb end;
     elsif not c.anon then return next _full_consultant(c, false) || _emp_gender(c);
     elsif r = 'consultant' and _peer_revealed(c.id, ent) then return next _full_consultant(c, false);
+    elsif r = 'consultant' then return next _redact_consultant(c) - 'availability';  -- other professionals: no availability
     else return next _redact_consultant(c) || _emp_gender(c);
     end if;
   end loop;
