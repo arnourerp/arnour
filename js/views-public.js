@@ -239,7 +239,7 @@ APP.views['wiz-c'] = function () {
     const selRole = APP.rtList(d)[0];
     const collapsed = !!selRole && !APP.wizC.roleOpen;
     const roleInner = collapsed
-      ? '<div class="rt-collapsed"><span class="rt-check on" aria-hidden="true">' + APP.icon('check', 14) + '</span><div class="rt-collapsed-txt"><b>' + APP.h(APP.roleTypeLabel(selRole)) + '</b><span class="muted small">You can add another role later in Edit profile.</span></div><button type="button" class="btn btn-outline btn-sm" data-action="role-change">Change</button></div>'
+      ? '<div class="rt-collapsed"><span class="rt-check on" aria-hidden="true">' + APP.icon('check', 14) + '</span><div class="rt-collapsed-txt"><b>' + APP.h(APP.roleTypeLabel(selRole)) + '</b><span class="rt-tip rt-tip-sm">' + APP.icon('plus', 13) + '<span><b>Do more than one role?</b> You can add more later in Edit profile.</span></span></div><button type="button" class="btn btn-outline btn-sm" data-action="role-change">Change</button></div>'
       : APP.roleTypePicker('wizC', d, { single: true }) + E('role');
     body = '<form data-form="wiz-c" data-step="1" novalidate>' +
       sec('role', 'briefcase', 'Your main role <span class="req-star">*</span>', '<div class="field" id="wiz-role">' + roleInner + '</div>') +

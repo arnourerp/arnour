@@ -251,7 +251,8 @@ APP.roleTypePicker = function (scope, d, opts) {
       '</div>';
   }).join('');
   if (opts.single) {
-    return '<div class="rt-callout" role="note">' + APP.icon('spark', 18) + '<div><b>Choose your main role.</b> The next steps are tailored to it. <b>You can add another role later in Edit profile.</b></div></div>' +
+    return '<div class="rt-callout" role="note">' + APP.icon('spark', 18) + '<div><b>Choose your main role.</b> The next steps are tailored to it.' +
+      '<div class="rt-tip">' + APP.icon('plus', 14) + '<span><b>Do more than one role?</b> You can add more later in Edit profile.</span></div></div></div>' +
       '<div class="rt-list" data-rt-list>' + rows + '</div>' +
       '<p class="rt-chosen' + (sel.length ? ' on' : '') + '" role="status" aria-live="polite">' + (sel.length ? APP.icon('check', 14) + ' Your role: <b>' + APP.h(APP.roleTypeLabel(sel[0])) + '</b>' : 'No role selected yet') + '</p>';
   }
@@ -2361,7 +2362,7 @@ APP.specialtyChipsHtml = function (scope, selected, group, opts) {
   const strip = '<div class="spec-selected" role="status" aria-live="polite"><span class="spec-selected-label">Selected (' + known.length + (opts.softMax ? ' of ' + opts.softMax : '') + ')</span>' +
     (known.length
       ? known.map(id => chip(id, APP.specialtyName(id) + ' ×', true, 'Remove ' + APP.specialtyLabel(id))).join('')
-      : '<span class="muted small">' + (roleMode ? 'None yet. Tap what applies below.' : 'None yet. Open an area below and tap what applies.') + '</span>') + warn + '</div>';
+      : '<span class="muted small">' + (roleMode ? 'None yet. Select what applies below.' : 'None yet. Open an area below and select what applies.') + '</span>') + warn + '</div>';
   const open = APP.state.specOpen || (APP.state.specOpen = {});
   const none = known.length === 0;
   const panels = APP.specialties.map((cat, ci) => {
@@ -2514,7 +2515,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
       '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you have delivered') + ' <span class="muted">— ' + (leadT ? 'optional' : 'tick all that apply') + '</span></span>' +
       APP.moduleChipsHtml(pid, sel, 'data-target="' + target + '" data-pid="' + APP.h(pid) + '"', target + ':' + pid, false) + '</div>' +
       (lines ? '<div class="mod-lines"><div class="mod-lines-h">' + (mode === 'optional' ? 'How many projects? <span class="muted">(optional)</span>' : 'How many projects?') + '</div>' + lines + '</div>' : '') +
-      (sel.length ? '<div class="cert-box"><div class="mod-lines-h"><b>SAP certification</b> <span class="muted">(optional)</span> <span class="muted small">— tap the modules you hold a certificate in</span></div><div class="chip-wrap">' + certChips + '</div></div>' : '') +
+      (sel.length ? '<div class="cert-box"><div class="mod-lines-h"><b>SAP certification</b> <span class="muted">(optional)</span> <span class="muted small">— select the modules you\'re certified in</span></div><div class="chip-wrap">' + certChips + '</div></div>' : '') +
       '</div>';
   }).join('');
   const emptyCard = order.length ? '' :

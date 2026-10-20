@@ -1712,3 +1712,8 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 /* bot check */
 .ts-box{display:flex;justify-content:center;min-height:65px;margin:6px 0 4px}
 .ts-box:empty{min-height:0}
+
+/* "add more roles later" tip */
+.rt-tip{display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;border-radius:8px;background:#fff;color:var(--blue,#1D4ED8);font-size:13px;width:fit-content;max-width:100%}
+.rt-tip svg{flex:none;color:var(--blue,#1D4ED8)}
+.rt-tip-sm{margin-top:4px;padding:4px 8px;font-size:12.5px;background:var(--blue-soft,#E8F0FE)}

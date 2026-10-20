@@ -16,7 +16,7 @@ t('Basis role renamed',await ev(()=>APP.roleTypeLabel('basis')==='Basis, Cloud &
 // wizard: single role, note shown, one role only
 await ev(()=>{ APP.wizC=null; location.hash='#/onboard'; }); await p.waitForTimeout(400);
 t('wizard reachable in demo',await ev(()=>!!document.querySelector('form[data-form=wiz-c]')));
-t('role picker explains adding a role later',(await p.textContent('.rt-callout')).includes('You can add another role later in Edit profile'));
+t('role picker explains adding a role later',(await p.textContent('.rt-callout')).includes('You can add more later in Edit profile'));
 t('callout + 8 role cards + 4 section cards before picking',await ev(()=>!!document.querySelector('.rt-callout')&&document.querySelectorAll('.rt-list[data-rt-list] .rt-opt').length===8&&document.querySelectorAll('.wiz-sec').length===4));
 await p.click('[data-action=rt-toggle][data-value=functional]'); await p.waitForTimeout(100);
 t('role collapses to one row after picking',await ev(()=>!!document.querySelector('.rt-collapsed')&&!document.querySelector('.rt-list[data-rt-list]')&&document.querySelector('.wiz-sec[data-sec=role]').classList.contains('done')));

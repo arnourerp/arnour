@@ -391,7 +391,7 @@ APP.views['c-saved'] = function () {
       '<div class="feed-head mt16"><h3>Introductions</h3></div>' : '') + APP.introsPageHtml(true);
   } else if (tab === 'saved') {
     body = saved.length ? saved.map(j => APP.jobCard(j, APP.matchScore(c, j), APP.jobActionButtons(j))).join('')
-      : '<div class="card empty">Nothing saved yet — tap “☆ Save” on any role to park it here.</div>';
+      : '<div class="card empty">Nothing saved yet — use “☆ Save” on any role to park it here.</div>';
   } else {
     body = applied.length ? applied.map(j => {
       const ts = (j.appliedTs || {})[c.id];
