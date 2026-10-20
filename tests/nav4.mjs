@@ -59,4 +59,10 @@ await be.db.query('insert into auth.users values ($1,$2)',[U.adm,'ahmed.salem@ar
 const ctx=await browser.newContext(); await ctx.addInitScript(([id])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:'ahmed.salem@arnour.com',user_metadata:{}}})); }catch(e){} },[U.adm]);
 const ap=await ctx.newPage(); await ap.exposeFunction('__sb',be.handle); await ap.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK})); await ap.route('**/fonts.googleapis.com/**',r=>r.abort());
 await ap.goto(BASE); await ap.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready); await ap.waitForTimeout(500); t('admin opening / lands on admin',(await hash(ap))==='#/admin',await hash(ap));
+for(const h of ['#/c/dashboard','#/e/dashboard','#/register','#/login','#/c/messages']){ await ap.evaluate(x=>{location.hash=x},h); await ap.waitForTimeout(350); t('admin without profile: '+h+' goes to admin, not the profile steps',(await hash(ap))==='#/admin',await hash(ap)); }
+await ap.evaluate(()=>{location.hash='#/community'}); await ap.waitForTimeout(350); t('admin can browse community',(await hash(ap))==='#/community');
+await ap.evaluate(()=>{location.hash='#/jobs'}); await ap.waitForTimeout(350); t('admin can browse jobs',(await hash(ap))==='#/jobs');
+t('admin header: no Sign in / Join',await ap.locator('header a[href="#/login"], header a[href="#/register"]').count()===0,await ap.textContent('header'));
+t('admin header: Admin + Sign out',await ap.locator('header a[href="#/admin"]').count()===1&&await ap.locator('header [data-action=sign-out]').count()===1);
+
 await browser.close();

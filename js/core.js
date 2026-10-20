@@ -2345,8 +2345,12 @@ APP.pubHeader = function () {
     '<nav class="nav-actions">' +
     '<a class="nav-link' + (location.hash.indexOf('#/jobs') === 0 ? ' active' : '') + '" href="#/jobs">' + APP.icon('briefcase', 16) + ' Jobs</a>' +
     '<a class="nav-link' + (location.hash.indexOf('#/community') === 0 ? ' active' : '') + '" href="#/community">' + APP.icon('users', 16) + ' Community</a>' +
-    '<a class="btn btn-ghost" href="#/login">Sign in</a>' +
-    '<a class="btn btn-primary" href="#/register">Join Arnour</a>' +
+    (APP.LIVE && APP.backend && APP.backend.user
+      /* signed in without a profile (an admin, or someone who has not finished sign-up): never offer Sign in / Join */
+      ? (APP.backend.isAdmin ? '<a class="btn btn-primary" href="#/admin">' + APP.icon('lock', 14) + ' Admin</a>' : '<a class="btn btn-primary" href="' + (APP.backend.metaRole() === 'e' ? '#/onboard-e' : '#/onboard') + '">Finish your profile</a>') +
+        '<a class="btn btn-ghost" href="#/account">Account</a><button type="button" class="btn btn-ghost" data-action="sign-out">Sign out</button>'
+      : '<a class="btn btn-ghost" href="#/login">Sign in</a>' +
+        '<a class="btn btn-primary" href="#/register">Join Arnour</a>') +
     '</nav></div>' +
     '</header>';
 };

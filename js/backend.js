@@ -665,7 +665,7 @@
     if (B.user && !B.profile) {
       if (B.isAdmin && v === 'landing' && !/^#\/home/.test(location.hash)) return '#/admin';
       var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);
-      if (ok.indexOf(v) === -1) return B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard';
+      if (ok.indexOf(v) === -1) return B.isAdmin ? '#/admin' : (B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard'); /* an admin never has to create a profile */
       if (v === 'wiz-c' && B.metaRole() === 'e') return '#/onboard-e';
       if (v === 'wiz-e' && B.metaRole() === 'c') return '#/onboard';
       return null;
@@ -1007,7 +1007,8 @@
     root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><p class="muted">Loading Arnour…</p></div>';
     APP.db = B.emptyDb();
     B.boot().then(function () {
-      if (B.justConfirmed && B.user && !B.profile) { /* freshly confirmed: go straight to the profile steps */ location.hash = B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard'; }
+      if (B.justConfirmed && B.user && !B.profile && B.isAdmin) location.hash = '#/admin';
+      else if (B.justConfirmed && B.user && !B.profile) { /* freshly confirmed: go straight to the profile steps */ location.hash = B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard'; }
       else if (B.justConfirmed && B.profile && /^#?\/?(login|register)?$/.test(location.hash)) location.hash = B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard';
     }, function () {
       root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><h2>We could not reach Arnour right now</h2><p class="muted">Check your connection and try again.</p><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
