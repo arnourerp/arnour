@@ -446,7 +446,7 @@ APP.views['e-jobs'] = function () {
     '<div class="card job-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer">' +
     '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title) + (j.status !== 'open' ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h3>' +
     '<p class="muted">' + APP.h(APP.locText(j)) + (j.remote ? ' · Remote-friendly' : '') + ' · Posted ' + APP.timeAgo(j.postedTs) + '</p></div>' +
-    '<span class="match m-mid">' + (j.applicants || []).length + ' applicant(s)</span>' + (APP.safeApplyUrl(j) ? '<span class="pill ext-pill" title="Candidates apply on your career portal">' + APP.icon('ext', 12) + ' Applies on your site</span>' : '') + '</div>' +
+    '<span class="match m-mid">' + (j.applicants || []).length + ' applicant(s)</span>' + (APP.newApplicants1(co, j) ? '<span class="pill new-pill">' + APP.newApplicants1(co, j) + ' new</span>' : '') + (APP.safeApplyUrl(j) ? '<span class="pill ext-pill" title="Candidates apply on your career portal">' + APP.icon('ext', 12) + ' Applies on your site</span>' : '') + '</div>' +
     '<div class="job-reqs">' + APP.reqChipsHtml(j, '') + (APP.jobIndustries(j).length ? '<span class="chip" title="' + APP.h(APP.jobIndustries(j).join(', ')) + '">' + APP.h(APP.jobIndustryLabel(j, 2)) + '</span>' : '') + (j.certification ? '<span class="chip">' + APP.h('Cert: ' + (j.certification === 'required' ? 'required' : 'preferred')) + '</span>' : '') + (j.preferredLangs && j.preferredLangs.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredLangs.join(', ')) + '</span>' : '') + (j.preferredSpecialties && j.preferredSpecialties.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredSpecialties.map(id => APP.specialtyName(id)).join(', ')) + '</span>' : '') + '</div>' +
     '<div class="job-foot"><span class="muted small">' + (j.editedTs ? 'Edited ' + APP.timeAgo(j.editedTs) : '') + '</span><button class="btn btn-outline btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Edit</button></div>' +
     '</div>'
@@ -457,9 +457,14 @@ APP.views['e-jobs'] = function () {
   const tabs = '<div class="seg-tabs" role="tablist" aria-label="My roles">' +
     '<a role="tab" aria-selected="' + (tab === 'roles') + '" class="seg-tab' + (tab === 'roles' ? ' on' : '') + '" href="#/e/jobs">Roles <span class="seg-n">' + jobs.length + '</span></a>' +
     '<a role="tab" aria-selected="' + (tab === 'intros') + '" class="seg-tab' + (tab === 'intros' ? ' on' : '') + '" href="#/e/intros">Introductions' + (nIntro ? ' <span class="seg-n seg-alert">' + nIntro + '</span>' : '') + '</a></div>';
+  const nNewA = APP.newApplicants(co);
+  const attn = APP.attnLineHtml([
+    nNewA ? '<strong>' + nNewA + ' new applicant' + (nNewA > 1 ? 's' : '') + '</strong> — marked “new” on the roles below' : '',
+    nIntro ? '<a class="link" href="#/e/intros">' + nIntro + ' introduction request' + (nIntro > 1 ? 's' : '') + ' waiting for your answer</a>' : ''
+  ]);
   return '<div class="narrow">' +
     '<div class="page-head"><h2>My roles</h2>' +
-    '<button class="btn btn-primary" data-action="go" data-href="#/e/jobs/new">' + APP.icon('plus', 15) + ' Post a job</button></div>' + tabs +
+    '<button class="btn btn-primary" data-action="go" data-href="#/e/jobs/new">' + APP.icon('plus', 15) + ' Post a job</button></div>' + tabs + attn +
     (tab === 'intros' ? APP.introsPageHtml(true)
       : (list || '<div class="card empty">No roles posted yet — your first job takes about a minute.</div>')) +
     '</div>';

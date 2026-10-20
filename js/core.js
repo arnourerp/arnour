@@ -639,6 +639,20 @@ APP.openQuestionsForUser = function () {
     .filter(q => !(q.answers || []).length && q.authorId !== k && q.productId && prods.indexOf(q.productId) !== -1)
     .sort((a, b) => (mod(b) - mod(a)) || ((a.createdTs || 0) - (b.createdTs || 0)));
 };
+/* header count for Community: unanswered questions in your own SAP areas posted since your last visit
+   (professionals: your modules; companies: the SAP products you use) */
+APP.communityNew = function () {
+  const s = APP.db && APP.db.session, u = APP.currentUser(); if (!s || !u) return 0;
+  const seen = u.commSeenTs || 0;
+  const mine = s.role === 'consultant' ? (u.skills || []) : null;
+  return APP.openQuestionsForUser().filter(q => (q.createdTs || 0) > seen &&
+    (!mine || !q.moduleId || mine.some(k => k.productId === q.productId && k.moduleId === q.moduleId))).length;
+};
+/* one line at the top of a page that explains its header number, with links */
+APP.attnLineHtml = function (parts) {
+  parts = parts.filter(Boolean); if (!parts.length) return '';
+  return '<div class="attn-line" role="status">' + APP.icon('spark', 14) + '<span>' + parts.join('<span class="attn-sep">·</span>') + '</span></div>';
+};
 APP.communityTag = function (q) {
   return q.productId ? APP.productShort(q.productId) + (q.moduleId ? ' · ' + APP.skillName(q.productId, q.moduleId) : '') : APP.topicName(q.topic);
 };
@@ -2259,6 +2273,7 @@ APP.newApplicants = function (co) {
   const seen = co.seenApplicants || {};
   return Object.values(APP.db.jobs || {}).filter(j => j.companyId === co.id).reduce((n, j) => n + Math.max(0, (j.applicants || []).length - (seen[j.id] || 0)), 0);
 };
+APP.newApplicants1 = function (co, j) { return Math.max(0, (j.applicants || []).length - ((co.seenApplicants || {})[j.id] || 0)); };
 APP.countBadge = function (n, title) { return n ? '<span class="nav-count" title="' + APP.h(title) + '">' + (n > 9 ? '9+' : n) + '</span>' : ''; };
 /* Phone-only bottom tab bar for the signed-in app. */
 APP.tabbarHtml = function () {
@@ -2267,7 +2282,7 @@ APP.tabbarHtml = function () {
   if (/^#\/[ce]\/messages\/./.test(h)) return ''; /* an open conversation has its own composer */
   const isC = s.role === 'consultant';
   const m = APP.unreadMsgs();
-  const nq = APP.openQuestionsForUser().length;
+  const nq = APP.communityNew();
   const tabs = isC ? [
     ['#/c/dashboard', 'home', 'Home', 0], ['#/c/jobs', 'briefcase', 'Jobs', APP.newStrongMatches(u) + APP.waitingForMe()],
     ['#/community', 'users', 'Community', nq], ['#/c/messages', 'msg', 'Messages', m], ['#/c/profile', 'clip', 'Profile', 0]
@@ -2289,7 +2304,7 @@ APP.navbar = function () {
   const name = isC ? APP.consultantFullName(u) : u.name;
   const m = APP.unreadMsgs();
   const n = APP.unreadNotifs();
-  const ncount = APP.openQuestionsForUser().length;
+  const ncount = APP.communityNew();
   const home = isC ? '#/c/dashboard' : '#/e/dashboard';
   const searchTarget = isC ? '#/c/jobs' : '#/e/talent';
   const ph = isC ? 'Search SAP roles, e.g. S/4HANA FICO' : 'Search SAP talent, e.g. SuccessFactors Recruiting';
@@ -2302,7 +2317,7 @@ APP.navbar = function () {
       ? '<a class="nav-link' + (/^#\/c\/(jobs|applied|saved|intros)/.test(location.hash) ? ' active' : '') + '" href="#/c/jobs">' + APP.icon('briefcase', 16) + ' Jobs' + APP.countBadge(APP.newStrongMatches(u) + APP.waitingForMe(), 'New strong matches (75%+), invitations and introductions waiting for your answer') + '</a>'
       : '<a class="nav-link' + (location.hash.indexOf('#/e/talent') === 0 ? ' active' : '') + '" href="#/e/talent">' + APP.icon('search', 16) + ' Talent</a>' +
         '<a class="nav-link' + ((location.hash.indexOf('#/e/jobs') === 0 && location.hash !== '#/e/jobs/new') || location.hash === '#/e/intros' ? ' active' : '') + '" href="#/e/jobs">' + APP.icon('briefcase', 16) + ' My roles' + APP.countBadge(APP.newApplicants(u) + APP.waitingForMe(), 'New applicants and introductions waiting for your answer') + '</a>') +
-    '<a class="nav-link' + (location.hash.indexOf('#/community') === 0 ? ' active' : '') + '" href="#/community">' + APP.icon('users', 16) + ' Community' + (ncount ? '<span class="nav-count" title="Questions in your SAP areas that need an answer">' + ncount + '</span>' : '') + (u.communitySeen ? '' : '<span class="new-dot" title="New — the community is where SAP people ask and answer"></span>') + (u.communitySeen || u.pointerGone ? '' : '<span class="nav-pointer" id="nav-pointer">New: ask and answer SAP questions</span>') + '</a>' +
+    '<a class="nav-link' + (location.hash.indexOf('#/community') === 0 ? ' active' : '') + '" href="#/community">' + APP.icon('users', 16) + ' Community' + (ncount ? '<span class="nav-count" title="New unanswered questions in your SAP areas since your last visit">' + ncount + '</span>' : '') + (u.communitySeen ? '' : '<span class="new-dot" title="New — the community is where SAP people ask and answer"></span>') + (u.communitySeen || u.pointerGone ? '' : '<span class="nav-pointer" id="nav-pointer">New: ask and answer SAP questions</span>') + '</a>' +
     (isC ? '' : '<a class="btn btn-primary btn-sm nav-post" href="#/e/jobs/new">' + APP.icon('plus', 14) + ' Post a job</a>') +
     '<button class="nav-ico" data-action="go" data-href="' + (isC ? '#/c/messages' : '#/e/messages') + '" title="Messages">' + APP.icon('msg', 20) + (m ? '<span class="badge">' + m + '</span>' : '') + '</button>' +
     '<button class="nav-ico" data-action="toggle-notif" title="Notifications">' + APP.icon('bell', 20) + (n ? '<span class="badge">' + n + '</span>' : '') + '</button>' +
@@ -2876,7 +2891,11 @@ APP.render = function () {
   /* header counts reset when the user opens the page they point to */
   if (APP.db.session) {
     const hu = APP.currentUser(), hh = location.hash;
-    if (hu && APP.db.session.role === 'consultant' && hh.indexOf('#/c/jobs') === 0) { hu.jobsSeenTs = Date.now(); APP.save(); }
+    if (hu && APP.db.session.role === 'consultant' && hh.indexOf('#/c/jobs') === 0) {
+      if (APP._shownHash !== hh) APP.state.jobsPrevSeen = hu.jobsSeenTs || 0; /* remember what was new when the page was opened */
+      hu.jobsSeenTs = Date.now(); APP.save();
+    }
+    if (hu && hh.indexOf('#/community') === 0 && (!hu.commSeenTs || Date.now() - hu.commSeenTs > 5000)) { hu.commSeenTs = Date.now(); APP.save(); }
     const hm = hh.match(/^#\/e\/jobs\/(?!new)([^/?]+)/);
     if (hu && APP.db.session.role === 'employer' && hm && APP.db.jobs[hm[1]]) {
       hu.seenApplicants = hu.seenApplicants || {};

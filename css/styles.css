@@ -1768,3 +1768,9 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .edit-bar-acts { display: flex; gap: 8px; }
 .edit-foot .btn-outline, .publish-bar .btn-outline { min-width: 110px; }
 @media (max-width: 600px) { .edit-bar-acts { width: 100%; } .edit-bar-acts .btn { flex: 1; } }
+
+/* "what the header number means" line */
+.attn-line { display: flex; align-items: center; gap: 8px; padding: 9px 14px; margin: 0 0 12px; border-radius: 10px; background: var(--blue-soft); border: 1px solid var(--line); font-size: 13.5px; color: var(--ink); }
+.attn-line > svg { color: var(--blue); flex: none; }
+.attn-sep { margin: 0 8px; color: var(--mut); }
+.new-pill { background: #fff4e5; color: #9a5b00; border: 1px solid #f3d19c; font-weight: 600; }

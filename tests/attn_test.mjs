@@ -1,0 +1,42 @@
+import {createRequire} from 'module';
+const require=createRequire(import.meta.url);
+const {chromium}=require('playwright');
+const b=await chromium.launch(); const p=await b.newPage({viewport:{width:1280,height:900}});
+await p.route('**/fonts.googleapis.com/**',r=>r.abort());
+let f=0; const t=(n,ok,x)=>{console.log(ok?'ok  ':'FAIL',n,ok?'':JSON.stringify(x||'').slice(0,300)); if(!ok)f++;};
+const errs=[]; p.on('pageerror',e=>errs.push(e.message));
+await p.goto('http://localhost:'+(process.env.PORT_DEMO||8124)+'/index.html'); await p.waitForSelector('.hero');
+const go=async h=>{ await p.evaluate(x=>{location.hash=x},h); await p.waitForTimeout(300); };
+const navCount=(label)=>p.evaluate(l=>{ const a=[...document.querySelectorAll('.nav-actions .nav-link')].find(x=>x.textContent.includes(l)); const c=a&&a.querySelector('.nav-count'); return c?c.textContent:''; },label);
+// professional: community counts only new questions in own modules
+const ids=await p.evaluate(()=>{ const c=Object.values(APP.db.consultants).find(x=>(x.skills||[]).length); c.skills=[{productId:c.skills[0].productId,moduleId:c.skills[0].moduleId,projects:3}];
+  c.commSeenTs=0; c.jobsSeenTs=0; APP.db.session={role:'consultant',consultantId:c.id};
+  Object.values(APP.db.questions).forEach(q=>{ q.answers=[{id:'x',body:'a'}]; });
+  const k=c.skills[0]; const now=Date.now();
+  APP.db.questions.qa={id:'qa',title:'Mine',body:'b',productId:k.productId,moduleId:k.moduleId,authorId:'zz',answers:[],createdTs:now};
+  APP.db.questions.qb={id:'qb',title:'Other module',body:'b',productId:k.productId,moduleId:'zzz-other',authorId:'zz',answers:[],createdTs:now};
+  APP.save(); return {c:c.id,k}; });
+await go('#/c/dashboard');
+t('community counts only my modules',await navCount('Community')==='1',await navCount('Community'));
+t('tooltip explains it',/since your last visit/.test(await p.evaluate(()=>{const e=[...document.querySelectorAll('.nav-link')].find(x=>x.textContent.includes('Community')).querySelector('.nav-count'); return e&&e.title;})));
+await go('#/community'); await go('#/c/dashboard');
+t('community count resets after visiting',await navCount('Community')==='',await navCount('Community'));
+await p.evaluate(k=>{ APP.db.questions.qc={id:'qc',title:'New one',body:'b',productId:k.productId,moduleId:k.moduleId,authorId:'zz',answers:[],createdTs:Date.now()+1000}; APP.render(); },ids.k);
+t('a new question shows again',await navCount('Community')==='1');
+// jobs: explanation line
+await p.evaluate(cid=>{ const j=Object.values(APP.db.jobs).find(x=>x.status==='open'); j.invited=(j.invited||[]).concat(cid); j.applicants=(j.applicants||[]).filter(x=>x!==cid); APP.save(); },ids.c);
+await go('#/c/jobs');
+const al=await p.evaluate(()=>{const e=document.querySelector('.attn-line'); return e?e.innerText:'';});
+t('jobs page explains the number',/invitation/.test(al),al);
+await p.evaluate(()=>APP.render()); await p.waitForTimeout(100);
+t('explanation stays on re-render',/invitation/.test(await p.evaluate(()=>{const e=document.querySelector('.attn-line'); return e?e.innerText:'';})));
+// company: new applicants
+const co=await p.evaluate(()=>{ const co=Object.values(APP.db.companies)[0]; const j=Object.values(APP.db.jobs).find(x=>x.companyId===co.id); co.seenApplicants={}; j.applicants=['a1','a2']; Object.values(APP.db.jobs).filter(x=>x.companyId===co.id&&x!==j).forEach(x=>{co.seenApplicants[x.id]=(x.applicants||[]).length;}); APP.db.session={role:'employer',companyId:co.id}; APP.save(); return {co:co.id,j:j.id}; });
+await go('#/e/jobs');
+const al2=await p.evaluate(()=>{const e=document.querySelector('.attn-line'); return e?e.innerText:'';});
+t('my roles explains new applicants',/2 new applicants/.test(al2),al2);
+t('role card marked new',(await p.locator('.new-pill').first().textContent())==='2 new');
+await go('#/e/jobs/'+co.j); await go('#/e/jobs');
+t('opening the role clears it',await p.locator('.new-pill').count()===0);
+t('no page errors',errs.length===0,errs);
+await b.close(); process.exit(f?1:0);

@@ -368,9 +368,17 @@ APP.views['c-jobs'] = function () {
   const hid = APP.hiddenJobsInfo(c);
   const nApplied = Object.values(APP.db.jobs).filter(j => (j.applicants || []).indexOf(c.id) !== -1).length;
   const notice = hid.n ? '<div class="card hidden-note">' + APP.icon('spark', 14) + ' <span><strong>' + hid.n + ' more role' + (hid.n === 1 ? ' is' : 's are') + ' hidden</strong> because ' + (hid.lang ? 'they require a language that isn’t on your profile' : '') + (hid.lang && hid.cert ? ' or ' : '') + (hid.cert ? 'they require an SAP certification you haven’t added' : '') + '. <a class="link" href="#/c/profile">Update your profile</a> to see them.</span></div>' : '';
+  const prev = APP.state.jobsPrevSeen || 0;
+  const nNew = items.filter(m => m.score >= 75 && (m.job.postedTs || 0) > prev && (m.job.applicants || []).indexOf(c.id) === -1).length;
+  const nInv = APP.openInvitesFor().length, nIntro = APP.pendingIntrosFor();
+  const attn = APP.attnLineHtml([
+    nNew ? '<strong>' + nNew + ' new strong match' + (nNew > 1 ? 'es' : '') + '</strong> (75%+) since your last visit' : '',
+    nInv ? '<a class="link" href="#/c/intros">' + nInv + ' invitation' + (nInv > 1 ? 's' : '') + ' to apply</a>' : '',
+    nIntro ? '<a class="link" href="#/c/intros">' + nIntro + ' introduction request' + (nIntro > 1 ? 's' : '') + ' waiting</a>' : ''
+  ]);
   return APP.jobSearchHtml({
     items: items, canSort: true, ranked: true, notice: notice,
-    head: APP.jobsSwitchHtml('find'),
+    head: APP.jobsSwitchHtml('find') + attn,
     cards: items.map(m => APP.jobCard(m.job, m.score, APP.jobActionButtons(m.job))).join('')
   });
 };
