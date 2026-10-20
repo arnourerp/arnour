@@ -1013,7 +1013,7 @@
       root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><h2>We could not reach Arnour right now</h2><p class="muted">Check your connection and try again.</p><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
       throw new Error('boot failed');
     }).then(function () {
-      window.addEventListener('hashchange', function () { APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
+      window.addEventListener('hashchange', function () { if (APP.editNavGuard()) return; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
       APP.bindGlobal();
       APP.render();
       B.startPolling();

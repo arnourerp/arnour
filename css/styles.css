@@ -1761,3 +1761,10 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .msg-edit { width: min(420px, 80%); display: flex; flex-direction: column; gap: 6px; }
 .msg-edit textarea { width: 100%; border: 1px solid var(--blue); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13.5px; resize: vertical; }
 .msg-edit .btn-row { justify-content: flex-end; }
+
+/* editing bar: what you are editing, with clear Cancel / Save */
+.edit-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin: 4px 0 14px; background: var(--blue-soft); border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 12px; }
+.edit-bar .page-title { margin: 0; font-size: 18px; }
+.edit-bar-acts { display: flex; gap: 8px; }
+.edit-foot .btn-outline, .publish-bar .btn-outline { min-width: 110px; }
+@media (max-width: 600px) { .edit-bar-acts { width: 100%; } .edit-bar-acts .btn { flex: 1; } }

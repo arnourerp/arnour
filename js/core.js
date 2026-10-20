@@ -2008,7 +2008,7 @@ APP.openDialog = function (o) {
     '<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title">' +
     '<h2 id="dlg-title">' + o.title + '</h2>' + (o.sub ? '<p class="dlg-sub">' + o.sub + '</p>' : '') +
     (o.body ? '<div class="dlg-body">' + o.body + '</div>' : '') +
-    '<div class="dlg-foot"><button type="button" class="btn btn-ghost" data-action="dlg-cancel">Cancel</button>' +
+    '<div class="dlg-foot"><button type="button" class="btn btn-ghost" data-action="dlg-cancel">' + APP.h(o.cancelLabel || 'Cancel') + '</button>' +
     '<button type="button" class="btn ' + (o.danger ? 'btn-danger' : 'btn-primary') + '" data-action="dlg-ok" id="dlg-ok">' + APP.h(o.confirmLabel || 'Confirm') + '</button></div></div>';
   document.body.appendChild(root);
   { const sbw = window.innerWidth - document.documentElement.clientWidth; document.body.style.paddingRight = sbw > 0 ? sbw + 'px' : ''; }
@@ -2893,6 +2893,8 @@ APP.render = function () {
   document.getElementById('app').innerHTML =
     chrome + '<main class="main" id="main">' + body + '</main>' + footer;
   APP.a11yPass();
+  APP._shownHash = location.hash;
+  APP.captureEditBase();
   window.scrollTo(0, keepY);
   { /* fade the page in on navigation only — not on in-page re-renders (chips, sort) */
     const key = location.hash.split('?')[0];
@@ -2956,9 +2958,62 @@ APP.renderKeep = function (focusSel) {
   if (focusSel) { const el = document.querySelector(focusSel); if (el) el.focus({ preventScroll: true }); }
 };
 
+/* ---------- editing: clear Cancel / Save, and no silent loss of unsaved edits ---------- */
+APP.editBarHtml = function (title, formId) {
+  return '<div class="edit-bar"><h2 class="page-title">' + APP.h(title) + '</h2><div class="edit-bar-acts">' +
+    '<button type="button" class="btn btn-outline btn-sm" data-action="edit-cancel">Cancel</button>' +
+    (formId ? '<button type="submit" form="' + formId + '" class="btn btn-primary btn-sm">' + APP.icon('check', 14) + ' Save changes</button>' : '') + '</div></div>';
+};
+APP.editFootHtml = function () {
+  return '<div class="publish-bar edit-foot"><button type="button" class="btn btn-outline" data-action="edit-cancel">Cancel</button>' +
+    '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Save changes</button></div>';
+};
+/* what is being edited on a page, if anything */
+APP.editInfo = function (hash) {
+  const h = hash || location.hash || '#/', st = APP.state;
+  if (/^#\/c\/profile$/.test(h) && st.profileEdit && APP.profileDraft) return { draft: APP.profileDraft, what: 'your profile', exit: null, off: function () { st.profileEdit = false; APP.profileDraft = null; } };
+  if (/^#\/e\/company$/.test(h) && st.coEdit && APP.profileDraft) return { draft: APP.profileDraft, what: 'your company profile', exit: null, off: function () { st.coEdit = false; APP.profileDraft = null; } };
+  let m = h.match(/^#\/e\/jobs\/([^/]+)\/edit$/);
+  if (m && APP.jobNewDraft && APP.jobNewDraft.editId === m[1]) return { draft: APP.jobNewDraft, what: 'this role', exit: '#/e/jobs/' + m[1], off: function () { APP.jobNewDraft = null; } };
+  if (/^#\/e\/jobs\/new$/.test(h) && APP.jobNewDraft && !APP.jobNewDraft.editId) return { draft: APP.jobNewDraft, what: 'this new role', exit: '#/e/jobs', off: function () { APP.jobNewDraft = null; st.jobStep = 1; } };
+  return null;
+};
+APP._editBase = null;
+APP.captureEditBase = function () {
+  const info = APP.editInfo();
+  if (!info) { APP._editBase = null; return; }
+  if (APP._editBase && APP._editBase.obj === info.draft) return;
+  APP.syncFormsToDrafts();
+  APP._editBase = { obj: info.draft, json: JSON.stringify(info.draft) };
+};
+APP.editDirty = function (hash) {
+  const info = APP.editInfo(hash);
+  if (!info || !APP._editBase || APP._editBase.obj !== info.draft) return false;
+  APP.syncFormsToDrafts();
+  return JSON.stringify(info.draft) !== APP._editBase.json;
+};
+APP.discardDialog = function (info, then) {
+  APP.openDialog({
+    title: 'Discard your changes?',
+    sub: 'Your unsaved changes to ' + APP.h(info.what) + ' will be lost.',
+    confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true,
+    onConfirm: function () { info.off(); APP._editBase = null; then(); }
+  });
+};
+/* runs before the normal hashchange handling; true = navigation was held back */
+APP.editNavGuard = function () {
+  const to = location.hash, from = APP._shownHash;
+  if (APP._editLeaving || !from || from === to || !APP.editDirty(from)) { APP._shownHash = to; return false; }
+  const info = APP.editInfo(from);
+  try { history.replaceState(null, '', location.pathname + location.search + from); } catch (e) { return false; }
+  APP.discardDialog(info, function () { APP._editLeaving = true; location.hash = to; setTimeout(function () { APP._editLeaving = false; }, 0); });
+  return true;
+};
+window.addEventListener('beforeunload', function (e) { try { if (APP.editDirty()) { e.preventDefault(); e.returnValue = ''; } } catch (x) { } });
+
 APP.start = function () {
   APP.load();
-  window.addEventListener('hashchange', () => { APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
+  window.addEventListener('hashchange', () => { if (APP.editNavGuard()) return; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
   APP.bindGlobal();
   APP.render();
 };
@@ -3912,6 +3967,15 @@ APP.onClick = function (el, e) {
       APP.profileDraft = APP.clone(APP.currentUser());
       APP.render();
       break;
+
+    case 'edit-cancel': {
+      const info = APP.editInfo();
+      const leave = function () { if (info && info.exit) APP.go(info.exit); else APP.render(); };
+      if (!info) { APP.render(); break; }
+      if (APP.editDirty()) { APP.discardDialog(info, leave); break; }
+      info.off(); APP._editBase = null; leave();
+      break;
+    }
 
     case 'profile-edit-off':
       APP.state.profileEdit = false;

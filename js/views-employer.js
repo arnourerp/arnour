@@ -121,8 +121,9 @@ APP.views['e-company'] = function () {
       '<p class="muted small mt8">Anyone with this link can view your public company page — <a class="link" href="#/company/' + co.id + '" data-action="preview-public" data-href="#/company/' + co.id + '" data-back="#/e/company">open it to preview →</a></p>';
   } else {
     body =
-      '<div class="card"><div class="card-h">Edit company profile <button class="link" data-action="co-edit-off">Cancel</button></div>' +
-      '<form data-form="company-edit">' +
+      APP.editBarHtml('Editing your company profile', 'f-company-edit') +
+      '<div class="card">' +
+      '<form data-form="company-edit" id="f-company-edit">' +
       '<label class="field"><span class="label">Company name</span><input name="name" class="input" value="' + APP.h(d.name) + '"></label>' +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Industry</span><select name="industry" class="input">' + APP.opt(APP.industries.map(i => [i, i]), d.industry) + '</select></label>' +
@@ -137,7 +138,7 @@ APP.views['e-company'] = function () {
       '<label class="field"><span class="label">Contact name</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '"></label>' +
       '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '"></label>' +
       '</div>' +
-      '<div class="btn-row"><span class="grow"></span><button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Save changes</button></div>' +
+      APP.editFootHtml() +
       '</form></div>';
   }
 
@@ -552,17 +553,16 @@ APP.jobFormView = function (mode) {
 
   if (editing) {
     return '<div class="narrow job-form">' + crumb +
-      '<h2 class="page-title">Edit role</h2>' +
+      APP.editBarHtml('Editing role: ' + (d.title || 'Untitled'), 'f-job-post') +
       '<p class="muted">Changes are visible to professionals right away. Applicants stay on the role.</p>' +
-      '<form data-form="job-post">' +
+      '<form data-form="job-post" id="f-job-post">' +
       sec(1, 'The role', 'What it is and where.', basics) +
       (leadJ ? sec(2, 'Expertise', 'Specialties, programmes and industries.', expertise) + sec(3, 'SAP products <span class="req-star">*</span>', 'At least one product; modules only if essential.', skills)
         : sec(2, 'Required SAP skills <span class="req-star">*</span>', 'The most important part — it decides who sees your role.', skills)) +
       sec(leadJ ? 4 : 3, 'Candidate requirements', 'Seniority, experience, certification and languages.', candidate) +
       (APP.SHOW_RATES ? sec(leadJ ? 5 : 4, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
       sec((APP.SHOW_RATES ? 5 : 4) + (leadJ ? 1 : 0), 'Description', 'Optional — scope, team and what success looks like.', desc) +
-      '<div class="publish-bar"><a class="btn btn-ghost" href="#/e/jobs/' + d.editId + '">Cancel</a>' +
-      '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Save changes</button></div>' +
+      APP.editFootHtml() +
       '</form></div>';
   }
 
@@ -586,12 +586,12 @@ APP.jobFormView = function (mode) {
     '<p class="muted small preview-edit">Something off? <button type="button" class="link" data-action="job-step" data-step="1">Edit role' + (APP.SHOW_RATES ? ' &amp; pay' : '') + '</button> · <button type="button" class="link" data-action="job-step" data-step="2">Edit skills</button></p>';
   const steps = [s1, s2, s3].map((h, i) => '<div class="jw-step" data-step="' + (i + 1) + '"' + (i + 1 === step ? '' : ' hidden') + '>' + h + '</div>').join('');
   const bar = '<div class="publish-bar">' +
-    (step === 1 ? '<a class="btn btn-ghost" href="#/e/jobs">Cancel</a>' : '<button type="button" class="btn btn-ghost" data-action="job-step" data-step="' + (step - 1) + '">← Back</button>') +
+    (step === 1 ? '<button type="button" class="btn btn-outline" data-action="edit-cancel">Cancel</button>' : '<button type="button" class="btn btn-ghost" data-action="job-step" data-step="' + (step - 1) + '">← Back</button>') +
     '<span class="muted small wiz-count">Step ' + step + ' of 3</span>' +
     (step < 3 ? '<button type="submit" class="btn btn-primary">Continue →</button>' : '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Publish role</button>') + '</div>';
 
   return '<div class="narrow job-form job-wizard">' + crumb +
-    '<h2 class="page-title">Post a new role</h2>' +
+    APP.editBarHtml('Post a new role', null) +
     '<p class="muted">' + APP.h(co.name) + ' is hiring — three quick steps. Only the title, country and one SAP skill are required.</p>' +
     stepper + '<form data-form="job-post" novalidate>' + steps + bar + '</form></div>';
 };

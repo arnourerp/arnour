@@ -192,8 +192,9 @@ APP.views['c-profile'] = function () {
     const addedRoles = now.filter(x => before.indexOf(x) === -1);
     const addedNote = addedRoles.length ? '<p class="role-added">' + APP.icon('spark', 14) + ' Added <b>' + addedRoles.map(APP.roleTypeLabel).map(APP.h).join(', ') + '</b> — the fields this role needs are now in the sections below.</p>' : '';
     body =
-      '<div class="card"><div class="card-h">Edit your profile <button class="link" data-action="profile-edit-off">Cancel</button></div>' +
-      '<form data-form="profile-edit">' +
+      APP.editBarHtml('Editing your profile', 'f-profile-edit') +
+      '<div class="card">' +
+      '<form data-form="profile-edit" id="f-profile-edit">' +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">First name</span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '"></label>' +
       '<label class="field"><span class="label">Last name</span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '"></label>' +
@@ -223,7 +224,7 @@ APP.views['c-profile'] = function () {
         ? '<span class="cv-item">' + APP.icon('file', 16) + ' ' + APP.h(d.cv.name) + ' <em class="muted">' + APP.h(d.cv.size) + '</em></span>'
         : '') +
       '<label class="cv-drop small-drop">' + APP.icon('file', 16) + '<span>' + (d.cv ? 'Replace CV' : 'Upload CV') + '</span><input type="file" accept=".pdf,.doc,.docx" data-profile-cv hidden></label></div></div>' +
-      '<div class="btn-row"><span class="grow"></span><button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Save changes</button></div>' +
+      APP.editFootHtml() +
       '</form></div>';
   }
 
