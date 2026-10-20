@@ -32,8 +32,12 @@ APP.commAuthorHtml = function (key, anon) {
   const href = APP.authorHref(key);
   const inner = '<strong>' + APP.h(name) + '</strong>' + (sub ? '<small>' + APP.h(sub) + '</small>' : '');
   const badge = APP.isCoKey(key) ? '' : APP.repBadgeHtml(key);
+  /* message the author: professionals can write to professionals and companies; companies to professionals */
+  const ses = APP.db.session, isCo = APP.isCoKey(key);
+  const canMsg = !!au && !!ses && key !== APP.userKey() && (ses.role === 'consultant' || !isCo);
+  const msg = canMsg ? '<button type="button" class="link-btn q-msg" data-action="start-chat" ' + (isCo ? 'data-eid' : 'data-cid') + '="' + APP.h(key) + '">' + APP.icon('clip', 12) + ' Message</button>' : '';
   return '<span class="q-who">' + APP.avatarHtml(name) +
-    '<span class="q-who-name">' + (href ? '<a class="q-who-link" href="' + APP.h(href) + '">' : '') + inner + (href ? '</a>' : '') + (badge ? '<span class="rep-row">' + badge + '</span>' : '') + '</span></span>';
+    '<span class="q-who-name">' + (href ? '<a class="q-who-link" href="' + APP.h(href) + '">' : '') + inner + (href ? '</a>' : '') + (badge ? '<span class="rep-row">' + badge + '</span>' : '') + msg + '</span></span>';
 };
 
 APP.commUpvote = function (item, action, dataAttrs) {

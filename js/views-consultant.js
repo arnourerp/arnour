@@ -411,6 +411,7 @@ APP.state.inbox = APP.state.inbox || { q: '', f: 'all', role: '' };
 
 /* ---- helpers: role context, day labels ---- */
 APP.convRole = function (cv) {
+  if (!cv || cv.c2Id || !cv.eId) return null; /* professional-to-professional chats have no role */
   const jobs = Object.values(APP.db.jobs).filter(j => j.companyId === cv.eId);
   const newest = (arr) => arr.slice().sort((a, b) => (b.postedTs || 0) - (a.postedTs || 0))[0];
   let j = cv.jobId ? APP.job(cv.jobId) : null;
@@ -441,6 +442,12 @@ APP.callWhen = (c) => new Date(c.ts).toLocaleDateString('en-GB', { weekday: 'sho
 /* who is on the other end of a conversation, as the current viewer sees them */
 APP.convCounterparty = function (cv) {
   const isC = APP.db.session.role === 'consultant';
+  if (cv.c2Id) {
+    const p = APP.consultant(APP.convPeerId(cv));
+    if (!p) return null;
+    const v = APP.cv(p), nm = APP.consultantFullName(v);
+    return { name: nm, sub: v.headline || 'SAP professional', avatar: APP.avatarHtml(nm, '', v._anon), href: APP.authorHref(p.id), peer: true };
+  }
   if (isC) {
     const co = APP.company(cv.eId);
     return co ? { name: co.name, sub: co.industry || 'Company', avatar: APP.avatarHtml(co.name), href: APP.authorHref(co.id) } : null;
@@ -453,7 +460,7 @@ APP.convCounterparty = function (cv) {
 APP.convPreview = function (cv, isC) {
   const last = cv.messages[cv.messages.length - 1];
   if (!last) return 'New conversation';
-  const mine = (isC && last.side === 'c') || (!isC && last.side === 'e');
+  const mine = last.side === APP.convSide(cv);
   let t;
   if (last.call) t = '📅 Call ' + ({ proposed: 'proposed', accepted: 'confirmed', declined: 'declined' }[last.call.status] || 'proposed');
   else if (last.cv) t = '📄 CV shared';
@@ -465,7 +472,7 @@ APP.convPreview = function (cv, isC) {
 APP.inboxPanelHtml = function (activeId) {
   const s = APP.db.session, isC = s.role === 'consultant', k = APP.userKey(), st = APP.state.inbox;
   const all = (isC ? APP.consultantConvs(k) : APP.companyConvs(k)).sort((a, b) => b.lastTs - a.lastTs);
-  const unreadOf = (cv) => (isC ? cv.unread.c : cv.unread.e) || 0;
+  const unreadOf = (cv) => cv.unread[APP.convSide(cv)] || 0;
   const withRole = all.map(cv => ({ cv: cv, cp: APP.convCounterparty(cv), role: APP.convRole(cv) })).filter(x => x.cp);
   const roleOpts = [];
   withRole.forEach(x => { if (x.role && !roleOpts.some(r => r.id === x.role.job.id)) roleOpts.push({ id: x.role.job.id, title: x.role.job.title }); });
@@ -530,13 +537,13 @@ APP.inboxRefresh = function () {
 
 /* ---- message bubbles grouped by day ---- */
 APP.chatMessagesHtml = function (cv, isC) {
-  const otherSide = isC ? 'e' : 'c';
+  const mySide = APP.convSide(cv), otherSide = mySide === 'c' ? 'e' : 'c';
   const cvName = ((APP.consultant(cv.cId) || {}).cv && APP.consultant(cv.cId).cv.name) || 'CV.pdf';
   let day = '', html = '';
   cv.messages.forEach((m, i) => {
     const dl = APP.dayLabel(m.ts);
     if (dl !== day) { html += '<div class="day-sep"><span>' + dl + '</span></div>'; day = dl; }
-    const mine = (isC && m.side === 'c') || (!isC && m.side === 'e');
+    const mine = m.side === mySide;
     const nx = cv.messages[i + 1];
     const end = !nx || nx.side !== m.side || APP.dayLabel(nx.ts) !== dl || nx.ts - m.ts > 5 * 6e4;
     let body;
@@ -573,8 +580,16 @@ APP.msgLayout = function (convId) {
   } else {
     const cp = APP.convCounterparty(active);
     const role = APP.convRole(active);
+    const peer = !!active.c2Id, mySd = APP.convSide(active);
     const cand = APP.consultant(active.cId);
-    const myCv = isC ? cand.cv : null;
+    const meC = isC ? APP.consultant(s.consultantId) : null;
+    const myCv = isC && !peer && meC ? meC.cv : null;
+    /* share my identity: a private professional, or a company on a confidential role, until shared */
+    const myShared = mySd === 'c' ? active.revC : active.revE;
+    const jobC = active.jobId ? APP.job(active.jobId) : null;
+    const canShare = !myShared && (isC ? !!(meC && meC.anon) : !!(jobC && jobC.confidential === true));
+    const closed = active.blockedByMe || active.blockedMe;
+    const waiting = APP.convWaiting(active);
     let roleBar = '';
     if (role) {
       const j = role.job, score = !isC ? APP.matchScore(cand, j) : null, b = score != null ? APP.matchBand(score) : null;
@@ -584,7 +599,9 @@ APP.msgLayout = function (convId) {
         '<div class="cr-acts">' + (b ? '<span class="match ' + b.cls + '" title="Match with this role">' + score + '% match</span>' : '') +
         (canInvite ? '<button type="button" class="btn btn-outline btn-sm" data-action="invite" data-cid="' + cand.id + '" data-jid="' + j.id + '">Invite to apply</button>' : '') + '</div></div>';
     }
-    const chips = isC
+    const chips = closed ? '' : peer
+      ? '<button type="button" class="chip" data-action="call-propose" data-conv="' + active.id + '">' + APP.icon('spark', 13) + ' Propose a call</button>'
+      : isC
       ? '<button type="button" class="chip" data-action="chat-insert" data-kind="avail">Share availability</button><button type="button" class="chip" data-action="call-propose" data-conv="' + active.id + '">' + APP.icon('spark', 13) + ' Propose a call</button>'
       : '<button type="button" class="chip" data-action="chat-insert" data-kind="cv">Request CV</button>' +
         (role && !role.applied && !role.invited && !role.closed ? '' : '<button type="button" class="chip" data-action="chat-invite" data-cid="' + cand.id + '">Invite to apply</button>') +
@@ -592,18 +609,24 @@ APP.msgLayout = function (convId) {
     chatHtml =
       '<div class="chat-head"><button type="button" class="icon-btn chat-back" data-action="go" data-href="' + back + '" aria-label="Back to inbox">←</button>' +
       (cp ? cp.avatar + '<div>' + (cp.href ? '<a class="chat-who-link" href="' + APP.h(cp.href) + '">' + APP.h(cp.name) + '</a>' : '<strong>' + APP.h(cp.name) + '</strong>') + '<small class="muted">' + APP.h(cp.sub || '') + '</small></div>' : '') +
+      (canShare ? '<button type="button" class="btn btn-outline btn-sm chat-share" data-action="share-identity" data-conv="' + active.id + '">' + APP.icon('lock', 13) + ' Share my identity</button>' : '') +
       (APP.reportBtn ? APP.reportBtn('conversation', active.id, false) : '') +
+      (active.blockedByMe ? '<button type="button" class="link-btn" data-action="conv-block" data-conv="' + active.id + '" data-on="0">Unblock</button>'
+        : '<button type="button" class="link-btn" data-action="conv-block" data-conv="' + active.id + '" data-on="1">Block</button>') +
       '<button type="button" class="icon-btn chat-x" data-action="go" data-href="' + back + '" title="Close" aria-label="Close conversation">' + APP.icon('x', 18) + '</button></div>' +
       roleBar +
-      '<div class="chat-scroll" id="chat-scroll">' + APP.chatMessagesHtml(active, isC) + '</div>' +
+      (canShare ? '<div class="chat-note">' + APP.icon('lock', 13) + ' You appear ' + (isC ? 'as “' + APP.h(APP.anonLabel(meC)) + '”' : 'as “Confidential company”') + ' in this chat. Share your identity whenever you are ready.</div>' : '') +
+      '<div class="chat-scroll" id="chat-scroll">' + (active.messages.length ? APP.chatMessagesHtml(active, isC) : '<div class="chat-empty small"><p>Say hello — your first message starts the conversation.</p></div>') + '</div>' +
       '<div class="chat-actions">' + chips + '</div>' +
-      '<form data-form="chat" data-conv-id="' + active.id + '" class="chat-input">' +
+      (closed ? '<div class="chat-closed">' + (active.blockedByMe ? 'You blocked this person. Unblock to message again.' : 'This conversation is closed.') + '</div>'
+        : waiting ? '<div class="chat-closed">You have sent 2 messages. You can write again once they reply.</div>' : '') +
+      (closed || waiting ? '' : '<form data-form="chat" data-conv-id="' + active.id + '" class="chat-input">' +
       (APP.state.pendingCv && myCv
         ? '<span class="cv-item pending">' + APP.icon('clip', 14) + ' ' + APP.h(myCv.name) + ' <button type="button" class="icon-btn" data-action="clear-cv" aria-label="Remove CV">' + APP.icon('x', 12) + '</button></span>'
         : '') +
       '<textarea name="q" class="input chat-ta" rows="1" aria-label="Message" placeholder="Write a message…" title="Enter to send, Shift+Enter for a new line">' + APP.h(((APP.chatDraft[active.id]) || {}).q || '') + '</textarea>' +
-      (isC ? '<button type="button" class="icon-btn" data-action="attach-cv" title="Attach your CV" aria-label="Attach your CV" ' + (myCv ? '' : 'disabled') + '>' + APP.icon('clip', 18) + '</button>' : '') +
-      '<button type="submit" class="btn btn-primary btn-sm send">Send</button></form>';
+      (isC && !peer ? '<button type="button" class="icon-btn" data-action="attach-cv" title="Attach your CV" aria-label="Attach your CV" ' + (myCv ? '' : 'disabled') + '>' + APP.icon('clip', 18) + '</button>' : '') +
+      '<button type="submit" class="btn btn-primary btn-sm send">Send</button></form>');
   }
 
   return '<div class="inbox' + (active ? ' has-active' : '') + '">' +

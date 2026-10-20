@@ -48,6 +48,9 @@
   }
   function friendly(e) {
     var m = String((e && e.message) || e || '');
+    if (/daily limit/i.test(m)) return 'You can start up to 10 new conversations a day. Try again tomorrow.';
+    if (/wait for a reply/i.test(m)) return 'You can send 2 messages until they reply.';
+    if (/conversation closed|not available/i.test(m)) return 'This conversation is closed.';
     if (/introduction required/i.test(m)) return 'This person or company is private — send an introduction request first.';
     if (/role not open/i.test(m)) return 'That role is no longer open.';
     if (/not allowed|not your/i.test(m)) return 'That action is not allowed for your account.';
@@ -119,7 +122,8 @@
     });
     db.conversations = {};
     p.convs.forEach(function (c) {
-      db.conversations[c.id] = { id: c.id, cId: c.c_id, eId: c.e_id, jobId: c.job_id || '', messages: [], unread: { c: 0, e: 0 }, lastTs: +c.last_ts, botReplyUsed: true, _r: { c: +c.c_read, e: +c.e_read } };
+      db.conversations[c.id] = { id: c.id, cId: c.c_id, eId: c.e_id || null, c2Id: c.c2_id || null, jobId: c.job_id || '', messages: [], unread: { c: 0, e: 0 }, lastTs: +c.last_ts, botReplyUsed: true,
+        revC: !!c.rev_c, revE: !!c.rev_e, mine: !!c.mine, blockedByMe: !!c.blocked_by_me, blockedMe: !!c.blocked_me, _r: { c: +c.c_read, e: +c.e_read } };
     });
     p.msgs.forEach(function (m) {
       var cv = db.conversations[m.conv_id]; if (!cv) return;
@@ -191,7 +195,7 @@
     Object.values(db.conversations).forEach(function (cv) {
       var calls = {};
       cv.messages.forEach(function (m) { if (m.id && m.call) calls[m.id] = m.call.status; });
-      s.convs[cv.id] = { n: cv.messages.length, unread: cv.unread[side] || 0, calls: calls };
+      s.convs[cv.id] = { n: cv.messages.length, unread: cv.unread[APP.convSide(cv)] || 0, calls: calls };
     });
     (db.notifications[ent] || []).forEach(function (n) { s.notifs[n.id] = n.read; });
     return s;
@@ -257,11 +261,15 @@
     });
 
     Object.values(db.conversations).forEach(function (cv) {
-      if (side === 'c' ? cv.cId !== ent : cv.eId !== ent) return;
+      if (!(cv.cId === ent || cv.eId === ent || cv.c2Id === ent)) return;
+      var side = APP.convSide(cv);
       if (!S.convs[cv.id]) {
+        if (!cv.messages.length) return; /* a conversation is created on the server with its first message */
         ops.push({
           run: function () {
-            return rpc('start_conversation', { p_cid: cv.cId, p_eid: cv.eId, p_job: cv.jobId || null, p_id: cv.id }).then(function (sid) {
+            var start = cv.c2Id ? rpc('start_peer_conversation', { p_other: cv.c2Id === ent ? cv.cId : cv.c2Id, p_id: cv.id })
+              : rpc('start_conversation', { p_cid: cv.cId, p_eid: cv.eId, p_job: cv.jobId || null, p_id: cv.id });
+            return start.then(function (sid) {
               if (sid && sid !== cv.id) { delete db.conversations[cv.id]; cv.id = sid; db.conversations[sid] = cv; }
             });
           },

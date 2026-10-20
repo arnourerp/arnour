@@ -1738,3 +1738,10 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .jd-match .chip-wrap .chip { background: #dcf3e5; color: #157a3f; border-color: #bfe6cd; }
 .jd-match .mb-gaps li::marker { color: #d99a1c; }
 .jd-match .mb-gaps li { color: #9a5b00; }
+
+/* open messaging */
+.chat-note { display: flex; gap: 6px; align-items: center; margin: 6px 12px 0; padding: 7px 10px; border-radius: 8px; background: var(--blue-soft, #E8F0FE); color: var(--blue, #1D4ED8); font-size: 12.5px; }
+.chat-closed { margin: 8px 12px; padding: 10px 12px; border-radius: 8px; background: var(--bg-subtle, #f1f5f9); color: var(--text-muted, #64748b); font-size: 13px; text-align: center; }
+.chat-share { margin-left: auto; white-space: nowrap; }
+.chat-head .link-btn { font-size: 12.5px; margin-left: 8px; }
+.q-msg { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-top: 2px; }

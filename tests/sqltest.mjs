@@ -92,7 +92,7 @@ rows=await as('e2','select list_consultants() x'); t('still hidden to other empl
 cos=await as('c','select list_companies() x'); jobs=await as('c','select list_jobs() x');
 t('company revealed to consultant',jobs.find(r=>r.x.id===j2).x.companyId===ee&&cos.some(r=>r.x.id===ee&&r.x.name==='Acme Corp'));
 // conversations & messages
-t('hidden company cannot be messaged without intro',!!(await as('c2',`select start_conversation('${ce2}','${pseudo}','${j2}')`)).err);
+t('confidential role can be messaged without intro',!(await as('c2',`select start_conversation('${ce2}','${pseudo}','${j2}')`)).err);
 const cvid=val(await as('c',`select start_conversation('${ce}','${pseudo}','${j2}') x`),'x'); t('conv start',!!cvid&&!cvid.err,cvid);
 t('conv idempotent',val(await as('e',`select start_conversation('${ce}','${ee}','${j2}') x`),'x')===cvid);
 t('outsider cannot start',!!(await as('e2',`select start_conversation('${ce}','${ee}','${j2}')`)).err);

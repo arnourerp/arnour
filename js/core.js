@@ -772,9 +772,23 @@ APP.productShort = (id) => { const p = APP.product(id); return (p && (p.short ||
 APP.skillLabel = (k) => k.moduleId === '*' ? APP.productShort(k.productId) : APP.productShort(k.productId) + ' · ' + APP.skillName(k.productId, k.moduleId);
 
 APP.companyJobs = (cid) => Object.values(APP.db.jobs).filter(j => j.companyId === cid);
-APP.consultantConvs = (cid) => Object.values(APP.db.conversations).filter(c => c.cId === cid);
+APP.consultantConvs = (cid) => Object.values(APP.db.conversations).filter(c => c.cId === cid || c.c2Id === cid);
 APP.companyConvs = (cid) => Object.values(APP.db.conversations).filter(c => c.eId === cid);
-APP.convBetween = (cId, eId) => Object.values(APP.db.conversations).find(c => c.cId === cId && c.eId === eId) || null;
+APP.convBetween = (cId, eId) => Object.values(APP.db.conversations).find(c => !c.c2Id && c.cId === cId && c.eId === eId) || null;
+APP.peerConvBetween = (a, b) => Object.values(APP.db.conversations).find(c => c.c2Id && ((c.cId === a && c.c2Id === b) || (c.cId === b && c.c2Id === a))) || null;
+/* my side in a conversation: 'c' (professional, or the first professional) or 'e' (company, or the second professional) */
+APP.convSide = function (cv) {
+  const s = APP.db.session; if (!s || !cv) return null;
+  if (s.role === 'employer') return 'e';
+  return (cv.c2Id && cv.c2Id === s.consultantId) ? 'e' : 'c';
+};
+/* the other person in a peer conversation */
+APP.convPeerId = (cv) => cv && cv.c2Id ? (APP.convSide(cv) === 'c' ? cv.c2Id : cv.cId) : null;
+/* a private professional who shared their identity with me in a peer chat */
+APP.peerRevealed = function (cid) {
+  const s = APP.db.session; if (!s || s.role !== 'consultant') return false;
+  return Object.values(APP.db.conversations || {}).some(v => v.c2Id && ((v.cId === cid && v.c2Id === s.consultantId && v.revC) || (v.c2Id === cid && v.cId === s.consultantId && v.revE)));
+};
 
 /* ============================ Anonymous mode ============================
    A professional can keep their identity private ("anon"); a company can keep its name confidential (company.anon, or per role: job.confidential).
@@ -786,14 +800,14 @@ APP.samplePill = (x) => (APP.LIVE && x && x.sample) ? '<span class="sample-pill"
 APP.anonLabel = (c) => String((c && (c._anon ? c._title : c.headline)) || '').trim() || 'SAP professional';
 APP.revealed = function (cid, eid) {
   if (!cid || !eid) return false;
-  if (APP.convBetween(cid, eid)) return true;
+  if (Object.values(APP.db.conversations || {}).some(v => !v.c2Id && v.cId === cid && v.eId === eid && v.revC)) return true;
   return Object.values(APP.intros()).some(i => i.cid === cid && i.eid === eid && i.status === 'accepted');
 };
 APP.canSeePerson = function (c) {
   if (!c || !c.anon) return true;
   const s = APP.db && APP.db.session;
   if (!s) return false;
-  if (s.role === 'consultant') return s.consultantId === c.id;
+  if (s.role === 'consultant') return s.consultantId === c.id || APP.peerRevealed(c.id);
   if (s.role === 'employer') return APP.revealed(c.id, s.companyId);
   return false;
 };
@@ -809,6 +823,7 @@ APP.cv = function (c, force) {
 APP.coHidden = (co, job) => !!co && !!job && job.confidential === true;
 APP.revealedJob = function (cid, eid, jobId) {
   if (!cid || !eid || !jobId) return false;
+  if (Object.values(APP.db.conversations || {}).some(v => !v.c2Id && v.cId === cid && v.eId === eid && v.jobId === jobId && v.revE)) return true;
   return Object.values(APP.intros()).some(i => i.cid === cid && i.eid === eid && i.jobId === jobId && i.status === 'accepted');
 };
 APP.canSeeCompany = function (co, job) {
@@ -1661,12 +1676,11 @@ APP.personRowHtml = function (c, opts) {
 /* Message button for a revealed profile; for an anonymous one: request / status / answer buttons */
 APP.talentContactHtml = function (c, size) {
   const s = APP.db.session, sm = size === 'sm';
-  if (!c._anon || !s || s.role !== 'employer') return '<button class="btn ' + (sm ? 'btn-ghost btn-sm' : 'btn-primary jd-apply') + '" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', sm ? 14 : 15) + ' Message' + (sm ? '' : ' ' + APP.h(c.firstName || '')) + '</button>';
+  const msg = '<button class="btn ' + (sm ? 'btn-ghost btn-sm' : 'btn-primary jd-apply') + '" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', sm ? 14 : 15) + ' Message' + (sm || c._anon ? '' : ' ' + APP.h(c.firstName)) + '</button>';
+  if (!c._anon || !s || s.role !== 'employer') return msg;
   const i = APP.introFor(c.id, s.companyId);
-  if (i && i.status === 'pending' && i.from === 'c') return '<button class="btn btn-primary btn-sm" data-action="intro-accept" data-id="' + i.id + '">Accept and reveal</button><button class="btn btn-ghost btn-sm" data-action="intro-decline" data-id="' + i.id + '">Decline</button>';
-  if (i && i.status === 'pending') return '<span class="pill warn-pill">Introduction requested</span>';
-  if (i && i.status === 'declined' && Date.now() - (i.respTs || 0) < 7 * 864e5) return '<span class="pill muted-pill">Not accepted</span>';
-  return '<button class="btn ' + (sm ? 'btn-outline btn-sm' : 'btn-primary jd-apply') + '" data-action="intro-request" data-cid="' + c.id + '">' + APP.icon('lock', sm ? 13 : 15) + ' Request introduction</button>';
+  if (i && i.status === 'pending' && i.from === 'c') return '<button class="btn btn-primary btn-sm" data-action="intro-accept" data-id="' + i.id + '">Accept and reveal</button>' + msg;
+  return msg;
 };
 APP.talentCard = function (c, opts) {
   opts = opts || {};
@@ -1823,8 +1837,10 @@ APP.unreadMsgs = function () {
   const k = APP.userKey();
   const s = APP.db.session;
   if (!k || !s) return 0;
-  return Object.values(APP.db.conversations).reduce((n, cv) =>
-    n + (s.role === 'consultant' ? (cv.cId === k ? cv.unread.c : 0) : (cv.eId === k ? cv.unread.e : 0)), 0);
+  return Object.values(APP.db.conversations).reduce((n, cv) => {
+    const mineConv = s.role === 'consultant' ? (cv.cId === k || cv.c2Id === k) : cv.eId === k;
+    return n + (mineConv ? (cv.unread[APP.convSide(cv)] || 0) : 0);
+  }, 0);
 };
 
 APP.unreadNotifs = function () {
@@ -1835,21 +1851,35 @@ APP.unreadNotifs = function () {
 APP.openConversation = function (convId) {
   const cv = APP.conv(convId);
   if (!cv) return;
-  const side = APP.db.session.role === 'consultant' ? 'c' : 'e';
-  cv.unread[side] = 0;
+  cv.unread[APP.convSide(cv)] = 0;
   APP.save();
 };
 
-APP.createConversation = function (cId, eId, firstMsg) {
+APP.createConversation = function (cId, eId, firstMsg, jobId) {
   let cv = APP.convBetween(cId, eId);
   if (!cv) {
-    cv = { id: 'cv' + Date.now() + Math.floor(Math.random() * 1e3), cId, eId, botReplyUsed: false, messages: [], unread: { c: 0, e: 0 }, lastTs: 0 };
+    cv = { id: 'cv' + Date.now() + Math.floor(Math.random() * 1e3), cId, eId, jobId: jobId || '', botReplyUsed: false, messages: [], unread: { c: 0, e: 0 }, lastTs: Date.now(), mine: true };
     APP.db.conversations[cv.id] = cv;
   }
   if (firstMsg) APP.pushMessage(cv.id, firstMsg.side, firstMsg.text, firstMsg.cv);
   return cv;
 };
 
+APP.createPeerConversation = function (meId, otherId) {
+  let cv = APP.peerConvBetween(meId, otherId);
+  if (!cv) {
+    cv = { id: 'cv' + Date.now() + Math.floor(Math.random() * 1e3), cId: meId, eId: null, c2Id: otherId, jobId: '', botReplyUsed: true, messages: [], unread: { c: 0, e: 0 }, lastTs: Date.now(), mine: true };
+    APP.db.conversations[cv.id] = cv;
+  }
+  return cv;
+};
+/* the starter of a conversation may send 2 messages until the other side replies */
+APP.convWaiting = function (cv) {
+  if (!cv || !cv.mine) return false;
+  const sd = APP.convSide(cv);
+  if (cv.messages.some(m => m.side !== sd)) return false;
+  return cv.messages.length >= 2;
+};
 APP.pushMessage = function (convId, side, text, cvAttached, extra) {
   const cv = APP.conv(convId);
   if (!cv) return;
@@ -1858,6 +1888,12 @@ APP.pushMessage = function (convId, side, text, cvAttached, extra) {
   if (text || extra || cvAttached) cv.messages.push(Object.assign({ side, text: text || '', ts: Date.now(), cv: myCv }, extra || {}));
   cv.lastTs = Date.now();
   cv.unread[other] = (cv.unread[other] || 0) + 1;
+  if (cv.c2Id) { /* professional to professional */
+    const fromId = side === 'c' ? cv.cId : cv.c2Id, toId = side === 'c' ? cv.c2Id : cv.cId, fromP = APP.consultant(fromId);
+    if (fromP) APP.addNotif(toId, 'msg', ((!fromP.anon || (side === 'c' ? cv.revC : cv.revE)) ? fromP.firstName + ' ' + fromP.lastName : APP.anonLabel(fromP)) + ' sent you a message', '#/c/messages/' + cv.id);
+    APP.save();
+    return;
+  }
   const otherKey = side === 'c' ? cv.eId : cv.cId;
   const from = side === 'c' ? APP.consultant(cv.cId) : APP.company(cv.eId);
   if (from) {
@@ -2044,7 +2080,7 @@ APP.jobActionButtons = function (job, kind) {
   if (!applied) html += APP.safeApplyUrl(job) ? '<button class="btn btn-primary btn-sm" data-action="ext-apply" data-id="' + job.id + '">Apply on company site ' + APP.icon('ext', 13) + '</button>' + (!job.external && APP.state.extOpened && APP.state.extOpened[job.id] ? '<button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button>' : '') : '<button class="btn btn-primary btn-sm" data-action="apply" data-id="' + job.id + '">Apply</button>';
   else html += '<button class="btn btn-outline btn-sm" disabled>' + APP.icon('check', 14) + ' Applied</button>';
   html += '<button class="btn btn-ghost btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button>';
-  if (!job.external && APP.canSeeCompany(APP.company(job.companyId), job)) html += '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button>';
+  if (!job.external && APP.company(job.companyId)) html += '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '" data-jid="' + job.id + '">' + APP.icon('clip', 14) + ' Message</button>';
   return html;
 };
 
@@ -3592,29 +3628,63 @@ APP.onClick = function (el, e) {
     }
 
     case 'start-chat': {
+      /* open messaging: anyone can start a conversation; private people and confidential roles stay anonymous inside it */
       const s = APP.db.session;
-      if (!s) break;
+      if (!s) { APP.go('#/login'); break; }
+      const jid = d.jid || '';
       if (s.role === 'employer') {
         const c = APP.consultant(d.cid);
         if (!c) break;
-        { const ex0 = APP.convBetween(c.id, s.companyId); if (ex0) { APP.go('#/e/messages/' + ex0.id); break; } }
-        if (c.anon && !APP.revealed(c.id, s.companyId)) { APP.confirmRequestIntro(c.id); break; }
-        const cv = APP.createConversation(c.id, s.companyId, {
-          side: 'e',
-          text: 'Hi ' + c.firstName + ', your profile looks relevant for a role we\'re hiring for. Are you available for a quick call?'
-        });
+        const ex0 = APP.convBetween(c.id, s.companyId); if (ex0) { APP.go('#/e/messages/' + ex0.id); break; }
+        const cv = APP.createConversation(c.id, s.companyId, null, jid);
+        APP.chatDraft[cv.id] = { q: 'Hi' + (APP.canSeePerson(c) && c.firstName ? ' ' + c.firstName : '') + ', your profile looks relevant for a role we are hiring for. Are you available for a quick call?' };
         APP.go('#/e/messages/' + cv.id);
+      } else if (d.cid) {
+        if (d.cid === s.consultantId) break;
+        const p2 = APP.consultant(d.cid); if (!p2) break;
+        const exP = APP.peerConvBetween(s.consultantId, p2.id); if (exP) { APP.go('#/c/messages/' + exP.id); break; }
+        const cvP = APP.createPeerConversation(s.consultantId, p2.id);
+        APP.chatDraft[cvP.id] = { q: 'Hi, I saw your profile on Arnour and would like to connect.' };
+        APP.go('#/c/messages/' + cvP.id);
       } else {
         const co = APP.company(d.eid);
         if (!co) break;
-        { const ex = APP.convBetween(s.consultantId, co.id); if (ex) { APP.go('#/c/messages/' + ex.id); break; } }
-        if (APP.coHidden(co) && !APP.revealed(s.consultantId, co.id)) { APP.toast('This company is confidential — apply to a role to express interest'); break; }
-        const cv = APP.createConversation(s.consultantId, co.id, {
-          side: 'c',
-          text: 'Hi, I\'m interested in a role with ' + co.name + '. Do you have any openings that match my profile?'
-        });
+        const ex = Object.values(APP.db.conversations).find(c0 => !c0.c2Id && c0.cId === s.consultantId && c0.eId === co.id && (c0.jobId || '') === jid) || (!jid ? APP.convBetween(s.consultantId, co.id) : null);
+        if (ex) { APP.go('#/c/messages/' + ex.id); break; }
+        const job = jid ? APP.job(jid) : null;
+        const cv = APP.createConversation(s.consultantId, co.id, null, jid);
+        APP.chatDraft[cv.id] = { q: job ? 'Hi, I am interested in the role "' + job.title + '". Could we talk?' : 'Hi, I am interested in roles at ' + (co._anon ? 'your company' : co.name) + '. Do you have openings that match my profile?' };
         APP.go('#/c/messages/' + cv.id);
       }
+      break;
+    }
+
+    case 'share-identity': {
+      const cv = APP.conv(d.conv); if (!cv) break;
+      const sd = APP.convSide(cv);
+      APP.openDialog({
+        title: 'Share your identity?',
+        sub: cv.c2Id ? 'This professional will see your name, photo, LinkedIn and full profile.' : (APP.db.session.role === 'employer' ? 'The professional will see your company name for this role.' : 'The company will see your name, photo, LinkedIn, CV and full profile.'),
+        confirmLabel: 'Share my identity',
+        onConfirm: function () {
+          const done = function () { if (sd === 'c') cv.revC = true; else cv.revE = true; APP.toast('Identity shared ✓'); APP.render(); };
+          if (APP.LIVE && APP.backend) APP.backend.rpc('reveal_in_conversation', { p_conv: cv.id }).then(function () { done(); if (APP.backend.poll) APP.backend.poll(true); }, function () { APP.toast('Could not share your identity. Please try again.'); });
+          else { done(); APP.save(); }
+        }
+      });
+      break;
+    }
+
+    case 'conv-block': {
+      const cv = APP.conv(d.conv); if (!cv) break;
+      const on = d.on === '1';
+      const apply = function () { cv.blockedByMe = on; APP.toast(on ? 'Blocked — they can no longer message you' : 'Unblocked'); APP.render(); };
+      const run = function () {
+        if (APP.LIVE && APP.backend) APP.backend.rpc('set_block', { p_conv: cv.id, p_on: on }).then(apply, function () { APP.toast('Could not do that. Please try again.'); });
+        else { apply(); APP.save(); }
+      };
+      if (on) APP.openDialog({ title: 'Block this person?', sub: 'They will not be able to message you, and you will not receive messages from them. You can unblock later.', confirmLabel: 'Block', danger: true, onConfirm: run });
+      else run();
       break;
     }
 
@@ -3679,7 +3749,7 @@ APP.onClick = function (el, e) {
           const dEl = document.getElementById('dlg-date'), tEl = document.getElementById('dlg-time'), uEl = document.getElementById('dlg-dur');
           const ts = new Date((dEl && dEl.value) + 'T' + (tEl ? tEl.value : '10:00')).getTime();
           if (!ts || ts < Date.now()) { APP.toast('Pick a time in the future'); return; }
-          const side = APP.db.session.role === 'consultant' ? 'c' : 'e';
+          const side = APP.convSide(cv);
           APP.pushMessage(cv.id, side, '', false, { call: { ts: ts, dur: +(uEl ? uEl.value : 30) || 30, note: String(v.note || '').trim().slice(0, 300), status: 'proposed' } });
           APP.toast('Call proposed ✓');
           APP.render();
@@ -3692,7 +3762,7 @@ APP.onClick = function (el, e) {
       const cv = APP.conv(d.conv), m = cv && cv.messages[+d.i];
       if (!m || !m.call || m.call.status !== 'proposed') break;
       m.call.status = d.ans === 'accepted' ? 'accepted' : 'declined';
-      const side = APP.db.session.role === 'consultant' ? 'c' : 'e';
+      const side = APP.convSide(cv);
       APP.pushMessage(cv.id, side, m.call.status === 'accepted' ? 'Confirmed — talk on ' + APP.callWhen(m.call) + ' ✓' : 'That time doesn’t work for me — could you suggest another?');
       APP.render();
       break;
@@ -4240,7 +4310,9 @@ APP.onSubmit = function (f) {
       const text = g('q');
       const cvAttached = APP.state.pendingCv;
       if (!text && !cvAttached) return;
-      const side = APP.db.session.role === 'consultant' ? 'c' : 'e';
+      if (cv.blockedByMe || cv.blockedMe) { APP.toast('This conversation is closed'); return; }
+      if (APP.convWaiting(cv)) { APP.toast('You can send 2 messages until they reply'); return; }
+      const side = APP.convSide(cv);
       APP.pushMessage(cv.id, side, text, cvAttached);
       APP.state.pendingCv = false;
       APP.chatDraft[cv.id] = null;

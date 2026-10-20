@@ -625,7 +625,7 @@ APP.views['job-detail'] = function (ctx) {
       const ts = job.appliedTs && job.appliedTs[me.id];
       act = '<div class="jd-applied">' + APP.icon('check', 14) + ' Applied' + (ts ? ' · ' + APP.timeAgo(ts) : '') + '</div>' +
         '<div class="btn-row"><button class="btn btn-outline btn-sm" data-action="withdraw" data-id="' + job.id + '">Withdraw</button>' +
-        '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button></div>';
+        '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '" data-jid="' + job.id + '">' + APP.icon('clip', 14) + ' Message</button></div>';
     } else if (!open) {
       act = '<div class="jd-applied closed">This role is closed</div><div class="btn-row"><button class="btn btn-ghost btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button></div>';
     } else {
@@ -636,7 +636,7 @@ APP.views['job-detail'] = function (ctx) {
           (opened && !isExt ? '<div class="ext-after"><span>Finished applying?</span><button class="btn btn-outline btn-sm" data-action="ext-applied" data-id="' + job.id + '">I have applied</button></div>' : '')
         : '<button class="btn btn-primary jd-apply" data-action="apply" data-id="' + job.id + '">Apply now</button>') +
         '<div class="btn-row"><button class="btn btn-outline btn-sm" data-action="toggle-save" data-id="' + job.id + '">' + (APP.isSavedJob(job.id) ? '★ Saved' : '☆ Save') + '</button>' +
-        (isExt ? '' : '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '">' + APP.icon('clip', 14) + ' Message</button>') + '</div>';
+        (isExt ? '' : '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '" data-jid="' + job.id + '">' + APP.icon('clip', 14) + ' Message</button>') + '</div>';
     }
     side = '<aside class="jd-side"><div class="card jd-act">' + act + '</div>' +
       '<div class="card jd-match" id="jd-match"><h2>Your match</h2>' +
@@ -684,8 +684,10 @@ APP.views['talent-public'] = function (ctx) {
     document.title = 'Private profile · Arnour';
     const sx = APP.db.session;
     return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div><div class="card empty anon-empty">' + APP.icon('lock', 28) +
-      '<h3>This profile is private</h3><p class="muted">This professional uses Mutual Reveal: skills first, name second. Their identity is shared only after they accept an introduction.</p>' +
-      (sx && sx.role === 'employer' ? '<a class="btn btn-primary btn-sm" href="#/e/talent/' + c.id + '">View anonymous profile</a>' : '<a class="btn btn-outline btn-sm" href="#/">Back to home</a>') + '</div></div>';
+      '<h3>This profile is private</h3><p class="muted">This professional uses Mutual Reveal: skills first, name second. Their identity is shared only when they choose to share it.</p>' +
+      (sx && sx.role === 'employer' ? '<a class="btn btn-primary btn-sm" href="#/e/talent/' + c.id + '">View anonymous profile</a>'
+        : sx && sx.role === 'consultant' && sx.consultantId !== c.id ? '<div class="btn-row" style="justify-content:center"><button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button></div>'
+        : '<a class="btn btn-outline btn-sm" href="#/">Back to home</a>') + '</div></div>';
   }
   const name = APP.consultantFullName(c);
   document.title = name + ' — SAP Professional · Arnour';
@@ -696,6 +698,8 @@ APP.views['talent-public'] = function (ctx) {
     headActions = '<button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message ' + APP.h(c.firstName || name) + '</button>';
   } else if (!s) {
     headActions = '<a class="btn btn-primary btn-sm" href="#/login">Sign in to contact</a><a class="btn btn-outline btn-sm" href="#/register">Join free</a>';
+  } else if (s.consultantId !== c.id) {
+    headActions = '<button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button>';
   } else {
     headActions = '<a class="btn btn-outline btn-sm" href="#/community">' + APP.icon('users', 14) + ' Meet in the community</a>';
   }
@@ -736,7 +740,7 @@ APP.views['company-public'] = function (ctx) {
   });
 
   const cta = s && s.role === 'consultant'
-    ? '<a class="btn btn-primary btn-sm" href="#/jobs">' + APP.icon('briefcase', 14) + ' Browse open roles</a>'
+    ? '<div class="btn-row"><button class="btn btn-primary btn-sm" data-action="start-chat" data-eid="' + co.id + '">' + APP.icon('clip', 14) + ' Message</button><a class="btn btn-outline btn-sm" href="#/jobs">' + APP.icon('briefcase', 14) + ' Browse open roles</a></div>'
     : s && s.role === 'employer'
       ? '<span class="muted small">You are viewing a company page as an employer — switch to a professional account to apply for roles.</span>'
       : '<div class="btn-row"><a class="btn btn-primary btn-sm" href="#/login">Sign in</a><a class="btn btn-outline btn-sm" href="#/register">Create a free account to apply</a></div>';

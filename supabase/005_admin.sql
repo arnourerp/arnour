@@ -406,7 +406,8 @@ begin
   perform public._audit('read reported conversation', p_conv, '');
   return jsonb_build_object(
     'professional', (select coalesce(nullif(trim(coalesce(data->>'firstName','') || ' ' || coalesce(data->>'lastName','')), ''), 'Anonymous professional') from public.consultants where id = cv.c_id),
-    'company', (select data->>'name' from public.companies where id = cv.e_id),
+    'company', coalesce((select data->>'name' from public.companies where id = cv.e_id),
+                        (select coalesce(nullif(trim(coalesce(data->>'firstName','') || ' ' || coalesce(data->>'lastName','')), ''), 'Anonymous professional') || ' (professional)' from public.consultants where id = cv.c2_id)),
     'messages', coalesce((select jsonb_agg(jsonb_build_object('side', m.side, 'text', m.text, 'ts', m.ts, 'cv', m.cv->>'name') order by m.ts)
                           from public.messages m where m.conv_id = p_conv), '[]'::jsonb));
 end $$;

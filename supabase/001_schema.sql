@@ -90,6 +90,30 @@ create table if not exists public.conversations (
   last_ts  bigint not null default (extract(epoch from now())*1000)::bigint
 );
 create unique index if not exists conv_unique on public.conversations(c_id, e_id, coalesce(job_id,''));
+-- open messaging: professional <-> professional conversations (c2_id instead of e_id), who started it, and identity sharing per side
+alter table public.conversations add column if not exists c2_id text references public.consultants(id) on delete cascade;
+alter table public.conversations alter column e_id drop not null;
+alter table public.conversations add column if not exists created_by uuid;
+alter table public.conversations add column if not exists created_ts bigint not null default (extract(epoch from now())*1000)::bigint;
+alter table public.conversations add column if not exists rev_c boolean not null default false;  -- the c side shared their identity
+alter table public.conversations add column if not exists rev_e boolean not null default false;  -- the e side (company, or second professional) shared theirs
+do $c$ begin
+  if not exists (select 1 from pg_constraint where conname = 'conv_two_sides') then
+    alter table public.conversations add constraint conv_two_sides check ((e_id is not null and c2_id is null) or (e_id is null and c2_id is not null and c2_id <> c_id));
+  end if;
+end $c$;
+create unique index if not exists conv_peer_unique on public.conversations(least(c_id, c2_id), greatest(c_id, c2_id)) where c2_id is not null;
+create index if not exists conv_c2_idx on public.conversations(c2_id) where c2_id is not null;
+create index if not exists conv_created_idx on public.conversations(created_by, created_ts);
+
+create table if not exists public.blocks (
+  blocker text not null,
+  blocked text not null,
+  ts      bigint not null default (extract(epoch from now())*1000)::bigint,
+  primary key (blocker, blocked)
+);
+alter table public.blocks enable row level security;
+revoke all on public.blocks from anon, authenticated, public;
 
 create table if not exists public.messages (
   id      uuid primary key default gen_random_uuid(),
@@ -161,7 +185,14 @@ $$ select not (coalesce(p_sample,false) and public._hide_samples())
 create or replace function public.is_revealed(p_cid text, p_eid text) returns boolean
 language sql stable security definer set search_path = public as
 $$ select exists (select 1 from public.intros
-                  where cid = p_cid and eid = p_eid and status = 'accepted') $$;
+                  where cid = p_cid and eid = p_eid and status = 'accepted')
+       or exists (select 1 from public.conversations where c_id = p_cid and e_id = p_eid and rev_c) $$;
+
+-- a private professional who shared their identity with another professional in a chat
+create or replace function public._peer_revealed(p_owner text, p_viewer text) returns boolean
+language sql stable security definer set search_path = public as
+$$ select exists (select 1 from public.conversations
+                  where (c_id = p_owner and c2_id = p_viewer and rev_c) or (c2_id = p_owner and c_id = p_viewer and rev_e)) $$;
 
 -- turn a public alias (cj:... / cx:...) back into the real company id
 create or replace function public.resolve_eid(t text) returns text
@@ -177,8 +208,9 @@ $$ select case
 -- who accepted an introduction about that same role.
 create or replace function public.is_revealed_job(p_cid text, p_eid text, p_job text) returns boolean
 language sql stable security definer set search_path = public as
-$$ select p_job is not null and exists (select 1 from public.intros
-                  where cid = p_cid and eid = p_eid and job_id = p_job and status = 'accepted') $$;
+$$ select p_job is not null and (exists (select 1 from public.intros
+                  where cid = p_cid and eid = p_eid and job_id = p_job and status = 'accepted')
+       or exists (select 1 from public.conversations where c_id = p_cid and e_id = p_eid and job_id = p_job and rev_e)) $$;
 
 create or replace function public._co_hidden(co public.companies, jb public.jobs) returns boolean
 language plpgsql stable security definer set search_path = public as
@@ -247,6 +279,7 @@ begin
     elsif r = 'employer' and is_revealed(c.id, ent) then   -- introduced: the company may also open the CV file
       return next _full_consultant(c, false) || _emp_gender(c) || case when jsonb_typeof(c.data->'cv') = 'object' then jsonb_build_object('cv', c.data->'cv') else '{}'::jsonb end;
     elsif not c.anon then return next _full_consultant(c, false) || _emp_gender(c);
+    elsif r = 'consultant' and _peer_revealed(c.id, ent) then return next _full_consultant(c, false);
     else return next _redact_consultant(c) || _emp_gender(c);
     end if;
   end loop;
@@ -254,7 +287,9 @@ end $$;
 
 create or replace function public.get_public_profile(p_id text) returns jsonb
 language sql stable security definer set search_path = public as
-$$ select case when c.anon and coalesce(c.owner <> auth.uid(), true) then jsonb_build_object('id', c.id, 'private', true)
+$$ select case when c.anon and coalesce(c.owner <> auth.uid(), true)
+                    and not (my_role() = 'consultant' and _peer_revealed(c.id, my_entity()))
+                    and not (my_role() = 'employer' and is_revealed(c.id, my_entity())) then jsonb_build_object('id', c.id, 'private', true)
                else _full_consultant(c, c.owner is not distinct from auth.uid()) || case when c.owner is not distinct from auth.uid() then '{}'::jsonb else _emp_gender(c) end end
    from public.consultants c where c.id = p_id and (public._visible(c.owner, c.sample) or c.owner = auth.uid()) $$;
 
@@ -312,12 +347,25 @@ begin
 end $$;
 
 -- conversations / introductions as seen by me (consultants get anonymous company ids)
+-- my side in a conversation ('c' = professional / first professional, 'e' = company / second professional), or null
+create or replace function public._conv_side(v public.conversations) returns text
+language sql stable security definer set search_path = public as
+$$ select case when v.c_id = public.my_entity() and public.my_role() = 'consultant' then 'c'
+               when v.e_id = public.my_entity() and public.my_role() = 'employer' then 'e'
+               when v.c2_id = public.my_entity() and public.my_role() = 'consultant' then 'e' end $$;
+create or replace function public._conv_other(v public.conversations) returns text
+language sql stable security definer set search_path = public as
+$$ select case public._conv_side(v) when 'c' then coalesce(v.e_id, v.c2_id) when 'e' then v.c_id end $$;
+create or replace function public._blocked(p_a text, p_b text) returns boolean
+language sql stable security definer set search_path = public as
+$$ select exists (select 1 from public.blocks where (blocker = p_a and blocked = p_b) or (blocker = p_b and blocked = p_a)) $$;
+
 create or replace function public._out_eid(p_eid text, p_job text) returns text
 language plpgsql stable security definer set search_path = public as
 $$
 declare co public.companies; jb public.jobs;
 begin
-  if my_role() <> 'consultant' then return p_eid; end if;
+  if p_eid is null or my_role() <> 'consultant' then return p_eid; end if;
   select * into co from public.companies where id = p_eid;
   select * into jb from public.jobs where id = p_job;
   if _co_hidden(co, jb) then
@@ -326,11 +374,16 @@ begin
   return p_eid;
 end $$;
 
-create or replace function public.my_conversations() returns table(id text, c_id text, e_id text, job_id text, c_read bigint, e_read bigint, last_ts bigint)
+drop function if exists public.my_conversations();
+create or replace function public.my_conversations() returns table(id text, c_id text, e_id text, job_id text, c_read bigint, e_read bigint, last_ts bigint,
+  c2_id text, rev_c boolean, rev_e boolean, mine boolean, blocked_by_me boolean, blocked_me boolean)
 language sql stable security definer set search_path = public as
-$$ select v.id, v.c_id, public._out_eid(v.e_id, v.job_id), v.job_id, v.c_read, v.e_read, v.last_ts
+$$ select v.id, v.c_id, public._out_eid(v.e_id, v.job_id), v.job_id, v.c_read, v.e_read, v.last_ts,
+          v.c2_id, v.rev_c, v.rev_e, v.created_by is not distinct from auth.uid(),
+          exists (select 1 from public.blocks b where b.blocker = public.my_entity() and b.blocked = public._conv_other(v)),
+          exists (select 1 from public.blocks b where b.blocked = public.my_entity() and b.blocker = public._conv_other(v))
    from public.conversations v
-   where v.c_id = public.my_entity() or v.e_id = public.my_entity() $$;
+   where v.c_id = public.my_entity() or v.e_id = public.my_entity() or v.c2_id = public.my_entity() $$;
 
 create or replace function public.my_intros() returns table(id text, from_side text, cid text, eid text, job_id text, note text, status text, ts bigint, resp_ts bigint)
 language sql stable security definer set search_path = public as
@@ -480,6 +533,16 @@ begin
   end if;
 end $$;
 
+-- anyone may start a conversation; identities stay protected inside it until that side shares them.
+-- Spam guard: at most 10 new conversations a day per account.
+create or replace function public._new_conv_guard() returns void
+language plpgsql stable security definer set search_path = public as
+$$ begin
+  if (select count(*) from public.conversations where created_by = auth.uid() and created_ts > (extract(epoch from now())*1000)::bigint - 86400000) >= 10 then
+    raise exception 'daily limit: you can start up to 10 new conversations a day';
+  end if;
+end $$;
+
 create or replace function public.start_conversation(p_cid text, p_eid text, p_job text, p_id text default null) returns text
 language plpgsql security definer set search_path = public as
 $$
@@ -487,43 +550,92 @@ declare real_e text := resolve_eid(p_eid); r text := my_role(); ent text := my_e
 begin
   if real_e is null then raise exception 'unknown company'; end if;
   if not ((r = 'consultant' and ent = p_cid) or (r = 'employer' and ent = real_e)) then raise exception 'not allowed'; end if;
+  if not exists (select 1 from public.consultants where id = p_cid) then raise exception 'unknown professional'; end if;
+  if jid is not null and not exists (select 1 from public.jobs where id = jid and company_id = real_e) then jid := null; end if;
   select id into cvid from public.conversations where c_id = p_cid and e_id = real_e and coalesce(job_id,'') = coalesce(jid,'');
   if cvid is not null then return cvid; end if;
-  -- a private person or a confidential company can only be written to after an accepted introduction
-  if r = 'consultant' and _co_hidden((select c from public.companies c where c.id = real_e), (select j from public.jobs j where j.id = jid)) then
-    raise exception 'introduction required'; end if;
-  if r = 'employer' and exists (select 1 from public.consultants c where c.id = p_cid and c.anon and c.owner is distinct from auth.uid())
-     and not is_revealed(p_cid, real_e) then
-    raise exception 'introduction required'; end if;
+  if public._blocked(p_cid, real_e) then raise exception 'not available'; end if;
+  perform public._new_conv_guard();
   cvid := case when p_id ~ '^cv[a-z0-9]{6,30}$' and not exists (select 1 from public.conversations where id = p_id) then p_id
                else 'cv' || substr(replace(gen_random_uuid()::text,'-',''),1,12) end;
-  insert into public.conversations(id, c_id, e_id, job_id) values (cvid, p_cid, real_e, jid);
+  insert into public.conversations(id, c_id, e_id, job_id, created_by) values (cvid, p_cid, real_e, jid, auth.uid());
   return cvid;
+end $$;
+
+-- professional <-> professional
+create or replace function public.start_peer_conversation(p_other text, p_id text default null) returns text
+language plpgsql security definer set search_path = public as
+$$
+declare ent text := my_entity(); cvid text;
+begin
+  if my_role() <> 'consultant' then raise exception 'professionals only'; end if;
+  if p_other is null or p_other = ent or not exists (select 1 from public.consultants where id = p_other) then raise exception 'unknown professional'; end if;
+  select id into cvid from public.conversations where c2_id is not null and least(c_id, c2_id) = least(ent, p_other) and greatest(c_id, c2_id) = greatest(ent, p_other);
+  if cvid is not null then return cvid; end if;
+  if public._blocked(ent, p_other) then raise exception 'not available'; end if;
+  perform public._new_conv_guard();
+  cvid := case when p_id ~ '^cv[a-z0-9]{6,30}$' and not exists (select 1 from public.conversations where id = p_id) then p_id
+               else 'cv' || substr(replace(gen_random_uuid()::text,'-',''),1,12) end;
+  insert into public.conversations(id, c_id, e_id, c2_id, created_by) values (cvid, ent, null, p_other, auth.uid());
+  return cvid;
+end $$;
+
+-- share my identity with the other side of this conversation
+create or replace function public.reveal_in_conversation(p_conv text) returns void
+language plpgsql security definer set search_path = public as
+$$
+declare v public.conversations; sd text;
+begin
+  select * into v from public.conversations where id = p_conv;
+  sd := public._conv_side(v);
+  if sd is null then raise exception 'not allowed'; end if;
+  if sd = 'c' then update public.conversations set rev_c = true where id = p_conv;
+  else update public.conversations set rev_e = true where id = p_conv; end if;
+end $$;
+
+-- block / unblock the other side of a conversation
+create or replace function public.set_block(p_conv text, p_on boolean) returns void
+language plpgsql security definer set search_path = public as
+$$
+declare v public.conversations; other text;
+begin
+  select * into v from public.conversations where id = p_conv;
+  other := public._conv_other(v);
+  if other is null then raise exception 'not allowed'; end if;
+  if p_on then insert into public.blocks(blocker, blocked) values (my_entity(), other) on conflict do nothing;
+  else delete from public.blocks where blocker = my_entity() and blocked = other; end if;
 end $$;
 
 create or replace function public.send_message(p_conv text, p_text text, p_cv jsonb default null, p_call jsonb default null) returns void
 language plpgsql security definer set search_path = public as
 $$
-declare v public.conversations; side text; now_ms bigint := (extract(epoch from clock_timestamp())*1000)::bigint;
+declare v public.conversations; my_side text; now_ms bigint := (extract(epoch from clock_timestamp())*1000)::bigint;
 begin
   select * into v from public.conversations where id = p_conv;
   if v.id is null then raise exception 'unknown conversation'; end if;
-  if my_role() = 'consultant' and my_entity() = v.c_id then side := 'c';
-  elsif my_role() = 'employer' and my_entity() = v.e_id then side := 'e';
-  else raise exception 'not allowed'; end if;
+  my_side := public._conv_side(v);
+  if my_side is null then raise exception 'not allowed'; end if;
+  if public._blocked(my_entity(), public._conv_other(v)) then raise exception 'conversation closed'; end if;
+  -- until the other side replies, the person who started the conversation can send 2 messages
+  if v.created_by = auth.uid()
+     and not exists (select 1 from public.messages m where m.conv_id = p_conv and m.side <> my_side)
+     and (select count(*) from public.messages where conv_id = p_conv) >= 2 then
+    raise exception 'wait for a reply: you can send 2 messages until they answer';
+  end if;
+  if v.c2_id is not null then p_cv := null; end if;  /* CVs are shared with companies only */
   -- an attached CV must be a file the sender uploaded to their own folder
-  if side <> 'c' or p_cv is null or jsonb_typeof(p_cv) <> 'object' or coalesce(p_cv->>'path','') not like auth.uid()::text || '/%' then
-    p_cv := case when side = 'c' and p_cv is not null and jsonb_typeof(p_cv) = 'boolean' then p_cv else null end;
+  if my_side <> 'c' or p_cv is null or jsonb_typeof(p_cv) <> 'object' or coalesce(p_cv->>'path','') not like auth.uid()::text || '/%' then
+    p_cv := case when my_side = 'c' and p_cv is not null and jsonb_typeof(p_cv) = 'boolean' then p_cv else null end;
   end if;
   if p_call is not null then
     if jsonb_typeof(p_call) <> 'object' then p_call := null;
     else p_call := jsonb_set(p_call, '{status}', '"proposed"'); end if;
   end if;
   if char_length(coalesce(p_text,'')) = 0 and p_cv is null and p_call is null then return; end if;
-  insert into public.messages(conv_id, side, text, ts, cv, call) values (p_conv, side, left(coalesce(p_text,''), 6000), now_ms, p_cv, p_call);
+  insert into public.messages(conv_id, side, text, ts, cv, call) values (p_conv, my_side, left(coalesce(p_text,''), 6000), now_ms, p_cv, p_call);
   update public.conversations set last_ts = now_ms,
-         c_read = case when side = 'c' then now_ms else c_read end,
-         e_read = case when side = 'e' then now_ms else e_read end where id = p_conv;
+         c_read = case when my_side = 'c' then now_ms else c_read end,
+         e_read = case when my_side = 'e' then now_ms else e_read end where id = p_conv;
 end $$;
 
 create or replace function public.mark_read(p_conv text) returns void
@@ -532,13 +644,14 @@ $$
 declare now_ms bigint := (extract(epoch from clock_timestamp())*1000)::bigint;
 begin
   update public.conversations set c_read = now_ms where id = p_conv and c_id = my_entity() and my_role() = 'consultant';
-  update public.conversations set e_read = now_ms where id = p_conv and e_id = my_entity() and my_role() = 'employer';
+  update public.conversations set e_read = now_ms where id = p_conv and my_role() = 'employer' and e_id = my_entity();
+  update public.conversations set e_read = now_ms where id = p_conv and my_role() = 'consultant' and c2_id = my_entity();
 end $$;
 
 create or replace function public.in_conversation(p_conv text) returns boolean
 language sql stable security definer set search_path = public as
 $$ select exists (select 1 from public.conversations v where v.id = p_conv
-                  and (v.c_id = public.my_entity() or v.e_id = public.my_entity())) $$;
+                  and (v.c_id = public.my_entity() or v.e_id = public.my_entity() or v.c2_id = public.my_entity())) $$;
 
 -- only the person who received the proposal answers it
 create or replace function public.answer_call(p_msg uuid, p_status text) returns void
@@ -546,7 +659,7 @@ language sql security definer set search_path = public as
 $$ update public.messages m set call = jsonb_set(m.call, '{status}', to_jsonb(p_status))
    where m.id = p_msg and p_status in ('accepted','declined') and m.call->>'status' = 'proposed'
      and public.in_conversation(m.conv_id)
-     and m.side <> case when public.my_role() = 'consultant' then 'c' else 'e' end $$;
+     and m.side <> (select public._conv_side(v) from public.conversations v where v.id = m.conv_id) $$;
 
 -- notifications: a member may only notify people they are actually connected to (a role, an introduction,
 -- a conversation or a community thread). For anything sent to another person the wording is written here,
@@ -558,7 +671,7 @@ declare c public.consultants; co public.companies;
 begin
   select * into c from public.consultants where id = p_ent;
   if c.id is not null then
-    if c.anon and not public.is_revealed(c.id, p_viewer) then
+    if c.anon and not public.is_revealed(c.id, p_viewer) and not public._peer_revealed(c.id, p_viewer) then
       return coalesce(nullif(trim(c.data->>'headline'), ''), 'An SAP professional');
     end if;
     return coalesce(nullif(trim(coalesce(c.data->>'firstName','') || ' ' || coalesce(c.data->>'lastName','')), ''), 'An SAP professional');
@@ -612,7 +725,7 @@ begin
     txt := left(coalesce(p_text,''), 300);                                   -- notes to yourself (welcome, levels, reminders)
   elsif mc is not null then
     select * into v from public.conversations where id = mc[1];
-    if v.id is not null and ((v.c_id = me and v.e_id = k) or (v.e_id = me and v.c_id = k)) then
+    if v.id is not null and ((v.c_id = me and (v.e_id = k or v.c2_id = k)) or ((v.e_id = me or v.c2_id = me) and v.c_id = k)) then
       who := public._ent_label_job(me, k, v.job_id);
       txt := who || case when p_text ilike '%proposed a call%' then ' proposed a call'
                          when p_text ilike '%accepted your introduction%' then ' accepted your introduction — you can now chat'
@@ -750,7 +863,7 @@ grant execute on function public.list_consultants(), public.my_conversations(), 
   public.claim_profile(text,jsonb), public.save_profile(jsonb), public.save_job(text,jsonb), public.delete_job(text),
   public.apply_to_job(text,text), public.withdraw_application(text), public.invite_to_job(text,text),
   public.create_intro(text,text,text,text,text,text), public.respond_intro(text,boolean),
-  public.start_conversation(text,text,text,text), public.send_message(text,text,jsonb,jsonb), public.mark_read(text), public.answer_call(uuid,text),
+  public.start_conversation(text,text,text,text), public.start_peer_conversation(text,text), public.reveal_in_conversation(text), public.set_block(text,boolean), public.send_message(text,text,jsonb,jsonb), public.mark_read(text), public.answer_call(uuid,text),
   public.send_notification(text,text,text,text), public.delete_my_account() to authenticated;
 grant execute on function public.list_jobs(), public.list_companies(), public.get_public_profile(text), public.get_public_company(text) to anon, authenticated;
 -- helpers used inside other functions run as the function owner; they need no public grant
@@ -765,9 +878,10 @@ begin
   if auth.uid() is null or ent is null then return ''; end if;
   select concat_ws('|',
     (select count(*) || ':' || coalesce(max(m.ts),0) || ':' || count(*) filter (where m.call->>'status' in ('accepted','declined'))
-       from public.messages m join public.conversations v on v.id = m.conv_id where v.c_id = ent or v.e_id = ent),
-    (select count(*) || ':' || coalesce(sum(v.c_read + v.e_read),0) || ':' || coalesce(max(v.last_ts),0)
-       from public.conversations v where v.c_id = ent or v.e_id = ent),
+       from public.messages m join public.conversations v on v.id = m.conv_id where v.c_id = ent or v.e_id = ent or v.c2_id = ent),
+    (select count(*) || ':' || coalesce(sum(v.c_read + v.e_read),0) || ':' || coalesce(max(v.last_ts),0) || ':' || count(*) filter (where v.rev_c or v.rev_e)
+       || ':' || (select count(*) from public.blocks b where b.blocker = ent or b.blocked = ent)
+       from public.conversations v where v.c_id = ent or v.e_id = ent or v.c2_id = ent),
     (select count(*) || ':' || coalesce(max(n.ts),0) from public.notifications n where n.user_key = ent),
     (select count(*) || ':' || coalesce(max(greatest(i.ts, coalesce(i.resp_ts,0))),0) || ':' || count(*) filter (where i.status <> 'pending')
        from public.intros i where i.cid = ent or i.eid = ent),
