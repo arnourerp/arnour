@@ -20,6 +20,11 @@ await p.evaluate(()=>APP.openFeedback()); await p.waitForSelector('#fb-text');
 await p.click('[data-action=fb-send]');
 t('empty text -> inline error',/describe the problem/.test(await p.locator('#fb-root').innerText()));
 await p.fill('#fb-text','The save button does nothing'); await p.click('[data-action=fb-cat][data-v=suggestion]');
+{ const st=await p.evaluate(()=>{ const on=document.querySelector('[data-action=fb-cat][data-v=suggestion]'), off=document.querySelector('[data-action=fb-cat][data-v=problem]');
+    return {on:on.classList.contains('chip-on'), pressed:on.getAttribute('aria-pressed'), bgOn:getComputedStyle(on).backgroundColor, bgOff:getComputedStyle(off).backgroundColor, offOn:off.classList.contains('chip-on'), label:document.querySelector('#fb-root .field .label:not(:first-child), #fb-root label.field .label').textContent}; });
+  t('chosen option is visibly selected',st.on&&st.pressed==='true'&&!st.offOn&&st.bgOn!==st.bgOff,st);
+  t('text label follows the choice',/suggestion/i.test(st.label),st.label);
+  t('typed text kept when switching',(await p.inputValue('#fb-text'))==='The save button does nothing'); }
 t('category chip keeps text',await p.inputValue('#fb-text')==='The save button does nothing');
 await p.click('[data-action=fb-send]'); await p.waitForTimeout(300);
 const call=await p.evaluate(()=>window.__calls.find(c=>c[0]==='submit_feedback'));

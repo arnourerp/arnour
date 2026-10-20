@@ -63,9 +63,9 @@
     var body = F.done
       ? '<p>Thank you. We read every report' + (F.email || signed ? ' and may write back to you by email' : '') + '.</p><div class="dlg-foot"><button type="button" class="btn btn-primary" data-action="fb-close">Close</button></div>'
       : '<div class="field"><span class="label">What is this about?</span><div class="chip-wrap">' + cats.map(function (c) {
-          return '<button type="button" class="chip' + (F.cat === c[0] ? ' on' : '') + '" data-action="fb-cat" data-v="' + c[0] + '">' + h(c[1]) + '</button>';
+          return '<button type="button" class="chip' + (F.cat === c[0] ? ' chip-on' : '') + '" aria-pressed="' + (F.cat === c[0]) + '" data-action="fb-cat" data-v="' + c[0] + '">' + (F.cat === c[0] ? '✓ ' : '') + h(c[1]) + '</button>';
         }).join('') + '</div></div>' +
-        '<label class="field"><span class="label">What happened?</span><textarea id="fb-text" class="input" rows="5" maxlength="2000" placeholder="What were you trying to do, and what went wrong?">' + h(F.text) + '</textarea></label>' +
+        '<label class="field"><span class="label">' + (F.cat === 'suggestion' ? 'Your suggestion' : F.cat === 'other' ? 'Your message' : 'What happened?') + '</span><textarea id="fb-text" class="input" rows="5" maxlength="2000" placeholder="' + (F.cat === 'suggestion' ? 'What would make Arnour better for you?' : F.cat === 'other' ? 'Tell us anything.' : 'What were you trying to do, and what went wrong?') + '">' + h(F.text) + '</textarea></label>' +
         (signed ? '' : '<label class="field"><span class="label">Your email <span class="muted">(optional, so we can reply)</span></span><input id="fb-email" class="input" type="email" maxlength="200" value="' + h(F.email) + '" autocomplete="email"></label>') +
         (signed ? '<label class="field"><span class="label">Screenshot <span class="muted">(optional)</span></span><input id="fb-shot" type="file" accept="image/png,image/jpeg,image/webp"></label>' : '') +
         '<p class="muted small">We also send the page you are on and your browser, so we can find the problem faster.</p>' +
@@ -93,7 +93,7 @@
   }
   function send() {
     readForm();
-    if (F.text.trim().length < 3) { F.err = 'Please describe the problem.'; render(); return; }
+    if (F.text.trim().length < 3) { F.err = F.cat === 'problem' ? 'Please describe the problem.' : 'Please write a short message.'; render(); return; }
     var fileEl = document.getElementById('fb-shot'), file = fileEl && fileEl.files && fileEl.files[0];
     if (file && (file.size > 3 * 1024 * 1024 || !/^image\/(png|jpe?g|webp)$/.test(file.type))) { F.err = 'The screenshot must be a PNG, JPG or WebP under 3 MB.'; render(); return; }
     F.busy = true; F.err = ''; render();
