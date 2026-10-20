@@ -194,6 +194,7 @@ APP.views.community = function () {
 
   return '<div class="narrow">' +
     head +
+    APP.commTabsHtml('disc') +
     personalize +
     filterCard +
     '<p class="muted small results-count">' + items.length + ' item' + (items.length === 1 ? '' : 's') + '</p>' +
@@ -434,4 +435,101 @@ APP.views['community-share'] = function () {
     '<label class="field"><span class="label">General topic <span class="muted">(required when no product is chosen)</span></span><select name="topic" class="input">' + APP.topicOptions(d.topic) + '</select></label>' +
     '<div class="btn-row"><span class="grow"></span><button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Share</button></div>' +
     '</form></div></div>';
+};
+
+/* ------------------------------ People: professionals find each other ------------------------------
+   Private profiles are listed anonymously and can only be found by their skills, never by name.
+   No match scores, rates, availability or invitations here: those are company tools. */
+APP.peopleFilterDefaults = function () { return { q: '', product: '', module: '', roleType: '', level: '', country: '', specialty: '', industry: '', language: '', sort: 'common' }; };
+APP.commTabsHtml = function (active) {
+  const s = APP.db.session;
+  if (!s || s.role !== 'consultant') return '';
+  return '<div class="seg-tabs comm-tabs" role="tablist" aria-label="Community">' +
+    '<a role="tab" aria-selected="' + (active === 'disc') + '" class="seg-tab' + (active === 'disc' ? ' on' : '') + '" href="#/community">Discussions</a>' +
+    '<a role="tab" aria-selected="' + (active === 'people') + '" class="seg-tab' + (active === 'people' ? ' on' : '') + '" href="#/community/people">' + APP.icon('users', 14) + ' People</a></div>';
+};
+APP.peopleList = function (me, f) {
+  const myPairs = {}, myProds = {};
+  (me.skills || []).forEach(k => { myPairs[k.productId + '|' + k.moduleId] = 1; myProds[k.productId] = 1; });
+  const out = [];
+  Object.values(APP.db.consultants || {}).forEach(c => {
+    if (!c || c.id === me.id || c.suspended) return;
+    const see = APP.canSeePerson(c);
+    const a = see ? c : APP.cv(c, true);
+    const sk = c.skills || [];
+    if (f.product && !sk.some(k => k.productId === f.product)) return;
+    if (f.module && !sk.some(k => k.productId === (f.product || k.productId) && k.moduleId === f.module)) return;
+    if (f.roleType && APP.rtList(c).indexOf(f.roleType) === -1) return;
+    if (f.level && c.level !== f.level) return;
+    if (f.country && c.country !== f.country) return;
+    if (f.specialty && (c.specialties || []).indexOf(f.specialty) === -1) return;
+    if (f.industry && (c.industries || []).indexOf(f.industry) === -1) return;
+    if (f.language && (c.languages || []).indexOf(f.language) === -1) return;
+    if (f.q) {
+      const hay = [see ? c.firstName + ' ' + c.lastName : '', see ? c.headline : a.headline, a._title || '',
+        sk.map(k => APP.productShort(k.productId) + ' ' + APP.skillName(k.productId, k.moduleId)).join(' '),
+        (c.specialties || []).map(id => APP.specialtyName(id)).join(' '), (c.otherSkills || []).join(' '), (c.industries || []).join(' ')].join(' ').toLowerCase();
+      const words = f.q.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!words.every(w => hay.indexOf(w) !== -1)) return;
+    }
+    let common = 0;
+    sk.forEach(k => { if (myPairs[k.productId + '|' + k.moduleId]) common += 2; else if (myProds[k.productId]) common += 0.5; });
+    out.push({ c: c, a: a, see: see, common: common, shared: sk.filter(k => myPairs[k.productId + '|' + k.moduleId]).length, rep: APP.reputation(c.id).points || 0 });
+  });
+  out.sort(f.sort === 'active' ? (x, y) => (y.rep - x.rep) || (y.common - x.common) : (x, y) => (y.common - x.common) || (y.rep - x.rep));
+  return out;
+};
+APP.personCardHtml = function (r) {
+  const c = r.c, a = r.a, E = APP.h;
+  const name = r.see ? c.firstName + ' ' + c.lastName : APP.anonLabel(c);
+  const top = (c.skills || []).slice().sort((x, y) => (Number(y.projects) || 0) - (Number(x.projects) || 0)).slice(0, 4);
+  const rp = APP.reputation(c.id);
+  const country = APP.countryName(c.country);
+  return '<div class="card person-card">' +
+    APP.avatarHtml(name, '', !r.see) +
+    '<div class="grow pc-main"><div class="pc-name"><a class="link-strong" href="#/talent/' + c.id + '">' + E(name) + '</a>' +
+    (!r.see ? ' <span class="pill muted-pill" title="Name hidden until they share it">' + APP.icon('lock', 11) + ' Private</span>' : '') +
+    (rp.level ? ' <span class="rep rep-' + rp.level + '">' + E(rp.levelName) + '</span>' : '') + '</div>' +
+    '<p class="muted small">' + E([a.headline, country].filter(Boolean).join(' · ')) + '</p>' +
+    '<div class="chip-wrap pc-skills">' + top.map(k => '<span class="chip">' + E(APP.productShort(k.productId) + ' · ' + APP.skillName(k.productId, k.moduleId)) + '</span>').join('') + '</div>' +
+    (r.shared ? '<p class="small pc-common">' + APP.icon('check', 12) + ' ' + r.shared + ' module' + (r.shared > 1 ? 's' : '') + ' in common with you</p>' : '') +
+    '</div>' +
+    '<div class="pc-acts"><a class="btn btn-outline btn-sm" href="#/talent/' + c.id + '">View profile</a>' +
+    '<button type="button" class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button></div></div>';
+};
+APP.views['community-people'] = function () {
+  const s = APP.db.session;
+  if (!s || s.role !== 'consultant') {
+    return '<div class="narrow"><div class="card empty">' + (s ? 'People search is for professionals. Companies can find professionals in <a class="link" href="#/e/talent">Talent</a>.' : '<a class="link" href="#/login">Sign in</a> as a professional to find and connect with other SAP professionals.') + '</div></div>';
+  }
+  const me = APP.consultant(s.consultantId);
+  if (!me) return '<div class="empty">Profile not found.</div>';
+  const f = APP.state.peopleFilters = Object.assign(APP.peopleFilterDefaults(), APP.state.peopleFilters || {});
+  const all = APP.peopleList(me, f);
+  const shown = APP.state.peopleShow || 30;
+  const flatSpecs = [];
+  (APP.specialties || []).forEach(sp => (sp.groups || []).forEach(g => (g.items || []).forEach(it => flatSpecs.push([it.id, it.name]))));
+  const sel = (name, any, opts, v) => '<select name="' + name + '" class="input sm" aria-label="' + any + '"><option value="">' + any + '</option>' + APP.opt(opts, v) + '</select>';
+  const filters = '<div class="card filter-bar"><form data-form="people-filters" class="people-form">' +
+    '<div class="pf-search"><input name="q" class="input" value="' + APP.h(f.q) + '" placeholder="Search names, titles, modules, specialties…" aria-label="Search people">' +
+    '<button class="btn btn-primary" type="submit">' + APP.icon('search', 15) + ' Search</button></div><div class="pf-grid">' +
+    '<select name="product" class="input sm" aria-label="Product"><option value="">Any product</option>' + APP.productOptions(f.product) + '</select>' +
+    '<select name="module" class="input sm" aria-label="Module">' + APP.moduleOptions(f.product || null, f.module).replace('>Module…<', '>Any module<') + '</select>' +
+    sel('roleType', 'Any role type', APP.roleTypes.map(r => [r.id, r.name]), f.roleType) +
+    sel('level', 'Any level', APP.levels.map(l => [l, l]), f.level) +
+    sel('country', 'Any country', APP.countries.map(c => [c.id, c.name]), f.country) +
+    sel('specialty', 'Any specialty', flatSpecs, f.specialty) +
+    sel('industry', 'Any industry', APP.industries.map(i => [i, i]), f.industry) +
+    sel('language', 'Any language', APP.languages.map(l => [l, l]), f.language) +
+    '</div><div class="pf-foot"><label class="pf-sort"><span class="muted small">Sort by</span><select name="sort" class="input sm" aria-label="Sort"><option value="common"' + (f.sort !== 'active' ? ' selected' : '') + '>Most in common with you</option><option value="active"' + (f.sort === 'active' ? ' selected' : '') + '>Most active in the community</option></select></label><button type="button" class="btn btn-ghost btn-sm" data-action="people-reset">Reset filters</button></div>' +
+    '</form></div>';
+  const list = all.slice(0, shown).map(APP.personCardHtml).join('');
+  return '<div class="narrow">' +
+    '<div class="page-head comm-head"><div class="grow"><h1 class="page-h">Community</h1><p class="muted">Find SAP professionals with the skills you need, and message them directly.</p></div></div>' +
+    APP.commTabsHtml('people') + filters +
+    '<p class="muted small results-count">' + all.length + ' professional' + (all.length === 1 ? '' : 's') + '</p>' +
+    (list || '<div class="card empty">No one matches those filters yet — try fewer filters.</div>') +
+    (all.length > shown ? '<div class="btn-row center"><button type="button" class="btn btn-outline" data-action="people-more">Show more</button></div>' : '') +
+    '<p class="muted small mt8">' + APP.icon('lock', 12) + ' Private profiles appear without names and can only be found by their skills.</p>' +
+    '</div>';
 };

@@ -1776,3 +1776,20 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .new-pill { background: #fff4e5; color: #9a5b00; border: 1px solid #f3d19c; font-weight: 600; }
 .anon-note { display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin-bottom: 12px; background: var(--blue-soft); font-size: 13.5px; }
 .anon-note > svg { color: var(--blue); flex: none; }
+
+/* Community → People */
+.comm-tabs { margin: 0 0 12px; }
+.person-card { display: flex; gap: 14px; align-items: flex-start; }
+.person-card .pc-main { min-width: 0; }
+.person-card .pc-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 600; }
+.person-card .pc-name .link-strong { color: var(--ink); font-weight: 650; }
+.person-card .pc-skills { margin-top: 6px; }
+.person-card .pc-common { color: var(--blue); margin: 6px 0 0; }
+.person-card .pc-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }
+@media (max-width: 600px) { .person-card { flex-wrap: wrap; } .person-card .pc-acts { flex-direction: row; width: 100%; } .person-card .pc-acts .btn { flex: 1; } }
+.people-form .pf-search { display: flex; gap: 8px; margin-bottom: 10px; }
+.people-form .pf-search .input { flex: 1; min-width: 0; }
+.people-form .pf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.people-form .pf-grid .input { width: 100%; min-width: 0; }
+.people-form .pf-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.people-form .pf-sort { display: flex; align-items: center; gap: 8px; }

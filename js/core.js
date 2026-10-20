@@ -2705,6 +2705,7 @@ APP.routes = [
   { re: /^#\/community\/q\/([A-Za-z0-9-]+)$/, view: 'community-q', auth: null },
   { re: /^#\/community\/a\/([A-Za-z0-9-]+)$/, view: 'community-a', auth: null },
   { re: /^#\/community\/ask$/, view: 'community-ask', auth: null },
+  { re: /^#\/community\/people$/, view: 'community-people', auth: null },
   { re: /^#\/community\/share$/, view: 'community-share', auth: null },
   { re: /^#\/jobs$/, view: 'jobs', auth: null },
   { re: /^#\/job\/([A-Za-z0-9-]+)$/, view: 'job-detail', auth: null },
@@ -2766,6 +2767,7 @@ APP.formDraftTarget = function (f) {
     case 'job-filters':
     case 'job-q': return APP.state.jobFilters;
     case 'community-filters': return APP.state.communityFilters;
+    case 'people-filters': return APP.state.peopleFilters;
     case 'nav-search':
       return (f.dataset.target || '').indexOf('jobs') >= 0 ? APP.state.jobFilters : APP.state.talentFilters;
     case 'chat':
@@ -2845,7 +2847,7 @@ APP.syncFormsToDrafts = function (skip) {
 
 APP.pageTitle = function (view) {
   const T = { landing: 'Arnour — The SAP Talent Network', login: 'Sign in', register: 'Join Arnour', forgot: 'Reset your password', reset: 'Choose a new password', 'check-email': 'Check your email', account: 'Account',
-    community: 'Community', 'community-q': 'Question', 'community-a': 'Article', 'community-ask': 'Ask a question', 'community-share': 'Share an article', jobs: 'Open SAP roles', 'job-detail': 'Role', 'talent-public': 'Professional profile', 'company-public': 'Company',
+    community: 'Community', 'community-q': 'Question', 'community-a': 'Article', 'community-ask': 'Ask a question', 'community-share': 'Share an article', 'community-people': 'People', jobs: 'Open SAP roles', 'job-detail': 'Role', 'talent-public': 'Professional profile', 'company-public': 'Company',
     'wiz-c': 'Create your profile', 'wiz-e': 'Create your company profile', 'c-dash': 'Home', 'c-profile': 'My profile', 'c-jobs': 'Jobs', 'c-saved': 'My jobs', 'c-preview': 'Profile preview', 'c-msgs': 'Messages', 'c-msg': 'Messages',
     'e-dash': 'Home', 'e-company': 'Company profile', 'e-talent': 'Talent', 'e-talent-detail': 'Talent', 'e-jobs': 'My roles', 'e-job-new': 'Post a job', 'e-job-edit': 'Edit role', 'e-job-detail': 'Role', 'e-msgs': 'Messages', 'e-msg': 'Messages', terms: 'Terms of Use', privacy: 'Privacy Policy', admin: 'Admin', suspended: 'Account suspended' };
   const t = T[view];
@@ -3265,6 +3267,11 @@ APP.bindGlobal = function () {
     /* job search: selects apply immediately, like the talent search */
     if (t.form && t.form.dataset.form === 'job-filters' && t.tagName === 'SELECT') { APP._tfKeep = '#app [name="' + t.name + '"]'; APP.onSubmit(t.form); return; }
     if (t.form && t.form.dataset.form === 'job-q' && t.name === 'sort') { APP._tfKeep = '#app [name="sort"]'; APP.onSubmit(t.form); return; }
+    /* People search: a filter change searches right away (product → module cascade first) */
+    if (t.form && t.form.dataset.form === 'people-filters' && t.tagName === 'SELECT') {
+      if (t.name === 'product') { const ms = t.form.querySelector('[name="module"]'); const npx = CAT_INDEX.byId[t.value]; const keep = ms && npx && npx.modules.some(m => m.id === ms.value) ? ms.value : ''; if (ms) ms.innerHTML = APP.moduleOptions(t.value || null, keep); }
+      APP._tfKeep = '#app [name="' + t.name + '"]'; APP.onSubmit(t.form); return;
+    }
     /* product → module cascade in community feed filters (keep module if it exists in the new product) */
     if (t.name === 'product' && t.form && t.form.dataset.form === 'community-filters') {
       const cf = APP.state.communityFilters;
@@ -4051,6 +4058,17 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'people-reset': {
+      APP.state.peopleFilters = APP.peopleFilterDefaults(); APP.state.peopleShow = 30;
+      APP._formSyncSkip = ['people-filters']; APP.render();
+      break;
+    }
+
+    case 'people-more': {
+      APP.state.peopleShow = (APP.state.peopleShow || 30) + 30; APP.renderKeep();
+      break;
+    }
+
     case 'comm-type': {
       const f = APP.state.communityFilters;
       f.type = f.type === d.value ? 'all' : d.value;
@@ -4474,6 +4492,15 @@ APP.onSubmit = function (f) {
       APP._formSyncSkip = ['chat'];
       APP.render();
       { const ta = document.querySelector('.chat-ta'); if (ta) ta.focus({ preventScroll: true }); }
+      break;
+    }
+
+    case 'people-filters': {
+      const pf = APP.state.peopleFilters = Object.assign(APP.peopleFilterDefaults(), APP.state.peopleFilters || {});
+      ['q', 'product', 'module', 'roleType', 'level', 'country', 'specialty', 'industry', 'language', 'sort'].forEach(n => { pf[n] = g(n); });
+      if (pf.module && pf.product && !APP.skillName(pf.product, pf.module)) pf.module = '';
+      APP.state.peopleShow = 30;
+      if (APP._tfKeep) { const k = APP._tfKeep; APP._tfKeep = null; APP.renderKeep(k); } else APP.render();
       break;
     }
 
