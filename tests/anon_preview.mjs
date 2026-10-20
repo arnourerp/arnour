@@ -53,5 +53,9 @@ const r2=await p.evaluate(id=>{ const j=APP.db.jobs[id]; const co=APP.company(j.
 t('earlier introduction does not reveal a different confidential role',r2.hidden==='Confidential company',r2);
 t('public role shows the company',r2.shown==='SecretCo Holdings',r2);
 t('introduction about this role reveals it',r2.after==='SecretCo Holdings',r2);
+
+// private professional: subtitle is only level and role type (no auto-picked modules)
+const sub=await p.evaluate(()=>{ const c=Object.assign({},Object.values(APP.db.consultants)[0],{anon:true,level:'Senior',roleType:'functional',roleTypes:['functional'],headline:'Senior SAP Logistics Consultant',skills:[{productId:'s4onprem',moduleId:'mm',projects:5},{productId:'s4onprem',moduleId:'ewm',projects:3}]}); return APP.cv(c,true).headline; });
+t('private subtitle is "Senior · Functional Consultant"',sub==='Senior · Functional Consultant',sub);
 t('no page errors',errs.length===0,errs);
 console.log(f?'FAILS '+f:'ALL PASSED'); await b.close();

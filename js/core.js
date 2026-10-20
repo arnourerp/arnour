@@ -800,10 +800,9 @@ APP.consultantFullName = (c) => (c._anon || !APP.canSeePerson(c)) ? APP.anonLabe
 /* what the current viewer is allowed to see of a professional: the profile itself, or an identity-free copy */
 APP.cv = function (c, force) {
   if (!c || c._anon || (!force && APP.canSeePerson(c))) return c;
-  const sk = (c.skills || []).slice().sort((a, b) => (+b.projects || 0) - (+a.projects || 0));
-  const mods = Array.from(new Set(sk.slice(0, 2).map(k => APP.moduleShort(APP.skillName(k.productId, k.moduleId))))).join('/');
+  /* the headline stands in for the name; the subtitle is only what the person chose: level and role type */
   const role = APP.roleTypeLabel(APP.rtList(c)[0]) || 'SAP professional';
-  return Object.assign({}, c, { _anon: true, _title: c.headline, firstName: String(c.headline || '').trim() || 'SAP professional', lastName: '', headline: [c.level, mods, role].filter(Boolean).join(' · '), city: '', nationality: '', summary: '', linkedin: '', cv: null });
+  return Object.assign({}, c, { _anon: true, _title: c.headline, firstName: String(c.headline || '').trim() || 'SAP professional', lastName: '', headline: [c.level, role].filter(Boolean).join(' · '), city: '', nationality: '', summary: '', linkedin: '', cv: null });
 };
 /* confidentiality lives on the role only: a confidential role hides its company until an introduction about that role is accepted */
 APP.coHidden = (co, job) => !!co && !!job && job.confidential === true;
