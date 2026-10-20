@@ -1885,7 +1885,7 @@ APP.pushMessage = function (convId, side, text, cvAttached, extra) {
   if (!cv) return;
   const other = side === 'c' ? 'e' : 'c';
   const myCv = cvAttached && APP.LIVE && APP.currentUser() && APP.currentUser().cv && APP.currentUser().cv.path ? Object.assign({}, APP.currentUser().cv) : !!cvAttached;
-  if (text || extra || cvAttached) cv.messages.push(Object.assign({ side, text: text || '', ts: Date.now(), cv: myCv }, extra || {}));
+  if (text || extra || cvAttached) cv.messages.push(Object.assign({ side, text: text || '', ts: Date.now(), cv: myCv }, APP.LIVE ? {} : { id: 'lm' + Math.random().toString(36).slice(2, 10) }, extra || {}));
   cv.lastTs = Date.now();
   cv.unread[other] = (cv.unread[other] || 0) + 1;
   if (cv.c2Id) { /* professional to professional */
@@ -2744,6 +2744,7 @@ APP.formDraftTarget = function (f) {
     case 'wiz-e': return APP.wizE ? APP.wizE.data : null;
     case 'profile-edit':
     case 'company-edit': return APP.profileDraft;
+    case 'msg-edit': return APP.state.editMsg;
     case 'job-post': return APP.jobNewDraft;
     case 'talent-search':
     case 'talent-q': return APP.state.talentFilters;
@@ -3675,6 +3676,61 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'send-cv': {
+      const cv = APP.conv(d.conv), me = APP.currentUser(); if (!cv || !me) break;
+      if (!me.cv) {
+        APP.state.profileEdit = true; APP.profileDraft = APP.clone(me);
+        APP.go('#/c/profile'); APP.toast('Upload your CV here, then send it from the chat');
+        break;
+      }
+      if (cv.blockedByMe || cv.blockedMe) { APP.toast('This conversation is closed'); break; }
+      if (APP.convWaiting(cv)) { APP.toast('You can send 2 messages until they reply'); break; }
+      const co = APP.company(cv.eId), jb = cv.jobId ? APP.job(cv.jobId) : null;
+      const coName = co && !(APP.coHidden(co, jb) && !APP.revealedJob(cv.cId, cv.eId, cv.jobId)) ? co.name : 'this company';
+      const willReveal = me.anon && !cv.revC;
+      APP.openDialog({
+        title: 'Send your CV to ' + APP.h(coName) + '?',
+        sub: APP.h(me.cv.name) + (me.cv.size ? ' · ' + APP.h(me.cv.size) : '') + '. They will be able to view and download it.' +
+          (willReveal ? '<br><br><strong>Your CV shows your name, so sending it also shares your identity in this chat.</strong>' : ''),
+        confirmLabel: 'Send CV',
+        onConfirm: function () {
+          APP.pushMessage(cv.id, 'c', '', true);
+          if (willReveal) cv.revC = true;
+          APP.toast('CV sent ✓');
+          APP.render();
+        }
+      });
+      break;
+    }
+
+    case 'msg-edit': {
+      APP.state.editMsg = { conv: d.conv, i: +d.i };
+      APP.render();
+      { const ta = document.querySelector('.msg-edit textarea'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }
+      break;
+    }
+
+    case 'msg-edit-cancel': {
+      APP.state.editMsg = null;
+      APP.render();
+      break;
+    }
+
+    case 'msg-delete': {
+      const cv = APP.conv(d.conv); const m = cv && cv.messages[+d.i]; if (!m || m.deleted) break;
+      APP.openDialog({
+        title: 'Delete this message?',
+        sub: m.cv ? 'Your CV will be removed from this chat and can no longer be downloaded from it.' : 'Both of you will see “This message was deleted”. Email notifications already sent cannot be recalled.',
+        confirmLabel: 'Delete', danger: true,
+        onConfirm: function () {
+          const apply = function () { m.deleted = true; m.text = ''; m.cv = false; delete m.call; m.editedTs = Date.now(); APP.render(); };
+          if (APP.LIVE && APP.backend) APP.backend.rpc('delete_message', { p_msg: m.id }).then(apply, function () { APP.toast('Could not delete the message. Please try again.'); });
+          else { apply(); APP.save(); }
+        }
+      });
+      break;
+    }
+
     case 'conv-block': {
       const cv = APP.conv(d.conv); if (!cv) break;
       const on = d.on === '1';
@@ -4302,6 +4358,22 @@ APP.onSubmit = function (f) {
       APP.toast('Job posted ✓');
       APP.go('#/e/jobs/' + job.id);
       break;
+    }
+
+    case 'msg-edit': {
+      const cv = APP.conv(f.dataset.conv); const m = cv && cv.messages[+f.dataset.i];
+      const text = (f.querySelector('textarea').value || '').trim();
+      if (!m || m.deleted) { APP.state.editMsg = null; APP.render(); return; }
+      if (!text) { APP.toast('A message cannot be empty — use Delete instead'); return; }
+      if (Date.now() - m.ts > 15 * 6e4) { APP.state.editMsg = null; APP.toast('Messages can be edited for 15 minutes after sending'); APP.render(); return; }
+      const apply = function () { if (text !== m.text) { m.text = text; m.editedTs = Date.now(); } APP.state.editMsg = null; APP.render(); };
+      if (text === m.text) { apply(); return; }
+      if (APP.LIVE && APP.backend) APP.backend.rpc('edit_message', { p_msg: m.id, p_text: text }).then(apply, function (e) {
+        APP.toast(/edit window/i.test(String((e && e.message) || e)) ? 'Messages can be edited for 15 minutes after sending' : 'Could not save the change. Please try again.');
+        APP.state.editMsg = null; APP.render();
+      });
+      else { apply(); APP.save(); }
+      return;
     }
 
     case 'chat': {

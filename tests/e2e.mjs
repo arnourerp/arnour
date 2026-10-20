@@ -123,8 +123,10 @@ t('message count on server',(await q(`select count(*)::int n from messages`))[0]
 // CV-only message and download
 await c.evaluate((cid)=>{ const me=APP.currentUser(); me.cv={name:'MyCV.pdf',size:'1 MB',path:APP.backend.user.id+'/1-cv.pdf'}; APP.save(); },cid); await idle(c);
 await c.evaluate(()=>{ location.hash='#/c/messages/'+Object.keys(APP.db.conversations)[0]; APP.render(); }); await c.waitForTimeout(500);
-await c.click('[data-action=attach-cv]'); await c.waitForTimeout(200);
-await c.evaluate(()=>document.querySelector('form[data-form=chat]').requestSubmit()); await c.waitForTimeout(300); await idle(c);
+t('Send my CV button in the chat',(await c.locator('[data-action=send-cv]').textContent()).includes('Send my CV'));
+await c.click('[data-action=send-cv]'); await c.waitForTimeout(200);
+t('CV confirmation names the file',/MyCV\.pdf/.test(await c.textContent('.dlg')));
+await c.click('#dlg-ok'); await c.waitForTimeout(300); await idle(c);
 t('CV can be sent without a message',(await q(`select cv->>'name' n from messages where cv->>'path' is not null`)).length===1);
 t('CV bubble has a download button',(await c.locator('.msg-cv .cv-dl').count())===1);
 await e.evaluate(()=>APP.backend.poll()); await e.waitForTimeout(600);
@@ -132,6 +134,26 @@ await e.evaluate(()=>{ location.hash='#/e/messages/'+Object.keys(APP.db.conversa
 t('company sees the CV with Download',(await e.locator('.msg-cv .cv-dl').count())===1);
 await e.click('.msg-cv .cv-dl'); await e.waitForTimeout(400);
 t('download asks for a signed link',await e.evaluate(()=>window.__signed&&/1-cv\.pdf$/.test(window.__signed)));
+// edit and delete own messages (server ids arrive with the next refresh)
+await c.evaluate(()=>APP.backend.refresh()); await c.waitForTimeout(700);
+const ri=await c.evaluate(()=>{ const cv=Object.values(APP.db.conversations)[0]; location.hash='#/c/messages/'+cv.id; APP.render(); return cv.messages.findIndex(m=>m.text==='Reply from pro'); });
+await c.waitForTimeout(300);
+t('own message has Edit',(await c.locator('[data-action=msg-edit][data-i="'+ri+'"]').count())===1);
+await c.click('[data-action=msg-edit][data-i="'+ri+'"]',{force:true}); await c.waitForTimeout(150);
+await c.fill('form[data-form=msg-edit] textarea','Reply from pro (fixed)');
+await c.evaluate(()=>document.querySelector('form[data-form=msg-edit]').requestSubmit()); await c.waitForTimeout(500);
+let mrow=(await q(`select text, edited_ts from messages where text like 'Reply from pro%'`))[0];
+t('edit saved on server',mrow&&mrow.text==='Reply from pro (fixed)'&&+mrow.edited_ts>0,mrow);
+t('edited label shown',(await c.locator('.msg-edited').count())>=1);
+t('original kept for moderation',(await q(`select text from message_history where action='edit'`)).some(r=>r.text==='Reply from pro'));
+await c.click('[data-action=msg-delete][data-i="'+ri+'"]',{force:true}); await c.waitForTimeout(150); await c.click('#dlg-ok'); await c.waitForTimeout(500);
+mrow=(await q(`select text, deleted from messages where deleted`))[0];
+t('delete saved on server',mrow&&mrow.deleted===true&&mrow.text==='',mrow);
+t('deleted placeholder shown',/You deleted this message/.test(await c.textContent('#chat-scroll')));
+await e.evaluate(()=>APP.backend.poll(true)); await e.waitForTimeout(800);
+await e.evaluate(()=>{ location.hash='#/e/messages/'+Object.keys(APP.db.conversations)[0]; APP.render(); }); await e.waitForTimeout(400);
+t('other side sees deleted placeholder',/This message was deleted/.test(await e.textContent('#chat-scroll')));
+t('other side cannot edit or delete it',(await e.locator('[data-action=msg-delete][data-i="'+ri+'"]').count())===0);
 // call proposal
 await e.evaluate(()=>{ const cv=Object.values(APP.db.conversations)[0]; APP.pushMessage(cv.id,'e','',false,{call:{ts:Date.now()+864e5,dur:30,note:'quick',status:'proposed'}}); }); await idle(e);
 await c.evaluate(()=>APP.backend.poll()); await c.waitForTimeout(700);

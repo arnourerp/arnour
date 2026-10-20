@@ -50,6 +50,7 @@
     var m = String((e && e.message) || e || '');
     if (/daily limit/i.test(m)) return 'You can start up to 10 new conversations a day. Try again tomorrow.';
     if (/wait for a reply/i.test(m)) return 'You can send 2 messages until they reply.';
+    if (/edit window over/i.test(m)) return 'Messages can be edited for 15 minutes after sending.';
     if (/conversation closed|not available/i.test(m)) return 'This conversation is closed.';
     if (/introduction required/i.test(m)) return 'This person or company is private — send an introduction request first.';
     if (/role not open/i.test(m)) return 'That role is no longer open.';
@@ -128,6 +129,7 @@
     p.msgs.forEach(function (m) {
       var cv = db.conversations[m.conv_id]; if (!cv) return;
       var o = { id: m.id, side: m.side, text: m.text, ts: +m.ts, cv: m.cv ? m.cv : false };
+      if (m.deleted) o.deleted = true; if (m.edited_ts) o.editedTs = +m.edited_ts;
       if (m.call) o.call = m.call;
       cv.messages.push(o);
       if (m.side === 'c' && +m.ts > cv._r.e) cv.unread.e++;

@@ -547,7 +547,13 @@ APP.chatMessagesHtml = function (cv, isC) {
     const nx = cv.messages[i + 1];
     const end = !nx || nx.side !== m.side || APP.dayLabel(nx.ts) !== dl || nx.ts - m.ts > 5 * 6e4;
     let body;
-    if (m.call) {
+    const editing = APP.state.editMsg && APP.state.editMsg.conv === cv.id && APP.state.editMsg.i === i && mine && !m.deleted;
+    if (m.deleted) {
+      body = '<div class="msg msg-bubble msg-deleted">' + APP.icon('x', 12) + ' ' + (mine ? 'You deleted this message' : 'This message was deleted') + '</div>';
+    } else if (editing) {
+      body = '<form class="msg-edit" data-form="msg-edit" data-conv="' + cv.id + '" data-i="' + i + '"><textarea name="t" rows="2" maxlength="6000" aria-label="Edit message">' + APP.h(APP.state.editMsg.t != null ? APP.state.editMsg.t : m.text) + '</textarea>' +
+        '<div class="btn-row"><button type="button" class="btn btn-ghost btn-sm" data-action="msg-edit-cancel">Cancel</button><button type="submit" class="btn btn-primary btn-sm">Save</button></div></form>';
+    } else if (m.call) {
       const c = m.call, canAnswer = !mine && c.status === 'proposed';
       body = '<div class="msg msg-call">' + APP.icon('spark', 18) + '<div class="mc-body"><strong>' + (mine ? 'You proposed a call' : 'Call proposed') + '</strong><span>' + APP.h(APP.callWhen(c)) + '</span>' +
         (c.note ? '<small class="muted">“' + APP.h(c.note) + '”</small>' : '') +
@@ -556,9 +562,16 @@ APP.chatMessagesHtml = function (cv, isC) {
         '</div></div>';
     } else if (m.cv) {
       const ref = typeof m.cv === 'object' ? m.cv : null;
-      body = '<div class="msg msg-bubble msg-cv">' + APP.icon('file', 18) + '<span><strong>' + APP.h((ref && ref.name) || cvName) + '</strong><small>CV' + (mine ? ' · attached by you' : '') + (ref && ref.size ? ' · ' + APP.h(ref.size) : '') + '</small></span>' +
-        (ref && ref.path ? '<button type="button" class="btn btn-outline btn-sm cv-dl" data-action="cv-download" data-path="' + APP.h(ref.path) + '" data-name="' + APP.h(ref.name || 'CV') + '">Download</button>' : '') + '</div>';
-    } else body = '<div class="msg msg-bubble">' + APP.h(m.text) + '</div>';
+      body = '<div class="msg msg-cv"><span class="cv-badge">' + APP.icon('file', 20) + '<b>CV</b></span><span class="cv-meta"><small class="cv-lbl">' + (mine ? 'You shared your CV' : 'Shared a CV') + '</small><strong>' + APP.h((ref && ref.name) || cvName) + '</strong>' + (ref && ref.size ? '<small>' + APP.h(ref.size) + '</small>' : '') + '</span>' +
+        (ref && ref.path ? '<button type="button" class="btn ' + (mine ? 'btn-ghost' : 'btn-primary') + ' btn-sm cv-dl" data-action="cv-download" data-path="' + APP.h(ref.path) + '" data-name="' + APP.h(ref.name || 'CV') + '">' + (mine ? 'View' : 'Download') + '</button>' : '') + '</div>';
+    } else body = '<div class="msg msg-bubble">' + APP.h(m.text) + (m.editedTs ? ' <small class="msg-edited">edited</small>' : '') + '</div>';
+    /* own messages: edit (text only, 15 minutes) and delete; on the live site only once the server has the message */
+    const canTools = mine && !m.deleted && !editing && (!APP.LIVE || /^[0-9a-f-]{36}$/i.test(m.id || ''));
+    if (canTools) {
+      const canEdit = !m.cv && !m.call && Date.now() - m.ts < 15 * 6e4;
+      body += '<div class="msg-tools">' + (canEdit ? '<button type="button" class="link-btn" data-action="msg-edit" data-conv="' + cv.id + '" data-i="' + i + '">Edit</button>' : '') +
+        '<button type="button" class="link-btn" data-action="msg-delete" data-conv="' + cv.id + '" data-i="' + i + '">Delete</button></div>';
+    }
     const isLast = i === cv.messages.length - 1;
     const status = (mine && isLast) ? ' · ' + ((cv.unread[otherSide] || 0) > 0 ? 'Delivered' : 'Seen') : '';
     html += '<div class="msg-row ' + (mine ? 'me' : 'them') + (end ? ' cl-end' : '') + '">' + body + (end ? '<small class="msg-ts">' + APP.clockTime(m.ts) + status + '</small>' : '') + '</div>';
@@ -602,7 +615,8 @@ APP.msgLayout = function (convId) {
     const chips = closed ? '' : peer
       ? '<button type="button" class="chip" data-action="call-propose" data-conv="' + active.id + '">' + APP.icon('spark', 13) + ' Propose a call</button>'
       : isC
-      ? '<button type="button" class="chip" data-action="chat-insert" data-kind="avail">Share availability</button><button type="button" class="chip" data-action="call-propose" data-conv="' + active.id + '">' + APP.icon('spark', 13) + ' Propose a call</button>'
+      ? '<button type="button" class="chip chip-cv" data-action="send-cv" data-conv="' + active.id + '">' + APP.icon('file', 13) + (myCv ? ' Send my CV' : ' Upload your CV') + '</button>' +
+        '<button type="button" class="chip" data-action="chat-insert" data-kind="avail">Share availability</button><button type="button" class="chip" data-action="call-propose" data-conv="' + active.id + '">' + APP.icon('spark', 13) + ' Propose a call</button>'
       : '<button type="button" class="chip" data-action="chat-insert" data-kind="cv">Request CV</button>' +
         (role && !role.applied && !role.invited && !role.closed ? '' : '<button type="button" class="chip" data-action="chat-invite" data-cid="' + cand.id + '">Invite to apply</button>') +
         '<button type="button" class="chip" data-action="call-propose" data-conv="' + active.id + '">' + APP.icon('spark', 13) + ' Propose a call</button>';
@@ -621,11 +635,7 @@ APP.msgLayout = function (convId) {
       (closed ? '<div class="chat-closed">' + (active.blockedByMe ? 'You blocked this person. Unblock to message again.' : 'This conversation is closed.') + '</div>'
         : waiting ? '<div class="chat-closed">You have sent 2 messages. You can write again once they reply.</div>' : '') +
       (closed || waiting ? '' : '<form data-form="chat" data-conv-id="' + active.id + '" class="chat-input">' +
-      (APP.state.pendingCv && myCv
-        ? '<span class="cv-item pending">' + APP.icon('clip', 14) + ' ' + APP.h(myCv.name) + ' <button type="button" class="icon-btn" data-action="clear-cv" aria-label="Remove CV">' + APP.icon('x', 12) + '</button></span>'
-        : '') +
       '<textarea name="q" class="input chat-ta" rows="1" aria-label="Message" placeholder="Write a message…" title="Enter to send, Shift+Enter for a new line">' + APP.h(((APP.chatDraft[active.id]) || {}).q || '') + '</textarea>' +
-      (isC && !peer ? '<button type="button" class="icon-btn" data-action="attach-cv" title="Attach your CV" aria-label="Attach your CV" ' + (myCv ? '' : 'disabled') + '>' + APP.icon('clip', 18) + '</button>' : '') +
       '<button type="submit" class="btn btn-primary btn-sm send">Send</button></form>');
   }
 

@@ -88,6 +88,32 @@ t('unblock',!(await as('c',`select set_block('${p1}',false)`)).err);
 t('can send after unblock',!(await as('c2',`select send_message('${p1}','ok')`)).err);
 t('outsider cannot block',!!(await as('c3',`select set_block('${p1}',true)`)).err);
 t('outsider cannot reveal',!!(await as('c3',`select reveal_in_conversation('${p1}')`)).err);
+// edit / delete
+const mid=(await as('e',`select id from messages where conv_id='${cv1}' and text='great'`))[0].id;
+t('sender edits',!(await as('e',`select edit_message('${mid}','great!')`)).err&&(await as('c',`select text,edited_ts from messages where id='${mid}'`))[0].text==='great!');
+t('other side cannot edit',!!(await as('c',`select edit_message('${mid}','hacked')`)).err);
+t('other side cannot delete',!!(await as('c',`select delete_message('${mid}')`)).err);
+t('outsider cannot edit',!!(await as('c3',`select edit_message('${mid}','x')`)).err);
+t('empty edit refused',!!(await as('e',`select edit_message('${mid}','  ')`)).err);
+await db.exec(`update messages set ts = ts - 16*60000 where id='${mid}'`);
+const late=await as('e',`select edit_message('${mid}','late')`);
+t('edit after 15 minutes refused',!!late.err&&/edit window/.test(late.err),late);
+t('delete any time',!(await as('e',`select delete_message('${mid}')`)).err);
+const dm=(await as('c',`select text,deleted,cv,call from messages where id='${mid}'`))[0];
+t('deleted message emptied',dm.deleted===true&&dm.text==='',dm);
+t('history not readable by members',!!(await as('e','select * from message_history')).err||(await as('e','select * from message_history')).length===0);
+t('history kept',(await db.query(`select action,text from message_history where msg_id='${mid}' order by ts`)).rows.map(r=>r.action+':'+r.text).join()==='edit:great,delete:great!');
+t('cannot edit deleted',!!(await as('e',`select edit_message('${mid}','x')`)).err);
+// sending a CV file to a company shares the identity
+const cv3=val(await as('e',`select start_conversation('${ce2}','${ee}',null) x`),'x');
+await as('e',`select send_message('${cv3}','hi')`);
+await db.exec(`insert into storage.objects(bucket_id,name) values ('cvs','${U.c2}/cv.pdf')`);
+t('send cv',!(await as('c2',`select send_message('${cv3}','',$1::jsonb)`,[JSON.stringify({name:'cv.pdf',size:'1 MB',path:U.c2+'/cv.pdf'})])).err);
+t('cv shares identity',(await as('c2','select * from my_conversations()')).find(r=>r.id===cv3).rev_c===true);
+const cvm=(await as('c2',`select id from messages where conv_id='${cv3}' and cv is not null`))[0].id;
+t('cv not editable',!!(await as('c2',`select edit_message('${cvm}','x')`)).err);
+t('company can read cv file',(await as('e',`select name from storage.objects where name='${U.c2}/cv.pdf'`)).length===1);
+t('delete cv message',!(await as('c2',`select delete_message('${cvm}')`)).err&&(await as('e',`select cv from messages where id='${cvm}'`))[0].cv===null);
 // daily limit
 const others=[];
 for(let i=0;i<10;i++){ const u='6666666'+i+'-0000-0000-0000-000000000000'; await db.query('insert into auth.users values ($1,$2)',[u,'p'+i+'@x.com']);

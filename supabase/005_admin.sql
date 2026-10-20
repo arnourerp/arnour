@@ -408,7 +408,9 @@ begin
     'professional', (select coalesce(nullif(trim(coalesce(data->>'firstName','') || ' ' || coalesce(data->>'lastName','')), ''), 'Anonymous professional') from public.consultants where id = cv.c_id),
     'company', coalesce((select data->>'name' from public.companies where id = cv.e_id),
                         (select coalesce(nullif(trim(coalesce(data->>'firstName','') || ' ' || coalesce(data->>'lastName','')), ''), 'Anonymous professional') || ' (professional)' from public.consultants where id = cv.c2_id)),
-    'messages', coalesce((select jsonb_agg(jsonb_build_object('side', m.side, 'text', m.text, 'ts', m.ts, 'cv', m.cv->>'name') order by m.ts)
+    'messages', coalesce((select jsonb_agg(jsonb_build_object('side', m.side, 'text', m.text, 'ts', m.ts, 'cv', m.cv->>'name', 'deleted', m.deleted,
+                            'history', (select jsonb_agg(jsonb_build_object('action', h.action, 'text', h.text, 'cv', h.cv->>'name', 'call', h.call is not null, 'ts', h.ts) order by h.ts)
+                                        from public.message_history h where h.msg_id = m.id)) order by m.ts)
                           from public.messages m where m.conv_id = p_conv), '[]'::jsonb));
 end $$;
 

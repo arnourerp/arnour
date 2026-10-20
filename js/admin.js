@@ -156,7 +156,8 @@
     return '<div class="adm-conv"><div class="adm-row"><strong>Reported conversation</strong><span class="grow"></span><button class="btn btn-ghost btn-sm" data-action="adm-close-conv">Close</button></div>' +
       '<p class="muted small">' + h(c.professional || '') + ' ↔ ' + h(c.company || '') + ' · opening this was recorded in the activity log.</p>' +
       (c.messages || []).map(function (m) {
-        return '<p class="adm-msg"><b>' + (m.side === 'c' ? h(c.professional || 'Professional') : h(c.company || 'Company')) + '</b> <span class="muted small">' + when(m.ts) + '</span><br>' + h(m.text || '') + (m.cv ? ' <em class="muted small">[CV: ' + h(m.cv) + ']</em>' : '') + '</p>';
+        return '<p class="adm-msg"><b>' + (m.side === 'c' ? h(c.professional || 'Professional') : h(c.company || 'Company')) + '</b> <span class="muted small">' + when(m.ts) + '</span><br>' + (m.deleted ? '<em class="muted small">[deleted by sender]</em>' : h(m.text || '')) + (m.cv ? ' <em class="muted small">[CV: ' + h(m.cv) + ']</em>' : '') +
+          (m.history || []).map(function (x) { return '<br><span class="muted small">' + (x.action === 'delete' ? 'Before deletion' : 'Before edit') + ' (' + when(x.ts) + '): </span>' + h(x.text || '') + (x.cv ? ' <em class="muted small">[CV: ' + h(x.cv) + ']</em>' : '') + (x.call ? ' <em class="muted small">[call proposal]</em>' : ''); }).join('') + '</p>';
       }).join('') + '</div>';
   }
 

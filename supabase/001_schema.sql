@@ -125,6 +125,21 @@ create table if not exists public.messages (
   call    jsonb
 );
 create index if not exists messages_conv_idx on public.messages(conv_id, ts);
+-- edit (15 minutes) and delete own messages; the earlier text is kept for moderation only (admin, reported chats)
+alter table public.messages add column if not exists edited_ts bigint;
+alter table public.messages add column if not exists deleted boolean not null default false;
+create table if not exists public.message_history (
+  id      uuid primary key default gen_random_uuid(),
+  msg_id  uuid not null references public.messages(id) on delete cascade,
+  action  text not null check (action in ('edit','delete')),
+  text    text not null default '',
+  cv      jsonb,
+  call    jsonb,
+  ts      bigint not null default (extract(epoch from now())*1000)::bigint
+);
+create index if not exists message_history_msg_idx on public.message_history(msg_id);
+alter table public.message_history enable row level security;
+revoke all on public.message_history from anon, authenticated;
 
 create table if not exists public.notifications (
   id        uuid primary key default gen_random_uuid(),
@@ -632,10 +647,51 @@ begin
     else p_call := jsonb_set(p_call, '{status}', '"proposed"'); end if;
   end if;
   if char_length(coalesce(p_text,'')) = 0 and p_cv is null and p_call is null then return; end if;
+  if my_side = 'c' and v.c2_id is null and p_cv is not null and jsonb_typeof(p_cv) = 'object' then
+    update public.conversations set rev_c = true where id = p_conv;  /* a CV shows the name, so sending it shares the identity */
+  end if;
   insert into public.messages(conv_id, side, text, ts, cv, call) values (p_conv, my_side, left(coalesce(p_text,''), 6000), now_ms, p_cv, p_call);
   update public.conversations set last_ts = now_ms,
          c_read = case when my_side = 'c' then now_ms else c_read end,
          e_read = case when my_side = 'e' then now_ms else e_read end where id = p_conv;
+end $$;
+
+-- the sender may edit a text message for 15 minutes, and delete own messages at any time
+create or replace function public._my_message(p_msg uuid) returns public.messages
+language plpgsql stable security definer set search_path = public as
+$$
+declare m public.messages; v public.conversations;
+begin
+  select * into m from public.messages where id = p_msg;
+  if m.id is null then raise exception 'unknown message'; end if;
+  select * into v from public.conversations where id = m.conv_id;
+  if public._conv_side(v) is distinct from m.side then raise exception 'not allowed'; end if;
+  return m;
+end $$;
+
+create or replace function public.edit_message(p_msg uuid, p_text text) returns void
+language plpgsql security definer set search_path = public as
+$$
+declare m public.messages := public._my_message(p_msg); now_ms bigint := (extract(epoch from clock_timestamp())*1000)::bigint;
+begin
+  if m.deleted then raise exception 'message deleted'; end if;
+  if m.cv is not null or m.call is not null then raise exception 'only text messages can be edited'; end if;
+  if now_ms - m.ts > 15 * 60000 then raise exception 'edit window over: messages can be edited for 15 minutes'; end if;
+  if char_length(trim(coalesce(p_text,''))) = 0 then raise exception 'empty message'; end if;
+  if p_text = m.text then return; end if;
+  insert into public.message_history(msg_id, action, text) values (m.id, 'edit', m.text);
+  update public.messages set text = left(p_text, 6000), edited_ts = now_ms where id = m.id;
+end $$;
+
+create or replace function public.delete_message(p_msg uuid) returns void
+language plpgsql security definer set search_path = public as
+$$
+declare m public.messages := public._my_message(p_msg);
+begin
+  if m.deleted then return; end if;
+  insert into public.message_history(msg_id, action, text, cv, call) values (m.id, 'delete', m.text, m.cv, m.call);
+  update public.messages set text = '', cv = null, call = null, deleted = true,
+         edited_ts = (extract(epoch from clock_timestamp())*1000)::bigint where id = m.id;
 end $$;
 
 create or replace function public.mark_read(p_conv text) returns void
@@ -863,7 +919,7 @@ grant execute on function public.list_consultants(), public.my_conversations(), 
   public.claim_profile(text,jsonb), public.save_profile(jsonb), public.save_job(text,jsonb), public.delete_job(text),
   public.apply_to_job(text,text), public.withdraw_application(text), public.invite_to_job(text,text),
   public.create_intro(text,text,text,text,text,text), public.respond_intro(text,boolean),
-  public.start_conversation(text,text,text,text), public.start_peer_conversation(text,text), public.reveal_in_conversation(text), public.set_block(text,boolean), public.send_message(text,text,jsonb,jsonb), public.mark_read(text), public.answer_call(uuid,text),
+  public.start_conversation(text,text,text,text), public.start_peer_conversation(text,text), public.reveal_in_conversation(text), public.set_block(text,boolean), public.send_message(text,text,jsonb,jsonb), public.edit_message(uuid,text), public.delete_message(uuid), public.mark_read(text), public.answer_call(uuid,text),
   public.send_notification(text,text,text,text), public.delete_my_account() to authenticated;
 grant execute on function public.list_jobs(), public.list_companies(), public.get_public_profile(text), public.get_public_company(text) to anon, authenticated;
 -- helpers used inside other functions run as the function owner; they need no public grant
@@ -877,7 +933,7 @@ declare ent text := my_entity(); r text := my_role(); s text;
 begin
   if auth.uid() is null or ent is null then return ''; end if;
   select concat_ws('|',
-    (select count(*) || ':' || coalesce(max(m.ts),0) || ':' || count(*) filter (where m.call->>'status' in ('accepted','declined'))
+    (select count(*) || ':' || coalesce(max(m.ts),0) || ':' || count(*) filter (where m.call->>'status' in ('accepted','declined')) || ':' || coalesce(max(m.edited_ts),0)
        from public.messages m join public.conversations v on v.id = m.conv_id where v.c_id = ent or v.e_id = ent or v.c2_id = ent),
     (select count(*) || ':' || coalesce(sum(v.c_read + v.e_read),0) || ':' || coalesce(max(v.last_ts),0) || ':' || count(*) filter (where v.rev_c or v.rev_e)
        || ':' || (select count(*) from public.blocks b where b.blocker = ent or b.blocked = ent)
