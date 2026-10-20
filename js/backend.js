@@ -141,7 +141,7 @@
   };
 
   B.hydrate = function (session) {
-    B.user = session ? session.user : null; B.profile = null; B.suspended = null; B.isAdmin = false;
+    B.user = session ? session.user : null; B.profile = null; B.suspended = null; B.isAdmin = false; B.emailPrefs = null; B._epLoading = false;
     var db = B.emptyDb(), pub, priv = null;
     var first = B.user ? B.sb.from('profiles').select('*').maybeSingle() : Promise.resolve(null);
     return first.then(function (r0) {
@@ -664,7 +664,7 @@
     if (v === 'admin' && !B.isAdmin) return B.user ? '#/' : '#/login';
     if (B.user && !B.profile) {
       if (B.isAdmin && v === 'landing' && !/^#\/home/.test(location.hash)) return '#/admin';
-      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);
+      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset', 'unsubscribe'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);
       if (ok.indexOf(v) === -1) return B.isAdmin ? '#/admin' : (B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard'); /* an admin never has to create a profile */
       if (v === 'wiz-c' && B.metaRole() === 'e') return '#/onboard-e';
       if (v === 'wiz-e' && B.metaRole() === 'c') return '#/onboard';
@@ -760,6 +760,46 @@
       '<p class="center small mt16"><a href="#/terms">Terms</a> · <a href="#/privacy">Privacy</a></p>');
   };
 
+  /* ---------- email notifications (settings on the Account page, unsubscribe page) ---------- */
+  var EMAIL_KINDS = { matches: 'new matching roles', invites: 'invitation and introduction', messages: 'new message', applicants: 'new applicant', community: 'community answer', all: 'all Arnour' };
+  function emailPrefsHtml(role) {
+    var head = '<div class="card-h" style="margin-top:24px">Email notifications</div>';
+    if (!role) return '';
+    var p = B.emailPrefs;
+    if (!p) {
+      if (!B._epLoading) { B._epLoading = true; rpc('my_email_prefs').then(function (x) { B.emailPrefs = x || {}; B._epLoading = false; APP.render(); }, function () { B._epLoading = false; B.emailPrefs = { error: true }; APP.render(); }); }
+      return head + '<p class="muted small">Loading your email settings…</p>';
+    }
+    if (p.error) return head + '<p class="muted small">Your email settings could not be loaded. Please refresh the page.</p>';
+    var opt = function (pairs, v) { return pairs.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === v ? ' selected' : '') + '>' + o[1] + '</option>'; }).join(''); };
+    var sw = function (name, label, hint, on) { return '<label class="ep-row"><input type="checkbox" name="ep_' + name + '"' + (on ? ' checked' : '') + '><span><b>' + label + '</b><small class="muted">' + hint + '</small></span></label>'; };
+    return head + '<p class="muted small">Sent to <strong>' + esc(p.email || (B.user && B.user.email)) + '</strong>. Every email has a one-click unsubscribe link.</p>' +
+      '<form data-form="live-email" class="ep-form">' +
+      (role === 'consultant'
+        ? '<label class="field"><span class="label">New roles that match you (75%+)</span><select name="ep_matches" class="input">' + opt([['daily', 'Daily summary (8 am UAE time)'], ['instant', 'Right away'], ['weekly', 'Weekly summary (Mondays)'], ['off', 'Off']], p.matches || 'daily') + '</select></label>'
+        : '<label class="field"><span class="label">New applicants on your roles</span><select name="ep_applicants" class="input">' + opt([['instant', 'Right away'], ['daily', 'Daily summary (8 am UAE time)'], ['off', 'Off']], p.applicants || 'instant') + '</select></label>') +
+      sw('invites', role === 'consultant' ? 'Invitations and introductions' : 'Introduction requests', role === 'consultant' ? 'A company invites you to apply or wants to connect' : 'A professional wants to connect, or accepts your request', p.invites !== false) +
+      sw('messages', 'New messages', 'Only if unread after 15 minutes — at most one email per chat per hour', p.messages !== false) +
+      sw('community', 'Community answers', 'Someone answers your question, or your answer is accepted', p.community !== false) +
+      '<button class="btn btn-outline" type="submit">Save email settings</button></form>';
+  }
+  APP.views.unsubscribe = function () {
+    document.title = 'Email settings — Arnour';
+    var qs = (location.hash.split('?')[1] || ''), prm = {};
+    qs.split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) prm[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1)); });
+    var key = (prm.t || '') + '|' + (prm.k || '');
+    var st = B.unsub && B.unsub.key === key ? B.unsub : null;
+    if (!st) {
+      B.unsub = st = { key: key, state: 'busy' };
+      rpc('email_unsubscribe', { p_token: prm.t || '', p_kind: prm.k || 'all' }).then(function (r) { st.state = r === 'invalid' ? 'invalid' : 'done'; st.kind = r; B.emailPrefs = null; APP.render(); }, function () { st.state = 'error'; APP.render(); });
+    }
+    var body = st.state === 'busy' ? '<p class="muted center">Updating your email settings…</p>'
+      : st.state === 'done' ? '<h1>You are unsubscribed</h1><p class="muted center">You will no longer get ' + esc(EMAIL_KINDS[st.kind] || 'these') + ' emails from Arnour. Notifications still appear on the site.</p>'
+      : st.state === 'invalid' ? '<h1>Link not valid</h1><p class="muted center">This unsubscribe link is not valid any more. You can change your email settings on your Account page.</p>'
+      : '<h1>Something went wrong</h1><p class="muted center">Please try the link again in a moment, or change your email settings on your Account page.</p>';
+    return card(body + '<a class="btn btn-outline btn-block mt16" href="#/account">Manage all email settings</a>');
+  };
+
   APP.views.account = function () {
     document.title = 'Account — Arnour';
     var role = B.profile ? B.profile.role : null;
@@ -771,6 +811,7 @@
       '<label class="field"><span class="label">New password</span><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required>' + pwHint() + '</label>' +
       '<p class="field-error" id="live-err" role="alert"></p>' +
       '<button class="btn btn-outline" type="submit">Update password</button></form>' +
+      emailPrefsHtml(role) +
       '<div class="card-h" style="margin-top:24px">Delete my account</div>' +
       '<p class="muted small">This permanently removes your profile, messages and applications. It cannot be undone.</p>' +
       '<button class="btn btn-danger" data-action="live-delete">Delete my account…</button>' +
@@ -966,6 +1007,12 @@
         if (r.error && /rate|seconds/i.test(r.error.message)) return setErr(authError(r.error));
         f.innerHTML = '<p class="center">If an account exists for <strong>' + esc(fe) + '</strong>, a reset link is on its way. Check your inbox and spam folder.</p><a class="btn btn-ghost btn-block" href="#/login">Back to sign in</a>';
       });
+    } else if (type === 'live-email') {
+      var pd = { invites: !!f.querySelector('[name=ep_invites]:checked'), messages: !!f.querySelector('[name=ep_messages]:checked'), community: !!f.querySelector('[name=ep_community]:checked') };
+      if (fd.get('ep_matches')) pd.matches = g('ep_matches');
+      if (fd.get('ep_applicants')) pd.applicants = g('ep_applicants');
+      busy(f, true, 'Saving…');
+      rpc('set_email_prefs', { p_data: pd }).then(function () { busy(f, false); B.emailPrefs = Object.assign({}, B.emailPrefs, pd); APP.toast('Email settings saved ✓'); }, function () { busy(f, false); APP.toast('Could not save your email settings. Please try again.'); });
     } else if (type === 'live-reset') {
       var np = String(fd.get('password') || ''); if (np.length < 8) return setErr('Choose a password with at least 8 characters.');
       busy(f, true, 'Saving…');

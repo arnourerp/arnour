@@ -1793,3 +1793,12 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .people-form .pf-grid .input { width: 100%; min-width: 0; }
 .people-form .pf-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .people-form .pf-sort { display: flex; align-items: center; gap: 8px; }
+
+/* Account: email notifications */
+.ep-form { display: flex; flex-direction: column; gap: 10px; }
+.ep-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; text-align: left; }
+.ep-row input { margin-top: 3px; width: 17px; height: 17px; flex: none; accent-color: var(--primary); }
+.ep-row span { display: flex; flex-direction: column; gap: 2px; }
+.ep-row b { font-size: 14px; }
+.ep-row small { font-size: 12.5px; }
+.ep-form .btn { align-self: flex-start; }
