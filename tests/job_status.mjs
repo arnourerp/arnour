@@ -23,7 +23,7 @@ t('alternatives shown one per line with "Any one of these"',await p.locator('.jd
 t('partial: FI with 1 of 3 projects is orange with the reason',/st-mid/.test(find(/FI/).cls)&&/1 of 3 projects/.test(find(/FI/).t),find(/FI/));
 t('transferable CO from ECC is orange',/st-mid/.test(find(/Controlling|CO\b/).cls)&&/Transferable from ECC/.test(find(/Controlling|CO\b/).t),find(/Controlling|CO\b/));
 t('group header summarises (partly met)',/Partly met/.test(await p.locator('.jd-group-h').innerText()));
-t('product you know with other modules is orange',/st-mid/.test(find(/MM|Materials|Sourcing/).cls),find(/MM|Materials|Sourcing/));
+t('product you know but a different module is red (product and module count together)',/st-no/.test(find(/MM|Materials|Sourcing/).cls)&&/but not this module/.test(find(/MM|Materials|Sourcing/).t),find(/MM|Materials|Sourcing/));
 t('missing product is red',/st-no/.test(find(/SuccessFactors|Employee Central/).cls),find(/SuccessFactors|Employee Central/));
 t('each language on its own line: English green, Arabic red',/st-ok/.test(find(/Language English/).cls)&&/st-no/.test(find(/Language Arabic/).cls));
 t('required certification missing is red',/st-no/.test(find(/certification required/i).cls));

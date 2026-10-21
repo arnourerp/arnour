@@ -508,6 +508,7 @@ APP.jobSections = function (job, me) {
     if (m.kind === 'projects') return { cls: 'mid', t: 'You have ' + m.have + ' of ' + r.minProjects + ' projects' };
     if (m.kind === 'transfer') return { cls: 'mid', t: 'Transferable from ' + APP.productShort(m.via.productId) + ' ' + APP.skillName(m.via.productId, m.via.moduleId) };
     if (m.kind === 'product') return { cls: 'mid', t: 'You know ' + APP.productShort(r.productId) + ', other modules only' };
+    if ((me.skills || []).some(k => k.productId === r.productId)) return { cls: 'no', t: 'You know ' + APP.productShort(r.productId) + ', but not this module' };
     return { cls: 'no', t: 'Not on your profile' };
   };
   const skillTxt = (r) => '<b>' + E(APP.productShort(r.productId)) + '</b> ' + E(APP.skillName(r.productId, r.moduleId)) + (r.minProjects ? ' <em>' + r.minProjects + '+ projects</em>' : '');
