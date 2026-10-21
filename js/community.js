@@ -50,7 +50,7 @@ APP.commUpvote = function (item, action, dataAttrs) {
 APP.questionCard = function (q) {
   const ansCount = (q.answers || []).length;
   const solved = (q.answers || []).some(a => a.accepted);
-  return '<article class="card q-card">' +
+  return '<article class="card q-card" data-card-href="#/community/q/' + q.id + '">' +
     '<div class="q-head">' +
     '<span class="pill">Question</span>' +
     APP.commTag(q) +
@@ -71,7 +71,7 @@ APP.questionCard = function (q) {
 
 APP.articleCard = function (a) {
   const host = a.url ? a.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : '';
-  return '<article class="card q-card">' +
+  return '<article class="card q-card" data-card-href="#/community/a/' + a.id + '">' +
     '<div class="q-head">' +
     '<span class="pill">Article</span>' +
     APP.commTag(a) +
@@ -305,7 +305,7 @@ APP.views['community-q'] = function (ctx) {
   }
 
   return '<div class="narrow">' +
-    '<div class="crumb"><a class="link" href="#/community">← Community</a></div>' +
+    APP.crumbHtml('#/community', 'Community') +
     main +
     share +
     answersSection +
@@ -351,7 +351,7 @@ APP.views['community-a'] = function (ctx) {
   });
 
   return '<div class="narrow">' +
-    '<div class="crumb"><a class="link" href="#/community">← Community</a></div>' +
+    APP.crumbHtml('#/community', 'Community') +
     '<article class="card q-card">' +
     '<div class="q-head">' +
     '<span class="pill">Article</span>' +
@@ -379,7 +379,7 @@ APP.views['community-a'] = function (ctx) {
 
 APP.commSignCta = function (title, sub) {
   return '<div class="narrow">' +
-    '<div class="crumb"><a class="link" href="#/community">← Community</a></div>' +
+    APP.crumbHtml('#/community', 'Community') +
     '<div class="card empty">' +
     APP.icon('users', 40) +
     '<p style="margin-bottom:4px;font-size:16px;font-weight:700">' + APP.h(title) + '</p>' +
@@ -397,7 +397,7 @@ APP.views['community-ask'] = function () {
   }
   const d = APP.commAskDraft || { title: '', body: '', product: '', module: '' };
   return '<div class="narrow">' +
-    '<div class="crumb"><a class="link" href="#/community">← Community</a></div>' +
+    APP.crumbHtml('#/community', 'Community') +
     '<div class="page-head"><div class="grow"><h2>Ask a question</h2><p class="muted">Be specific — the context is what makes an answer useful.</p></div></div>' +
     '<div class="card"><div class="card-h">Post your question</div>' +
     '<form data-form="community-ask">' +
@@ -421,7 +421,7 @@ APP.views['community-share'] = function () {
   }
   const d = APP.commShareDraft || { title: '', url: '', body: '', product: '', module: '' };
   return '<div class="narrow">' +
-    '<div class="crumb"><a class="link" href="#/community">← Community</a></div>' +
+    APP.crumbHtml('#/community', 'Community') +
     '<div class="page-head"><div class="grow"><h2>Share an article</h2><p class="muted">A link, a short take, and the product it belongs to.</p></div></div>' +
     '<div class="card"><div class="card-h">Share with the community</div>' +
     '<form data-form="community-share">' +
@@ -485,7 +485,7 @@ APP.personCardHtml = function (r) {
   const top = (c.skills || []).slice().sort((x, y) => (Number(y.projects) || 0) - (Number(x.projects) || 0)).slice(0, 4);
   const rp = APP.reputation(c.id);
   const country = APP.countryName(c.country);
-  return '<div class="card person-card">' +
+  return '<div class="card person-card" data-card-href="#/talent/' + c.id + '">' +
     APP.avatarHtml(name, '', !r.see) +
     '<div class="grow pc-main"><div class="pc-name"><a class="link-strong" href="#/talent/' + c.id + '">' + E(name) + '</a>' +
     (!r.see ? ' <span class="pill muted-pill" title="Name hidden until they share it">' + APP.icon('lock', 11) + ' Private</span>' : '') +

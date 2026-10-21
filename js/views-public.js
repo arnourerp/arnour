@@ -464,7 +464,7 @@ APP.views['jobs'] = function () {
   return APP.jobSearchHtml({
     items: list, canSort: !!c, ranked: !!c, cards: cards,
     emptyExtra: isAnon ? '<a class="btn btn-outline" href="#/register">Get matched when one is posted</a>' : '',
-    head: '<div class="crumb"><a class="link" href="#/">← Home</a></div>' +
+    head: APP.crumbHtml('#/', 'Home') +
       '<h1 class="page-title">Open SAP roles</h1>' +
       '<p class="muted small" style="margin:2px 0 12px">Browse every open role on Arnour — no login needed.</p>' +
       (isAnon ? '<div class="signup-strip"><span>Sign up free to apply, save roles and message companies.</span><a class="btn btn-primary btn-sm" href="#/register">Join Arnour</a><a class="btn btn-ghost btn-sm" href="#/login">Sign in</a></div>' : '')
@@ -656,7 +656,7 @@ APP.views['job-detail'] = function (ctx) {
   }
 
   return '<div class="jd' + (side ? '' : ' jd-one') + '">' +
-    '<div class="crumb"><a class="link" href="#/jobs">← All open roles</a></div>' +
+    APP.crumbHtml(APP.db.session && APP.db.session.role === 'consultant' ? '#/c/jobs' : '#/jobs', 'All open roles') +
     '<header class="jd-head card">' +
     (isExt ? '<span class="jd-co">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'sm') + '<span>' + E(job.extEmployer || '') + '</span><span class="pill ext-badge">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</span></span>' : co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm') + '<span>' + E(co.name) + '</span></a>') : '') +
     '<h1 class="jd-title">' + E(job.title) + APP.samplePill(job) + (!open ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h1>' +
@@ -677,6 +677,10 @@ APP.views['job-detail'] = function (ctx) {
 
 /* ------------------------------ public consultant profile ------------------------------ */
 
+APP.peopleCrumb = function () {
+  const s = APP.db.session;
+  return s && s.role === 'consultant' ? APP.crumbHtml('#/community/people', 'People') : s && s.role === 'employer' ? APP.crumbHtml('#/e/talent', 'Talent search') : APP.crumbHtml('#/', 'Home');
+};
 APP.views['talent-public'] = function (ctx) {
   const c = APP.consultant(ctx.p[0]);
   if (!c) return '<div class="empty">Profile not found — this professional may no longer be on Arnour.</div>';
@@ -686,12 +690,12 @@ APP.views['talent-public'] = function (ctx) {
     /* another professional: the anonymous profile (skills first, name second) — no name, photo, LinkedIn, CV, about, city or availability */
     if (sx && sx.role === 'consultant' && sx.consultantId !== c.id) {
       const a = Object.assign({}, APP.cv(c, true), { availability: '', gender: '' });
-      return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div>' +
+      return '<div class="narrow">' + APP.peopleCrumb() + '' +
         '<div class="card anon-note">' + APP.icon('lock', 16) + '<span><b>Private profile</b> — name and contact details are hidden until they choose to share them. You can still send a message.</span></div>' +
         APP.consultantProfileHtml(a, { public: true, headActions: '<button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button>' + (APP.modTools ? APP.modTools('profile', c.id, false) : '') }) +
         '</div>';
     }
-    return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div><div class="card empty anon-empty">' + APP.icon('lock', 28) +
+    return '<div class="narrow">' + APP.peopleCrumb() + '<div class="card empty anon-empty">' + APP.icon('lock', 28) +
       '<h3>This profile is private</h3><p class="muted">This professional uses Mutual Reveal: skills first, name second. Their identity is shared only when they choose to share it.</p>' +
       (!sx ? '<div class="btn-row" style="justify-content:center"><a class="btn btn-primary btn-sm" href="#/login">Sign in to see more</a><a class="btn btn-outline btn-sm" href="#/register">Join free</a></div>'
         : sx.role === 'employer' ? '<a class="btn btn-primary btn-sm" href="#/e/talent/' + c.id + '">View anonymous profile</a>'
@@ -720,7 +724,7 @@ APP.views['talent-public'] = function (ctx) {
   });
 
   return '<div class="narrow">' +
-    '<div class="crumb"><a class="link" href="#/">← Home</a></div>' +
+    APP.peopleCrumb() +
     APP.consultantProfileHtml(c, { public: true, headActions: headActions + (APP.modTools ? APP.modTools('profile', c.id, !!(s && s.consultantId === c.id)) : '') }) +
     share +
     '</div>';
@@ -733,7 +737,7 @@ APP.views['company-public'] = function (ctx) {
   if (!co) return '<div class="empty">Company not found.</div>';
   if (co.anon && !APP.canSeeCompany(co)) {
     document.title = 'Confidential company · Arnour';
-    return '<div class="narrow"><div class="crumb"><a class="link" href="#/">← Home</a></div><div class="card empty anon-empty">' + APP.icon('lock', 28) +
+    return '<div class="narrow">' + APP.crumbHtml(APP.db.session && APP.db.session.role === 'consultant' ? '#/c/jobs' : '#/jobs', 'Open roles') + '<div class="card empty anon-empty">' + APP.icon('lock', 28) +
       '<h3>This company is confidential</h3><p class="muted">This company uses Mutual Reveal: its name is shared only after it accepts an introduction with a professional.</p><a class="btn btn-outline btn-sm" href="#/jobs">Browse open roles</a></div></div>';
   }
   document.title = co.name + ' — hiring on Arnour';
@@ -754,7 +758,7 @@ APP.views['company-public'] = function (ctx) {
       : '<div class="btn-row"><a class="btn btn-primary btn-sm" href="#/login">Sign in</a><a class="btn btn-outline btn-sm" href="#/register">Create a free account to apply</a></div>';
 
   return '<div class="narrow">' +
-    '<div class="crumb"><a class="link" href="#/">← Home</a></div>' +
+    APP.crumbHtml(APP.db.session && APP.db.session.role === 'consultant' ? '#/c/jobs' : '#/jobs', 'Open roles') +
     '<div class="card co-banner-card">' +
     '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + '</span></div>' +
     '<div class="co-banner-body">' +

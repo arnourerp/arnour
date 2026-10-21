@@ -422,7 +422,7 @@ APP.views['e-talent-detail'] = function (ctx) {
   ].filter(f => f[1]).map(f => '<span>' + APP.icon(f[0], 14) + ' ' + E(f[1]) + '</span>').join('');
 
   return '<div class="jd">' +
-    (pv ? '<div class="crumb"><a class="link" href="#/c/profile">← Back to my profile</a></div><div class="card preview-banner">' + APP.icon('lock', 16) + '<div><b>This is how companies see you in anonymous mode</b><div class="muted small">' + (c0.anon ? 'Anonymous mode is on.' : 'Anonymous mode is currently off — companies see your full profile. Turn it on from your profile.') + '</div></div></div>' : '<div class="crumb"><a class="link" href="#/e/talent">← Back to talent search</a></div>') +
+    (pv ? '<div class="crumb"><a class="link" href="#/c/profile">← Back to my profile</a></div><div class="card preview-banner">' + APP.icon('lock', 16) + '<div><b>This is how companies see you in anonymous mode</b><div class="muted small">' + (c0.anon ? 'Anonymous mode is on.' : 'Anonymous mode is currently off — companies see your full profile. Turn it on from your profile.') + '</div></div></div>' : APP.crumbHtml('#/e/talent', 'Talent search')) +
     '<header class="jd-head card td-head">' + APP.avatarHtml(name, 'xl', c._anon) +
     '<div class="grow"><h1 class="jd-title">' + E(name) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 12) + ' Anonymous</span>' : '') + '</h1>' +
     (APP.LIVE && c.sample ? '<p class="sample-note">Sample profile, for illustration. Messages to sample profiles are not answered.</p>' : '') +
@@ -703,7 +703,7 @@ APP.views['e-job-detail'] = function (ctx) {
   function nStrongApp(list) { return list.filter(x => x.score >= 75).length; }
 
   return '<div class="jd">' +
-    '<div class="crumb"><a class="link" href="#/e/jobs">← Your roles</a></div>' +
+    APP.crumbHtml('#/e/jobs', 'Your roles') +
     '<header class="jd-head card"><h1 class="jd-title">' + E(job.title) + ' <span class="pill ' + (open ? 'inv' : 'muted-pill') + '">' + (open ? 'Open' : 'Closed') + '</span>' + (APP.coHidden(co, job) ? ' <span class="pill anon-pill">' + APP.icon('lock', 12) + ' Confidential</span>' : '') + '</h1>' +
     '<div class="job-meta">' +
     '<span>' + APP.icon('briefcase') + E(job.employmentType) + '</span>' +

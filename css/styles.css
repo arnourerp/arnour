@@ -1802,3 +1802,16 @@ details.opt-more[open] summary { margin-bottom: 6px; }
 .ep-row b { font-size: 14px; }
 .ep-row small { font-size: 12.5px; }
 .ep-form .btn { align-self: flex-start; }
+
+/* ---------- navigation clarity: anything that opens a page looks clickable ---------- */
+.card-title a, .job-tt h3 a, .q-card h2 a, .q-card h3 a, a.co-link, .card-sub a.co-link, .person-card .pc-name .link-strong,
+a.chat-who-link, a.cr-title, a.q-who-link, a.jd-co, a.td-fit-t, a.app-item strong, a.person-link {
+  color: var(--accent-blue-text) !important; text-decoration: none; cursor: pointer;
+}
+.card-title a:hover, .job-tt h3 a:hover, .q-card h2 a:hover, .q-card h3 a:hover, a.co-link:hover, .person-card .pc-name .link-strong:hover,
+a.chat-who-link:hover, a.cr-title:hover, a.q-who-link:hover, a.jd-co:hover, a.td-fit-t:hover, a.app-item:hover strong, a.person-link:hover {
+  text-decoration: underline !important; text-underline-offset: 2px;
+}
+[data-card-href] { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+[data-card-href]:hover { border-color: var(--border-strong); box-shadow: 0 4px 14px rgba(15, 23, 41, .08); }
+.crumb .link[data-action="nav-back"] { font-weight: 600; }

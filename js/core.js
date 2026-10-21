@@ -1649,7 +1649,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
   });
   const loc = APP.locText(job, job.remote ? 'Remote' : undefined) + (job.remote && (job.city || job.country) ? ' (remote ok)' : '');
   const meta = APP.metaBarHtml([APP.h(loc), APP.h(job.employmentType || ''), APP.expLabel(job) ? APP.h(APP.expLabel(job)) + ' exp' : (job.level ? APP.h(job.level) + ' level' : '')]);
-  return '<article class="card job-card">' +
+  return '<article class="card job-card"' + (link ? ' data-card-href="' + APP.h(link) + '"' : '') + '>' +
     '<div class="card-top">' +
     (isExt ? APP.avatarHtml(coName || 'Jobs', 'lg') : (co ? APP.avatarHtml(co.name, 'lg') : '')) +
     '<div class="card-id">' +
@@ -1677,8 +1677,8 @@ APP.personRowHtml = function (c, opts) {
   c = APP.cv(c);
   const name = APP.consultantFullName(c);
   const profile = '#/e/talent/' + c.id;
-  return '<div class="person-row">' + APP.avatarHtml(name, '', c._anon) +
-    '<div class="card-id"><p class="card-name">' + APP.h(name) + APP.certBadgeHtml(c) + APP.samplePill(c) + '</p>' +
+  return '<div class="person-row" data-card-href="' + profile + '">' + APP.avatarHtml(name, '', c._anon) +
+    '<div class="card-id"><p class="card-name"><a class="person-link" href="' + profile + '">' + APP.h(name) + '</a>' + APP.certBadgeHtml(c) + APP.samplePill(c) + '</p>' +
     '<p class="person-title">' + APP.h(c.headline || '') + '</p>' +
     APP.metaBarHtml([APP.h(APP.locText(c)), c.yearsExp != null ? APP.h(c.yearsExp) + ' yrs' : '', APP.availHtml(c.availability)]) +
     (opts.sub ? '<p class="person-sub">' + opts.sub + '</p>' : '') + '</div>' +
@@ -1707,11 +1707,11 @@ APP.talentCard = function (c, opts) {
     c.yearsExp != null ? APP.h(c.yearsExp) + ' yrs experience' : '',
     APP.availHtml(c.availability)
   ]);
-  return '<article class="card talent-card">' +
+  return '<article class="card talent-card" data-card-href="' + profile + '">' +
     '<div class="card-top">' +
     APP.avatarHtml(name, 'lg', c._anon) +
     '<div class="card-id">' +
-    '<p class="card-name">' + APP.h(name) + APP.certBadgeHtml(c) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Anonymous</span>' : '') + (opts.note || '') + '</p>' +
+    '<p class="card-name"><a class="person-link" href="' + profile + '">' + APP.h(name) + '</a>' + APP.certBadgeHtml(c) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Anonymous</span>' : '') + (opts.note || '') + '</p>' +
     '<h3 class="card-title">' + APP.h(c.headline || APP.roleTypeLabel(c.roleType) || c.level || '') + '</h3>' +
     '</div>' +
     '<div class="card-side">' + (hasScore ? APP.matchPillHtml(opts.score) : '') + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.rateHtml(c) + '</span>' : '') + '</div>' +
@@ -2909,19 +2909,29 @@ APP.render = function () {
       hu.seenApplicants[hm[1]] = (APP.db.jobs[hm[1]].applicants || []).length; APP.save();
     }
   }
+  /* in-app history: lets "Back" return to the page the person came from, at the same scroll position */
+  let navBackY = null;
+  {
+    const hh = location.hash || '#/', st = APP._nav || (APP._nav = []);
+    if (st[st.length - 1] !== hh) {
+      if (st.length > 1 && st[st.length - 2] === hh) { st.pop(); navBackY = (APP._scrollMem || {})[hh] || 0; }
+      else { st.push(hh); if (st.length > 60) st.shift(); }
+    }
+  }
   const view = APP.views[route.view] || APP.views.landing;
   const body = view({ p: route.p });
   const noChrome = ['landing', 'login', 'register', 'forgot', 'reset', 'check-email', 'wiz-c', 'wiz-e', 'notfound', 'admin', 'suspended'];
   const bare = route.view === 'admin';
   const chrome = bare ? '' : route.auth || (APP.db.session && (noChrome.indexOf(route.view) < 0 || route.view === 'notfound')) ? APP.navbar() : APP.pubHeader();
   const footer = route.auth || bare ? '' : APP.footerHtml();
-  const keepY = bare && APP._lastRoute === location.hash.split('?')[0] ? window.scrollY : 0;
+  const keepY = navBackY != null ? navBackY : bare && APP._lastRoute === location.hash.split('?')[0] ? window.scrollY : 0;
   document.getElementById('app').innerHTML =
     chrome + '<main class="main" id="main">' + body + '</main>' + footer;
   APP.a11yPass();
   APP._shownHash = location.hash;
   APP.captureEditBase();
   window.scrollTo(0, keepY);
+  if (navBackY) setTimeout(function () { window.scrollTo(0, navBackY); }, 0); /* after images and fonts settle */
   { /* fade the page in on navigation only — not on in-page re-renders (chips, sort) */
     const key = location.hash.split('?')[0];
     const m = document.getElementById('main');
@@ -3046,6 +3056,48 @@ APP.start = function () {
 
 /* ---------------------------- global event handling ---------------------------- */
 
+/* ---------- navigation: "Back to …" that returns where the person came from ---------- */
+APP._navSkip = /^#\/(login|register|forgot|reset|check-email|onboard|unsubscribe)|\/edit$|^#\/e\/jobs\/new$/;
+APP.navPrev = function () {
+  const st = APP._nav || [];
+  const cur = st[st.length - 1];
+  for (let i = st.length - 2; i >= 0; i--) { if (st[i] !== cur && !APP._navSkip.test(st[i])) return { hash: st[i], direct: i === st.length - 2 }; }
+  return null;
+};
+APP.navLabel = function (hash) {
+  const cut = (t) => { t = String(t || '').trim(); return t.length > 34 ? t.slice(0, 32) + '…' : t; };
+  let m;
+  if ((m = hash.match(/^#\/(?:job|e\/jobs)\/([^/?]+)$/)) && m[1] !== 'new') { const j = APP.job(m[1]); return j ? cut(j.title) : 'the role'; }
+  if ((m = hash.match(/^#\/(?:talent|e\/talent)\/([^/?]+)$/))) { const c = APP.consultant(m[1]); return c ? cut(APP.consultantFullName(c)) : 'the profile'; }
+  if ((m = hash.match(/^#\/company\/([^/?]+)$/))) { const co = APP.company(m[1]); return co && !co._anon ? cut(co.name) : 'the company page'; }
+  if ((m = hash.match(/^#\/community\/q\/([^/?]+)$/))) { const q = (APP.db.questions || {})[m[1]]; return q ? cut(q.title) : 'the question'; }
+  if ((m = hash.match(/^#\/community\/a\/([^/?]+)$/))) { const a = (APP.db.articles || {})[m[1]]; return a ? cut(a.title) : 'the article'; }
+  if (/^#\/[ce]\/messages/.test(hash)) return 'Messages';
+  const map = [[/^#\/community\/people/, 'People'], [/^#\/community/, 'Community'], [/^#\/c\/jobs/, 'your job search'], [/^#\/c\/(saved)/, 'My jobs'],
+    [/^#\/c\/applied/, 'your applications'], [/^#\/c\/intros/, 'Introductions'], [/^#\/c\/profile/, 'My profile'], [/^#\/c\/dashboard|^#\/e\/dashboard|^#\/?$|^#\/home/, 'Home'],
+    [/^#\/e\/talent/, 'Talent search'], [/^#\/e\/jobs/, 'My roles'], [/^#\/e\/intros/, 'Introductions'], [/^#\/e\/company/, 'Company profile'], [/^#\/jobs/, 'Open roles'],
+    [/^#\/account/, 'Account'], [/^#\/admin/, 'Admin']];
+  for (const x of map) if (x[0].test(hash)) return x[1];
+  return 'the previous page';
+};
+/* the "←" link at the top of a page: back to where you came from, or to the page's natural parent */
+APP.crumbHtml = function (fallbackHref, fallbackLabel, extra) {
+  const pv = APP.navPrev();
+  const inner = pv
+    ? '<a class="link" href="' + APP.h(pv.hash) + '" data-action="nav-back" data-href="' + APP.h(pv.hash) + '"' + (pv.direct ? ' data-direct="1"' : '') + '>← Back to ' + APP.h(APP.navLabel(pv.hash)) + '</a>'
+    : '<a class="link" href="' + APP.h(fallbackHref) + '">← ' + APP.h(fallbackLabel) + '</a>';
+  return '<div class="crumb">' + inner + (extra || '') + '</div>';
+};
+/* scroll positions per page, so going back lands on the same spot */
+(function () {
+  if (typeof window === 'undefined') return;
+  let tk = false;
+  window.addEventListener('scroll', function () {
+    if (tk) return; tk = true;
+    requestAnimationFrame(function () { tk = false; (APP._scrollMem || (APP._scrollMem = {}))[location.hash || '#/'] = window.scrollY; });
+  }, { passive: true });
+})();
+
 APP.bindGlobal = function () {
   /* remember which optional sections of a form the user opened (toggle does not bubble, so capture it) */
   document.addEventListener('toggle', (e) => {
@@ -3057,6 +3109,11 @@ APP.bindGlobal = function () {
     if (e.target.closest('.rt-list')) { const l = document.querySelector('.rt-list.rt-error'); if (l) l.classList.remove('rt-error'); const er = document.getElementById('rt-err'); if (er) er.remove(); }
     const t = e.target.closest('[data-action]');
     if (t) APP.onClick(t, e);
+    /* whole cards open their page; links, buttons and form fields inside keep their own job */
+    else {
+      const cardEl = e.target.closest('[data-card-href]');
+      if (cardEl && !e.target.closest('a, button, input, select, textarea, label, summary, details') && !(window.getSelection && String(window.getSelection()).length)) APP.go(cardEl.dataset.cardHref);
+    }
     /* close menus on outside click */
     if (!e.target.closest('.nav-user') && !e.target.closest('.notif-panel') && !e.target.closest('[data-action="toggle-notif"]')) {
       document.querySelectorAll('.menu.open, .notif-panel.open').forEach(el => el.classList.remove('open'));
@@ -3349,6 +3406,13 @@ APP.onClick = function (el, e) {
     case 'go':
       APP.go(d.href);
       break;
+
+    case 'nav-back': {
+      if (e && e.preventDefault) e.preventDefault();
+      if (d.direct && window.history.length > 1) window.history.back();
+      else APP.go(d.href);
+      break;
+    }
 
     case 'match-drawer':
       APP.openMatchDrawer(d.cid, d.jid);
