@@ -113,6 +113,18 @@ t('email_run sends due emails',(await q(`select email_run() n`))[0].n===1);
 const call=(await q(`select * from net.calls`))[0];
 t('sent to Resend with the key',call.url==='https://api.resend.com/emails'&&call.headers.Authorization==='Bearer re_test'&&call.body.to[0]==='c2@x.com'&&call.body.from==='Arnour <notifications@arnour.com>'&&/unsubscribe/.test(call.body.headers['List-Unsubscribe']),call);
 t('logged',(await q(`select * from email_log`)).length===1);
+// Resend refuses -> back in the queue, retried up to 3 times; accepted -> done
+await db.exec(`create table net._http_response(id bigint primary key, status_code int, content text, error_msg text)`);
+const lastReq=async()=>+(await q(`select max(request) r from email_log`))[0].r;
+await db.query(`insert into net._http_response values ($1,403,'domain not verified',null)`,[await lastReq()]);
+t('refused email is sent again',(await q(`select email_run() n`))[0].n===1);
+t('try counted',(await q(`select tries from email_queue where user_id=$1 and kind='invites' and not dropped`,[U.c2]))[0].tries===1);
+await db.query(`insert into net._http_response values ($1,200,'{}',null)`,[await lastReq()]);
+t('accepted email is not sent again',(await q(`select email_run() n`))[0].n===0);
+t('answers recorded',(await q(`select status from email_log where checked order by id`)).map(r=>r.status).join()==='403,200');
+await notify(ce2,'Acme Corp would like to connect','#/c/intros');
+let sends=0; for(let i=0;i<6;i++){ sends+=(await q(`select email_run() n`))[0].n; await db.query(`insert into net._http_response values ($1,500,'x',null) on conflict do nothing`,[await lastReq()]); }
+t('gives up after 3 retries (4 attempts)',sends===4&&(await q(`select max(tries) m from email_queue where user_id=$1 and text like '%would like to connect%' and not dropped`,[U.c2]))[0].m===3,sends);
 // account deletion removes everything
 await db.query(`delete from auth.users where id=$1`,[U.c2]);
 t('deleted account: prefs and queue removed',(await q(`select * from email_prefs where user_id=$1`,[U.c2])).length===0&&(await q(`select * from email_queue where user_id=$1`,[U.c2])).length===0);

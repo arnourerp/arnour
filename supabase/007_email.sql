@@ -48,6 +48,11 @@ create table if not exists public.email_log (
   items   int,
   request bigint
 );
+alter table public.email_queue add column if not exists tries int not null default 0;
+alter table public.email_log add column if not exists queue_ids bigint[];
+alter table public.email_log add column if not exists status int;
+alter table public.email_log add column if not exists checked boolean not null default false;
+create index if not exists email_log_open_idx on public.email_log(id) where not checked;
 alter table public.email_log enable row level security;
 revoke all on public.email_log from anon, authenticated;
 
@@ -187,7 +192,7 @@ $$
 declare
   now_ms bigint := (extract(epoch from now())*1000)::bigint; r record; it record; out jsonb := '[]'::jsonb;
   items text; n int; subj text; first_text text; first_link text; first_kind text; kinds text[]; site text := 'https://arnour.com/';
-  addr text; tok uuid; footer text; btn text;
+  addr text; tok uuid; footer text; btn text; qids bigint[];
 begin
   -- a message that was read in the meantime needs no email
   update public.email_queue q set dropped = true, sent_ts = now_ms
@@ -209,8 +214,11 @@ begin
       items := items || '<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;font-size:14px;color:#0f1729">' || public._email_esc(it.text) ||
                case when it.link <> '' then ' <a href="' || site || public._email_esc(it.link) || '" style="color:#1d4ed8;text-decoration:none;white-space:nowrap">Open →</a>' else '' end || '</td></tr>';
     end loop;
-    update public.email_queue q set sent_ts = now_ms where q.user_id = r.user_id and q.sent_ts is null and q.send_after <= now_ms
-      and q.id in (select q2.id from public.email_queue q2 where q2.user_id = r.user_id and q2.sent_ts is null and q2.send_after <= now_ms order by q2.kind = 'matches', q2.created_ts limit 30);
+    with claimed as (
+      update public.email_queue q set sent_ts = now_ms where q.user_id = r.user_id and q.sent_ts is null and q.send_after <= now_ms
+        and q.id in (select q2.id from public.email_queue q2 where q2.user_id = r.user_id and q2.sent_ts is null and q2.send_after <= now_ms order by q2.kind = 'matches', q2.created_ts limit 30)
+      returning q.id)
+    select array_agg(id) into qids from claimed;
     if addr is null or n = 0 then continue; end if;
     subj := case when n = 1 then left(first_text, 120)
                  when kinds = array['matches'] then n || ' new roles match your profile'
@@ -221,7 +229,7 @@ begin
       '<a href="' || site || '#/account" style="color:#64748b">Manage email settings</a> · ' ||
       case when array_length(kinds,1) = 1 then '<a href="' || site || '#/unsubscribe?t=' || tok || '&amp;k=' || kinds[1] || '" style="color:#64748b">Unsubscribe from these emails</a> · ' else '' end ||
       '<a href="' || site || '#/unsubscribe?t=' || tok || '&amp;k=all" style="color:#64748b">Unsubscribe from all</a></p>';
-    out := out || jsonb_build_object('user_id', r.user_id, 'to', addr, 'subject', subj, 'items', n,
+    out := out || jsonb_build_object('user_id', r.user_id, 'to', addr, 'subject', subj, 'items', n, 'ids', to_jsonb(qids),
       'unsubscribe', site || '#/unsubscribe?t=' || tok || '&k=' || case when array_length(kinds,1) = 1 then kinds[1] else 'all' end,
       'html', '<div style="font-family:Inter,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f1729">' ||
         '<div style="font-size:20px;font-weight:700;margin-bottom:16px"><span style="display:inline-block;background:#0f1729;color:#fff;border-radius:8px;width:28px;height:28px;text-align:center;line-height:28px;margin-right:8px">A</span>Arnour</div>' ||
@@ -236,12 +244,24 @@ end $$;
 create or replace function public.email_run() returns int
 language plpgsql security definer set search_path = public as
 $$
-declare key text; batch jsonb; e jsonb; rid bigint; n int := 0;
+declare key text; batch jsonb; e jsonb; rid bigint; n int := 0; lg record; st int; ids bigint[];
 begin
   begin
     execute 'select decrypted_secret from vault.decrypted_secrets where name = ''resend_api_key'' limit 1' into key;
   exception when others then key := null; end;
   if key is null or key = '' then return 0; end if;   -- not set up yet: emails wait in the queue
+  -- read Resend's answers to earlier sends: anything refused goes back in the queue (up to 3 tries)
+  for lg in select * from public.email_log where not checked and request is not null order by id limit 200 loop
+    st := null;
+    begin
+      execute 'select coalesce(status_code, 0) from net._http_response where id = $1' into st using lg.request;
+    exception when others then st := null; end;
+    if st is null and lg.ts > (extract(epoch from now())*1000)::bigint - 30 * 60000 then continue; end if;  -- no answer yet
+    update public.email_log set status = coalesce(st, 0), checked = true where id = lg.id;
+    if coalesce(st, 0) not between 200 and 299 then
+      update public.email_queue set sent_ts = null, tries = tries + 1 where id = any(lg.queue_ids) and tries < 3 and not dropped;
+    end if;
+  end loop;
   batch := public.email_build_batch(40);
   for e in select * from jsonb_array_elements(batch) loop
     begin
@@ -250,10 +270,13 @@ begin
         jsonb_build_object('from', 'Arnour <notifications@arnour.com>', 'to', jsonb_build_array(e->>'to'), 'subject', e->>'subject', 'html', e->>'html',
                            'headers', jsonb_build_object('List-Unsubscribe', '<' || (e->>'unsubscribe') || '>')),
         jsonb_build_object('Authorization', 'Bearer ' || key, 'Content-Type', 'application/json');
-      insert into public.email_log(user_id, subject, items, request) values ((e->>'user_id')::uuid, e->>'subject', (e->>'items')::int, rid);
+      ids := array(select jsonb_array_elements_text(coalesce(e->'ids', '[]'::jsonb))::bigint);
+      insert into public.email_log(user_id, subject, items, request, queue_ids) values ((e->>'user_id')::uuid, e->>'subject', (e->>'items')::int, rid, ids);
       n := n + 1;
     exception when others then
-      insert into public.email_log(user_id, subject, items, request) values ((e->>'user_id')::uuid, 'FAILED: ' || left(sqlerrm, 200), (e->>'items')::int, null);
+      ids := array(select jsonb_array_elements_text(coalesce(e->'ids', '[]'::jsonb))::bigint);
+      insert into public.email_log(user_id, subject, items, request, queue_ids, status, checked) values ((e->>'user_id')::uuid, 'FAILED: ' || left(sqlerrm, 200), (e->>'items')::int, null, ids, 0, true);
+      update public.email_queue set sent_ts = null, tries = tries + 1 where id = any(ids) and tries < 3;
     end;
   end loop;
   -- keep the queue small
