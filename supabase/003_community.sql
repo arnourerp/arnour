@@ -171,7 +171,7 @@ begin
     case when c.anon and c.owner is distinct from me then _redact_consultant(c)
          else public._pick(c.data, public._consultant_public_keys()) - array['linkedin'] || jsonb_build_object('id', c.id, 'anon', c.anon, 'sample', c.sample) end
   ), '[]'::jsonb) into auths
-  from public.consultants c where c.id = any(coalesce(ids, array[]::text[]));
+  from public.consultants c where c.id = any(coalesce(ids, array[]::text[])) and public._visible(c.owner, c.sample);
 
   return jsonb_build_object('questions', qs, 'articles', ars, 'authors', auths);
 end $$;

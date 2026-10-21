@@ -92,7 +92,10 @@
     db.questions = {}; db.articles = {};
     (c.questions || []).forEach(function (q) { db.questions[q.id] = q; });
     (c.articles || []).forEach(function (a) { db.articles[a.id] = a; });
-    B._authors = {}; (c.authors || []).forEach(function (a) { B._authors[a.id] = 1; if (!db.consultants[a.id]) db.consultants[a.id] = a; });
+    /* authors who are no longer listed (for example sample content switched off) leave too, unless the directory still has them */
+    var was = B._authors || {}, dir = B._dirIds || null;
+    B._authors = {}; (c.authors || []).forEach(function (a) { B._authors[a.id] = 1; if (!db.consultants[a.id] || was[a.id]) db.consultants[a.id] = a; });
+    Object.keys(was).forEach(function (id) { if (!B._authors[id] && !(dir && dir[id]) && !(B.profile && B.profile.entity_id === id)) delete db.consultants[id]; });
   };
   B.fetchPrivate = function (noDir) {
     return Promise.all([
@@ -419,15 +422,20 @@
   B.applyDirectory = function (db, list) {
     var me = B.profile.entity_id, ids = {};
     list.forEach(function (c) { ids[c.id] = 1; if (c.id !== me) db.consultants[c.id] = c; });
+    B._dirIds = ids;
     Object.keys(db.consultants).forEach(function (id) { if (id !== me && !ids[id] && !(B._authors && B._authors[id])) delete db.consultants[id]; });
   };
   /* load roles, companies and community right now (used when a link points to a role this tab has not loaded yet) */
   B.refreshPublicNow = function () {
     if (!B.sb) return Promise.resolve();
     return B.fetchPublic().then(function (pub) {
-      if (!B.profile) { /* signed out: just add what came back */
-        pub.jobs.forEach(function (j) { delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = []; APP.db.jobs[j.id] = j; });
-        pub.companies.forEach(function (c) { APP.db.companies[c.id] = c; });
+      if (!B.profile) { /* signed out (or an admin without a profile): what came back is the whole picture */
+        var jIds = {}, cIds = {};
+        pub.jobs.forEach(function (j) { jIds[j.id] = 1; delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = []; APP.db.jobs[j.id] = j; });
+        pub.companies.forEach(function (c) { cIds[c.id] = 1; APP.db.companies[c.id] = c; });
+        Object.keys(APP.db.jobs).forEach(function (id) { if (!jIds[id]) delete APP.db.jobs[id]; });
+        Object.keys(APP.db.companies).forEach(function (id) { if (!cIds[id]) delete APP.db.companies[id]; });
+        if (pub.community && !B.commBusy) B.applyCommunity(APP.db, pub.community);
         return;
       }
       if (B.pending()) return;

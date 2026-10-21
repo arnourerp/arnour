@@ -424,7 +424,10 @@
         B.sb.storage.from('feedback').createSignedUrl(d.p, 300).then(function (r) { if (r.error || !r.data) APP.toast('Could not open the screenshot'); else window.open(r.data.signedUrl, '_blank', 'noopener'); });
         break;
       case 'adm-clear-errors': act('admin_clear_errors', {}, 'Cleared', ['health']); break;
-      case 'adm-samples': act('admin_set_hide_samples', { p_on: d.on === '1' }, d.on === '1' ? 'Sample content hidden' : 'Sample content showing', ['settings'].concat(allKeys())); break;
+      case 'adm-samples': act('admin_set_hide_samples', { p_on: d.on === '1' }, d.on === '1' ? 'Sample content hidden' : 'Sample content showing', ['settings'].concat(allKeys())).then(function () {
+          /* the admin's own view of jobs, companies, people and community follows right away */
+          if (B.refreshPublicNow) B.refreshPublicNow().then(function () { if (B.profile && B.fetchPrivate) return B.fetchPrivate().then(function (p) { B._lastPrivate = p; B.applyPrivate(APP.db, p); if (p.consultants && B.applyDirectory) B.applyDirectory(APP.db, p.consultants); }); }).then(function () { APP.render(); }, function () { APP.render(); });
+        }); break;
     }
   };
   function allKeys() { return Object.keys(A.data).filter(function (k) { return k !== 'overview' && k !== 'log'; }); }
