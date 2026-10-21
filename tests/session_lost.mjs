@@ -1,0 +1,42 @@
+import {makeBackend} from './harness.mjs';
+import fs from 'fs'; import {createRequire} from 'module';
+const require=createRequire(import.meta.url);
+const {chromium}=require('playwright');
+const MOCK=fs.readFileSync(process.env.ARNOUR_TESTS+'/mock-client.js','utf8');
+const be=await makeBackend(); const browser=await chromium.launch();
+let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,300):'');}else console.log('ok  ',n); };
+const errors=[]; const BASE='http://localhost:'+(process.env.PORT_LIVE||8123)+'/index.html';
+const ctx=await browser.newContext({viewport:{width:390,height:800}}); const p=await ctx.newPage();
+p.on('pageerror',e=>errors.push(e.message));
+await p.exposeFunction('__sb',be.handle);
+await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+await p.route('**/fonts.googleapis.com/**',r=>r.abort());
+const go=async h=>{ await p.evaluate(x=>{location.hash=x},h); await p.waitForTimeout(300); };
+// sign up on "the laptop", confirm on "the phone" (this page) with the email link
+await p.goto(BASE); await p.waitForSelector('.hero'); await go('#/register/c');
+await p.fill('input[name=email]','phone@test.com'); await p.fill('input[name=password]','longenough1'); await p.check('input[name=terms]');
+await p.click('form[data-form=live-register] button[type=submit]'); await p.waitForFunction(()=>location.hash==='#/check-email');
+const u=be.users['phone@test.com'];
+await p.goto(BASE+'?token_hash='+u.token+'&type=signup');
+await p.waitForFunction(()=>location.hash==='#/onboard',null,{timeout:8000}); t('email link opens the profile steps',true);
+await p.evaluate(()=>{ APP.wizC={step:6,data:Object.assign(APP.wizCDefaults(),{firstName:'Phone',lastName:'User',headline:'FICO lead',nationality:'Egypt',country:'ae',city:'Dubai',roleType:'functional',languages:['English'],level:'Senior',yearsExp:8,skills:[{productId:'s4onprem',moduleId:'fi',projects:5}]})}; APP._formSyncSkip=['wiz-c']; APP.render(); });
+// the sign-in disappears while they fill in the form
+await p.evaluate(()=>localStorage.removeItem('mock-session'));
+await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit());
+await p.waitForFunction(()=>location.hash==='#/login',null,{timeout:8000});
+t('lost sign-in: sent to sign in, not a dead end',true);
+const tx=await p.textContent('#app');
+t('explains and promises the answers are kept',/sign in again to save your profile/i.test(tx)&&/answers are kept/i.test(tx),tx.slice(0,300));
+t('email prefilled',(await p.inputValue('input[name=email]'))==='phone@test.com');
+t('no profile created yet',(await be.db.query(`select count(*)::int n from profiles`)).rows[0].n===0);
+// sign in again on the phone
+await p.fill('input[name=password]','longenough1'); await p.click('form[data-form=live-login] button[type=submit]');
+await p.waitForFunction(()=>location.hash==='#/onboard',null,{timeout:8000});
+t('back on the profile steps after signing in',true);
+t('answers restored',await p.evaluate(()=>APP.wizC&&APP.wizC.data.firstName==='Phone'&&APP.wizC.data.headline==='FICO lead'));
+await p.evaluate(()=>{ APP._formSyncSkip=['wiz-c']; APP.render(); document.querySelector('form[data-form=wiz-c]').requestSubmit(); });
+await p.waitForFunction(()=>location.hash==='#/c/dashboard',null,{timeout:8000});
+t('profile created after signing in again',(await be.db.query(`select count(*)::int n from profiles`)).rows[0].n===1);
+t('saved answers cleared',await p.evaluate(()=>localStorage.getItem('arnour-wizard-draft')===null));
+t('no page errors',errors.length===0,errors);
+await browser.close(); process.exit(fails?1:0);

@@ -542,8 +542,9 @@
     /* only return to a page this person's role can open */
     if (B.profile && ((/^#\/c\//.test(back) && B.profile.role !== 'consultant') || (/^#\/e\//.test(back) && B.profile.role !== 'employer'))) back = '';
     if (/^#\/(login|register|forgot|reset|check-email|onboard)/.test(back)) back = '';
+    if (!B.profile && !B.suspended) { var dr = B.restoreWizardDraft(); if (dr) { APP.toast('Welcome back — your answers are still here'); APP.go(dr === 'employer' ? '#/onboard-e' : '#/onboard'); return; } }
     if (B.suspended) APP.go('#/suspended');
-    else if (B.profile) APP.go(back || (B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'));
+    else if (B.profile) { B.clearWizardDraft(); APP.go(back || (B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard')); }
     else if (B.isAdmin) APP.go('#/admin');
     else APP.go(B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard');
   };
@@ -650,10 +651,60 @@
   };
 
   /* wizards end here: the server creates the profile and gives it its id */
+  /* the sign-in can be lost between the email link and the last step (another tab, an in-app mail browser, a phone
+     that cleared its storage). Before saving, make sure it is still there; if not, keep the answers and ask to sign in. */
+  var WIZ_KEY = 'arnour-wizard-draft';
+  B.ensureSession = function () {
+    return B.sb.auth.getSession().then(function (r) {
+      var s = r && r.data && r.data.session;
+      if (s && s.access_token) return s;
+      return B.sb.auth.refreshSession().then(function (r2) { return (r2 && r2.data && r2.data.session) || null; }, function () { return null; });
+    }, function () { return null; });
+  };
+  function noSession(e) {
+    var m = String((e && (e.message || e.code)) || '');
+    return (e && (e.status === 401 || e.code === '42501' || e.code === 'PGRST301')) || /permission denied|not signed in|JWT|401/i.test(m);
+  }
+  B.saveWizardDraft = function (role) {
+    try {
+      var w = role === 'employer' ? APP.wizE : APP.wizC;
+      if (w && B.user) localStorage.setItem(WIZ_KEY, JSON.stringify({ uid: B.user.id, email: B.user.email, role: role, wiz: w, ts: Date.now() }));
+    } catch (e) { /* storage blocked: nothing to keep */ }
+  };
+  B.restoreWizardDraft = function () {
+    try {
+      var d = JSON.parse(localStorage.getItem(WIZ_KEY) || 'null');
+      if (!d || !B.user || B.profile || Date.now() - d.ts > 7 * 864e5) return null;
+      if (d.uid !== B.user.id && String(d.email || '').toLowerCase() !== String(B.user.email || '').toLowerCase()) return null;
+      if (d.role === 'employer') APP.wizE = d.wiz; else APP.wizC = d.wiz;
+      return d.role;
+    } catch (e) { return null; }
+  };
+  B.clearWizardDraft = function () { try { localStorage.removeItem(WIZ_KEY); } catch (e) { /* ignore */ } };
+  B.sessionLost = function (role) {
+    B.saveWizardDraft(role);
+    APP.state.afterAuth = role === 'employer' ? '#/onboard-e' : '#/onboard';
+    B.notice = 'Please sign in again to save your profile. Your answers are kept.';
+    var email = B.user && B.user.email;
+    B.sb.auth.signOut({ scope: 'local' }).then(null, function () { /* ignore */ }).then(function () {
+      B.user = null; B.profile = null; APP.state.liveEmail = email || APP.state.liveEmail;
+      APP.go('#/login');
+    });
+  };
+
   B.finishWizard = function (role, obj) {
     var btn = document.querySelector('form button[type="submit"]'); if (btn) { btn.disabled = true; btn.textContent = 'Creating your profile…'; }
-    var fail = function (e) { if (btn) { btn.disabled = false; btn.textContent = 'Finish'; } APP.toast(isTransient(e) ? 'Could not reach the server — please try again.' : 'Could not create your profile. Please try again.'); };
-    return rpc('claim_profile', { p_role: role, p_data: clean(obj) }).then(function () {
+    var fail = function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Finish'; }
+      if (noSession(e)) { B.sessionLost(role); return; }
+      APP.toast(isTransient(e) ? 'Could not reach the server — please try again.' : 'Could not create your profile. Please try again.');
+    };
+    B.saveWizardDraft(role);
+    return B.ensureSession().then(function (s) {
+      if (!s) throw { status: 401, message: 'not signed in' };
+      return rpc('claim_profile', { p_role: role, p_data: clean(obj) });
+    }).then(function () {
+      B.clearWizardDraft();
       return B.sb.auth.getSession();
     }).then(function (r) { return B.hydrate(r.data.session); }).then(function () {
       APP.wizC = null; APP.wizE = null;
