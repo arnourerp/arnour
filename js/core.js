@@ -4550,7 +4550,7 @@ APP.onSubmit = function (f) {
       d.industries = (d.industries || []).filter(Boolean);
       d.industry = d.industries[0] || ''; /* kept for older code paths and saved data */
       d.certification = g('certification');
-      if (fd.has('preferredGender')) { d.preferredGender = g('preferredGender'); if (!d.preferredGender) delete d.preferredGender; }
+      delete d.preferredGender; /* no longer part of matching (Match v19); older roles lose the setting when saved */
       /* keep the poster's line breaks, but tidy pasted text: unify newlines, cap blank lines, trim */
       d.description = g('description').replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
       d.languages = (d.languages || []).filter(Boolean);

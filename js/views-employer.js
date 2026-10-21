@@ -489,7 +489,7 @@ APP.jobFormView = function (mode) {
 
   const st = APP.state.jobDet || {};
   const nSpec = (d.preferredSpecialties || []).length;
-  const nMore = (d.industries || []).length + (d.preferredLangs || []).length + (d.preferredGender ? 1 : 0);
+  const nMore = (d.industries || []).length + (d.preferredLangs || []).length;
   const openSpec = st.spec !== undefined ? st.spec : nSpec > 0;
   const openMore = st.more !== undefined ? st.more : editing;
   const sec = (n, title, sub, body) =>
@@ -540,7 +540,6 @@ APP.jobFormView = function (mode) {
     '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>More ranking preferences <span class="muted">(optional)</span>' + (nMore ? ' <span class="count-pill">' + nMore + ' selected</span>' : '') + '</summary>' +
     '<div class="field"><span class="label">Preferred languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'preferredLangs', APP.languages.filter(l => (d.languages || []).indexOf(l) === -1), d.preferredLangs) + '</div><p class="field-hint">Ranks the role higher for professionals who speak them — never hides it.</p></div>' +
     (leadJ ? '' : '<div class="field"><span class="label">Industries</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div><p class="field-hint">Ranks the role higher for professionals with that background — never hides it.</p></div>') +
-    '<label class="field"><span class="label">Preferred gender</span><select name="preferredGender" class="input"><option value="">No preference</option>' + APP.opt(APP.genders, d.preferredGender) + '</select><p class="field-hint">Ranks the role higher for matching professionals — never hides it.</p></label>' +
     '</details>';
 
   const pay =
