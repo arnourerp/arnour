@@ -502,7 +502,8 @@ APP.jobSections = function (job, me) {
     '<span class="jd-req-t">' + inner + (st ? '<span class="jd-why">' + E(st.t) + '</span>' : '') + '</span></li>';
   const stSkill = (r) => {
     if (!me) return null;
-    const m = APP.reqMatch(me, r);
+    const m0 = APP.reqFit(me, r, APP.jobRoleType(job));
+    const m = { kind: m0.kind === 'direct' ? 'exact' : m0.kind === 'depth' ? 'projects' : m0.kind === 'adjacent' ? 'product' : m0.kind, have: m0.have, via: m0.via };
     if (m.kind === 'exact') return { cls: 'ok', t: 'You have this' + (m.have ? ' · ' + m.have + ' project' + (m.have === 1 ? '' : 's') : '') };
     if (m.kind === 'projects') return { cls: 'mid', t: 'You have ' + m.have + ' of ' + r.minProjects + ' projects' };
     if (m.kind === 'transfer') return { cls: 'mid', t: 'Transferable from ' + APP.productShort(m.via.productId) + ' ' + APP.skillName(m.via.productId, m.via.moduleId) };

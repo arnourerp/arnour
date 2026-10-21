@@ -1210,12 +1210,7 @@ APP.icon = function (name, size) {
 /* ---------------------------- smart matching ---------------------------- */
 
 /**
- * Match v18 — skills are a gate, not just another line.
- *   score = core fit × (60% + 40% × other factors) × role-fit factor, then capped:
- *     - any must-have missing entirely  → at most 65
- *     - role type unrelated / adjacent  → at most 40 / 65
- * Core fit = module-level skills for most roles; product-level for Architects and Project/Delivery Managers.
- * "Other factors" are weighted per role type (experience, seniority, industry, specialties, languages, certification, location, availability).
+ * Match v19 — each role type has its own calculation (see the block comment below). Job role types are inferred from the title for older roles.
  */
 APP.JOB_RT_KEYWORDS = [
   ['delivery', /\b(project|programme|program|delivery|pmo|scrum master)\b.*\b(manager|lead|director|head)\b|\b(manager|director)\b.*\b(project|programme|program|delivery)\b|\bpmo\b/i],
@@ -1235,126 +1230,213 @@ APP.jobRoleType = function (job) {
 };
 /* Product-level types: the SAP product matters, not each module */
 APP.rtProductLevel = function (rt) { return rt === 'architect' || rt === 'delivery' || rt === 'basis' || rt === 'junior'; };
-APP.MATCH_WEIGHTS = {
-  /*            exp lvl ind spec lang cert loc avail */
-  functional: { exp: 3, lvl: 1, ind: 3, spec: 2, lang: 2, cert: 2, loc: 2, avail: 1 },
-  technical:  { exp: 3, lvl: 1, ind: 1, spec: 3, lang: 1, cert: 1, loc: 1, avail: 2 },
-  basis:      { exp: 3, lvl: 1, ind: 1, spec: 4, lang: 1, cert: 3, loc: 1, avail: 2 },
-  support:    { exp: 2, lvl: 1, ind: 2, spec: 2, lang: 3, cert: 1, loc: 3, avail: 3 },
-  architect:  { exp: 4, lvl: 4, ind: 4, spec: 3, lang: 1, cert: 1, loc: 1, avail: 1 , prog: 3 },
-  delivery:   { exp: 5, lvl: 3, ind: 4, spec: 4, lang: 3, cert: 1, loc: 2, avail: 2 , prog: 3 },
-  keyuser:    { exp: 2, lvl: 1, ind: 5, spec: 4, lang: 2, cert: 1, loc: 3, avail: 1 },
-  junior:     { exp: 0, lvl: 0, ind: 1, spec: 3, lang: 2, cert: 0, loc: 3, avail: 4 }
+/* ---- Match v19: every role type has its own calculation ----
+   Score = Skills × Role type × Experience & seniority × Context factor   (0–100)
+   - Skills: product AND module always act together. For Functional, Technical, Basis, Support and Key User a different module
+     in the same product earns 0. The same module in another SAP generation earns partial credit from the transfer matrix
+     (APP.XFER). Architect, Delivery Manager and Junior are read at product level.
+   - Role type: the professional is scored as the role type the job asks for. Holding it = 100%; no primary/secondary distinction.
+   - Experience & seniority: what "ready" means differs per role (APP.MATCH_PROFILE.*.ready).
+   - Context: industry, specialties, languages, certification, location. It nudges the score by at most `swing` (per role).
+   Availability and gender preference are NOT part of the score. */
+/* Transfer matrix [job product][professional's product]: how much of the same module's experience carries across SAP generations. */
+APP.XFER = {
+  ecc:      { ecc: 1,    s4onprem: 0.80, s4public: 0.60 },
+  s4onprem: { ecc: 0.75, s4onprem: 1,    s4public: 0.70 },
+  s4public: { ecc: 0.65, s4onprem: 0.80, s4public: 1 }
 };
+APP.MODULE_FAMILY = {
+  fi: 'fin', co: 'fin', cfin: 'fin', groupreporting: 'fin', trm: 'fin', fico: 'fin',
+  sd: 'log', mm: 'log', pp: 'log', qm: 'log', pm: 'log', ewm: 'log', tm: 'log', cs: 'log', ps: 'log', scm: 'log', cbc: 'log',
+  abap: 'tech', fiorui5: 'tech', basis: 'tech', hanadba: 'tech', securitygrc: 'tech', solman: 'tech'
+};
+/* strict: skills read module by module (wrong module = 0).  floor: credit for a module held with 0 projects when the job asks for a minimum.
+   slope: how steeply credit falls when years are below the minimum.  swing: the most context can move the score.
+   ready: weights of experience / seniority / programs.  ctx: weights of industry, specialties, languages, certification, location. */
+APP.MATCH_PROFILE = {
+  functional: { strict: true,  floor: 0.55, slope: 0.55, swing: 0.30, ready: { exp: 0.6,  lvl: 0.4,  prog: 0 },    ctx: { ind: 3, spec: 2, lang: 2, cert: 2, loc: 2 } },
+  technical:  { strict: true,  floor: 0.70, slope: 0.50, swing: 0.25, ready: { exp: 0.7,  lvl: 0.3,  prog: 0 },    ctx: { ind: 1, spec: 4, lang: 1, cert: 1, loc: 1 } },
+  basis:      { strict: true,  floor: 0.70, slope: 0.50, swing: 0.30, ready: { exp: 0.7,  lvl: 0.3,  prog: 0 },    ctx: { ind: 0, spec: 4, lang: 1, cert: 3, loc: 1 } },
+  support:    { strict: true,  floor: 0.70, slope: 0.45, swing: 0.30, ready: { exp: 0.5,  lvl: 0.2,  prog: 0 },    ctx: { ind: 2, spec: 2, lang: 3, cert: 1, loc: 3 } },
+  keyuser:    { strict: true,  floor: 0.70, slope: 0.40, swing: 0.40, ready: { exp: 0.5,  lvl: 0,    prog: 0 },    ctx: { ind: 5, spec: 4, lang: 2, cert: 1, loc: 3 } },
+  architect:  { strict: false, floor: 0.70, slope: 0.60, swing: 0.35, ready: { exp: 0.25, lvl: 0.35, prog: 0.4 },  ctx: { ind: 4, spec: 4, lang: 1, cert: 1, loc: 1 } },
+  delivery:   { strict: false, floor: 0.70, slope: 0.60, swing: 0.30, ready: { exp: 0.4,  lvl: 0.15, prog: 0.45 }, ctx: { ind: 4, spec: 4, lang: 3, cert: 0, loc: 2 } },
+  junior:     { strict: false, floor: 0.70, slope: 0,    swing: 0.25, ready: { exp: 0,    lvl: 1,    prog: 0 },    ctx: { ind: 1, spec: 3, lang: 2, cert: 0, loc: 3 } }
+};
+/* Seniority fit [job level][professional level]: below the ask costs a lot, above it costs a little. */
+APP.LEVEL_FIT = { Junior: { Junior: 1, Mid: 0.92, Senior: 0.8 }, Mid: { Junior: 0.7, Mid: 1, Senior: 0.92 }, Senior: { Junior: 0.45, Mid: 0.8, Senior: 1 } };
 APP.RT_ADJACENT = { functional: ['keyuser', 'support', 'junior'], keyuser: ['functional'], support: ['functional', 'technical', 'basis'], technical: ['basis', 'support', 'architect'], basis: ['technical', 'support'], architect: ['delivery', 'functional', 'technical'], delivery: ['architect'], junior: ['functional', 'technical'] };
-/* Role-type fit of a person for a job role type: { f: factor, cap, note } */
-APP.roleFit = function (c, rt) {
-  const mine = APP.rtList(c);
-  const nm = APP.roleTypeLabel(rt);
-  if (!mine.length) return { f: 0.9, cap: null, note: 'Role type not set on the profile' };
-  if (mine[0] === rt) return { f: 1, cap: null, note: nm + ' — your primary role type' };
-  if (mine.indexOf(rt) !== -1) return { f: 0.92, cap: null, note: nm + ' — one of your role types' };
-  if (mine.some(m => (APP.RT_ADJACENT[m] || []).indexOf(rt) !== -1 || (APP.RT_ADJACENT[rt] || []).indexOf(m) !== -1)) return { f: 0.8, cap: 65, note: 'Role is ' + nm + '; you are ' + APP.roleTypeLabel(mine[0]) };
-  return { f: 0.6, cap: 40, note: 'Role is ' + nm + '; you are ' + APP.roleTypeLabel(mine[0]) };
+
+/* Does the profile show evidence for a role type? Used only to recognise techno-functional people. */
+APP.roleEvidence = function (c, rt) {
+  const sk = c.skills || [], FAM = APP.MODULE_FAMILY;
+  const tech = sk.some(k => FAM[k.moduleId] === 'tech' || k.productId === 'btp');
+  const mod = sk.some(k => k.moduleId !== '*' && FAM[k.moduleId] !== 'tech');
+  return rt === 'technical' ? tech : rt === 'functional' ? mod : false;
 };
-/* Credit (0–45) of one requirement row for product-level roles */
-APP.reqMatchProduct = function (c, r, rt) {
-  const sk = c.skills || [];
-  const hasProd = sk.some(k => k.productId === r.productId);
-  if (hasProd) {
-    const modHit = r.moduleId === '*' || sk.some(k => k.productId === r.productId && k.moduleId === r.moduleId);
-    return { credit: (rt === 'architect' && !modHit) ? 36 : 45, kind: modHit ? 'exact' : 'product-ok', have: 0, via: null };
+/* Role type fit: the professional is scored as the role type the job asks for. Holding it (in any position) = 100%. */
+APP.roleFit = function (c, rt) {
+  const mine = APP.rtList(c), nm = APP.roleTypeLabel(rt);
+  if (!mine.length) return { f: 0.75, note: 'Role type not set on the profile' };
+  if (mine.indexOf(rt) !== -1) return { f: 1, note: nm + ' — scored as this role type' };
+  const adj = mine.some(m => (APP.RT_ADJACENT[m] || []).indexOf(rt) !== -1 || (APP.RT_ADJACENT[rt] || []).indexOf(m) !== -1) ||
+    (rt === 'technical' && mine.indexOf('functional') !== -1 && APP.roleEvidence(c, 'technical')) ||
+    (rt === 'functional' && mine.indexOf('technical') !== -1 && APP.roleEvidence(c, 'functional'));
+  return adj ? { f: 0.75, note: 'Role is ' + nm + '; you are ' + APP.roleTypeLabel(mine[0]) + ' (related)' }
+             : { f: 0.5, note: 'Role is ' + nm + '; you are ' + APP.roleTypeLabel(mine[0]) };
+};
+
+/* Credit 0–1 of one requirement row for one professional, read the way the job's role type reads skills.
+   kind: direct (full) · depth (right product+module, fewer projects than asked) · transfer (same module, other SAP generation) · adjacent (product-level roles only) · none */
+APP.reqFit = function (c, r, rt) {
+  const pf = APP.MATCH_PROFILE[rt] || APP.MATCH_PROFILE.functional;
+  return pf.strict ? APP.reqFitModule(c, r, rt, pf) : APP.reqFitProduct(c, r);
+};
+APP.reqFitModule = function (c, r, rt, pf) {
+  const sk = c.skills || [], CORE = APP.CORE_PRODUCTS, min = r.minProjects || 0;
+  const tracked = APP.countsTracked(c);
+  const proj = (k) => tracked ? (Number(k.projects) || 0) : Infinity;
+  const depth = (p) => !min ? 1 : (p >= min ? 1 : pf.floor + (1 - pf.floor) * (p / min));
+  /* Public Cloud "FICO" is FI + CO together */
+  if (r.moduleId === 'fico' && !sk.some(k => k.productId === r.productId && k.moduleId === 'fico')) {
+    const a = APP.reqFitModule(c, { productId: r.productId, moduleId: 'fi', minProjects: min }, rt, pf);
+    const b = APP.reqFitModule(c, { productId: r.productId, moduleId: 'co', minProjects: min }, rt, pf);
+    const cr = (a.credit + b.credit) / 2;
+    if (cr > 0) return { credit: cr, kind: (a.kind === 'direct' && b.kind === 'direct') ? 'direct' : (a.kind === 'transfer' || b.kind === 'transfer') ? 'transfer' : 'depth', have: Math.max(a.have, b.have), via: a.via || b.via };
   }
-  if (APP.CORE_PRODUCTS[r.productId]) {
-    let best = 0, via = null;
-    for (const k of sk) { if (!APP.CORE_PRODUCTS[k.productId]) continue; const w = APP.equivWeight(r.productId, k.productId); if (w > best) { best = w; via = k; } }
-    if (best) return { credit: Math.round(45 * best * (rt === 'architect' ? 0.75 : 0.85)), kind: 'transfer', have: 0, via: via };
+  let d = 0, dk = null, t = 0, tk = null;
+  for (const k of sk) {
+    if (k.productId !== r.productId) continue;
+    if (r.moduleId === '*' || k.moduleId === r.moduleId) { const v = depth(proj(k)); if (v > d) { d = v; dk = k; } }
+    else if (k.moduleId === '*' && (APP.ROLE_PROFILE[rt] || {}).skills === 'products' && APP.rtList(c).indexOf(rt) !== -1) { if (0.85 > d) { d = 0.85; dk = k; } } /* Basis profiles record the product only */
   }
-  return { credit: 0, kind: 'none', have: 0, via: null };
+  if (CORE[r.productId]) {
+    const mods = r.moduleId === '*' ? null : APP.equivModules(r.moduleId);
+    for (const k of sk) {
+      if (!CORE[k.productId] || k.productId === r.productId) continue;
+      if (mods && mods.indexOf(k.moduleId) === -1) continue;
+      const w = APP.XFER[r.productId][k.productId];
+      const v = r.moduleId === '*' ? w : w * depth(proj(k) * w);
+      if (v > t) { t = v; tk = k; }
+    }
+  }
+  let credit = Math.max(d, t);
+  if (d > 0 && t > 0) credit = Math.min(1, credit + 0.2 * Math.min(d, t)); /* direct and cross-generation evidence reinforce each other */
+  const kind = d >= t && d > 0 ? (d >= 0.999 ? 'direct' : 'depth') : t > 0 ? 'transfer' : 'none';
+  return { credit: credit, kind: kind, have: dk ? (Number(dk.projects) || 0) : (tk ? (Number(tk.projects) || 0) : 0), via: kind === 'transfer' ? tk : null };
+};
+/* Product-level roles (Architect, Delivery Manager, Junior) */
+APP.reqFitProduct = function (c, r) {
+  const sk = c.skills || [], CORE = APP.CORE_PRODUCTS, FAM = APP.MODULE_FAMILY;
+  const own = sk.filter(k => k.productId === r.productId);
+  let cr = 0, kind = 'none', via = null;
+  if (own.length) {
+    if (r.moduleId === '*' || own.some(k => k.moduleId === r.moduleId)) { cr = 1; kind = 'direct'; }
+    else if (own.some(k => FAM[k.moduleId] && FAM[k.moduleId] === FAM[r.moduleId])) { cr = 0.9; kind = 'direct'; }
+    else if (own.every(k => k.moduleId === '*')) { cr = 0.85; kind = 'direct'; }
+    else { cr = 0.6; kind = 'adjacent'; }
+  }
+  if (CORE[r.productId]) {
+    let w = 0, v = null;
+    for (const k of sk) { if (CORE[k.productId] && k.productId !== r.productId) { const x = APP.XFER[r.productId][k.productId]; if (x > w) { w = x; v = k; } } }
+    if (0.85 * w > cr) { cr = 0.85 * w; kind = 'transfer'; via = v; }
+  }
+  return { credit: cr, kind: kind, have: 0, via: via };
+};
+
+/* How much of the job's list a professional covers: matches count up to 3 (a job listing 5 industries does not need 5), and
+   a professional who ticks very long lists gets a discounted match (free up to `free` items, never below 40%). */
+APP.overlapFit = function (asked, mine, free, test) {
+  if (!asked.length) return null;
+  const m = asked.filter(test).length;
+  const disc = Math.max(0.4, Math.min(1, free / Math.max(1, mine.length)));
+  return Math.min(1, m * disc / Math.min(asked.length, 3));
 };
 APP.matchDetail = function (c, job) {
   const parts = [], gaps = [];
   const rt = APP.jobRoleType(job);
-  const wts = APP.MATCH_WEIGHTS[rt] || APP.MATCH_WEIGHTS.functional;
-  const prodLevel = APP.rtProductLevel(rt);
+  const pf = APP.MATCH_PROFILE[rt] || APP.MATCH_PROFILE.functional;
   const pct = (x) => Math.round(Math.max(0, Math.min(1, x)) * 100);
 
-  /* ---- stage 1: role fit ---- */
+  /* ---- role type ---- */
   const rf = APP.roleFit(c, rt);
-  parts.push({ stage: 'role', label: 'Role type', pct: pct(rf.f / 1), note: rf.note });
-  if (rf.cap) gaps.push('Role type: ' + rf.note.toLowerCase());
+  parts.push({ stage: 'role', label: 'Role type', pct: pct(rf.f), note: rf.note });
+  if (rf.f < 1) gaps.push('Role type: ' + rf.note.toLowerCase());
 
-  /* ---- stage 2: core fit ---- */
-  let core = 1, missing = [];
+  /* ---- skills (product + module together) ---- */
+  let core = 1; const missing = [];
   const groups = APP.reqGroups(job);
   if (groups.length) {
     let acc = 0;
     for (const g of groups) {
-      const ms = g.map(r => ({ r: r, m: prodLevel ? APP.reqMatchProduct(c, r, rt) : APP.reqMatch(c, r) }));
+      const ms = g.map(r => ({ r: r, m: APP.reqFit(c, r, rt) }));
       const best = ms.reduce((x, y) => (y.m.credit > x.m.credit ? y : x));
       acc += best.m.credit;
-      if (best.m.kind === 'none' || (!prodLevel && best.m.kind === 'product')) { missing.push(g.map(APP.reqLabel).join(' / ')); gaps.push('Missing: ' + g.map(APP.reqLabel).join(' / ')); }
-      else if (best.m.kind === 'projects') gaps.push(APP.reqLabel(best.r) + ': ' + best.m.have + ' of ' + best.r.minProjects + '+ projects');
+      if (best.m.credit < 0.3) { missing.push(g.map(APP.reqLabel).join(' / ')); gaps.push('Missing: ' + g.map(APP.reqLabel).join(' / ')); }
+      else if (best.m.kind === 'depth') gaps.push(APP.reqLabel(best.r) + ': ' + best.m.have + ' of ' + best.r.minProjects + '+ projects');
     }
-    core = acc / (45 * groups.length);
-    parts.push({ stage: 'core', label: prodLevel ? 'SAP product experience' : 'Required skills', pct: pct(core), note: missing.length ? 'Missing ' + missing.join(', ') : (core >= 0.99 ? 'All required skills covered' : 'Partly covered') });
+    core = acc / groups.length;
+    parts.push({ stage: 'core', label: pf.strict ? 'Required skills' : 'SAP product experience', pct: pct(core), note: missing.length ? 'Missing ' + missing.join(', ') : (core >= 0.99 ? 'All required skills covered' : 'Partly covered') });
   }
 
-  /* ---- stage 3: other factors (weighted; only the ones this role actually asks for) ---- */
-  const ctx = [];
-  const addCtx = (key, label, f, note) => { if (wts[key] > 0 && f != null) ctx.push({ key: key, label: label, f: f, w: wts[key], note: note }); };
-  const langs = c.languages || [];
-  const ro = [];
-  if (job.languages && job.languages.length) ro.push(job.languages.every(l => langs.includes(l)) ? 1 : 0);
-  if (job.preferredLangs && job.preferredLangs.length) {
-    const ok = job.preferredLangs.some(l => langs.includes(l));
-    ro.push(ok ? 1 : (ro.length ? 0 : 0.3));
-    if (!ok) gaps.push('Preferred language: ' + job.preferredLangs.join(' / '));
+  /* ---- experience & seniority ---- */
+  const R = pf.ready, rd = [];
+  if (R.exp && job.minExp) {
+    const known = c.yearsExp != null && c.yearsExp !== '';
+    const y = +c.yearsExp || 0, u = Math.min(1, y / job.minExp), ratio = y / job.minExp;
+    const f = !known ? 0.6 : y < job.minExp ? 1 - pf.slope * (1 - u) : (ratio <= 2 ? 1 : Math.max(0.85, 1 - 0.05 * (ratio - 2)));
+    rd.push({ w: R.exp, f: f, label: 'Experience', note: known ? y + ' yrs vs ' + job.minExp + '+ wanted' : 'Not on the profile' });
+    if (known && y < job.minExp) gaps.push('Experience: ' + y + ' yrs, role wants ' + job.minExp + '+');
   }
-  if (ro.length) addCtx('lang', 'Languages', ro.reduce((a, b) => a + b, 0) / ro.length);
-  const minExp = job.minExp || 0;
-  if (minExp) {
-    addCtx('exp', 'Experience', c.yearsExp >= minExp ? 1 : Math.max(0, 1 - (minExp - (c.yearsExp || 0)) * 0.25));
-    if (c.yearsExp < minExp) gaps.push('Experience: ' + c.yearsExp + ' yrs, role wants ' + minExp + '+');
+  if (R.lvl && job.level) {
+    const f = (APP.LEVEL_FIT[job.level] && APP.LEVEL_FIT[job.level][c.level]) || 0.8;
+    rd.push({ w: R.lvl, f: f, label: 'Seniority', note: c.level ? c.level + ' vs ' + job.level : 'Not on the profile' });
   }
-  if (+job.minPrograms > 0) {
-    const need = +job.minPrograms, have = +c.programs || 0, lbl = APP.ROLE_PROFILE[APP.jobRoleType(job)] && APP.ROLE_PROFILE[APP.jobRoleType(job)].prog || 'Programs delivered';
-    addCtx('prog', lbl, have >= need ? 1 : have > 0 ? have / need : 0.3, have ? have + ' vs ' + need + '+ wanted' : 'Not on the profile');
+  if (R.prog && +job.minPrograms > 0) {
+    const need = +job.minPrograms, have = +c.programs || 0;
+    const lbl = (APP.ROLE_PROFILE[rt] && APP.ROLE_PROFILE[rt].prog) || 'Programs delivered';
+    rd.push({ w: R.prog, f: have >= need ? 1 : have > 0 ? 0.4 + 0.6 * have / need : 0.4, label: lbl, note: have ? have + ' vs ' + need + '+ wanted' : 'Not on the profile' });
+    if (have < need) gaps.push(lbl + ': ' + have + ', role wants ' + need + '+');
   }
-  if (job.level) { const i = APP.levels.indexOf(c.level), j = APP.levels.indexOf(job.level); addCtx('lvl', 'Seniority', (i < 0 || j < 0) ? (c.level === job.level ? 1 : 0) : Math.max(0, 1 - 0.5 * Math.abs(i - j))); }
-  if (APP.jobIndustries(job).length) addCtx('ind', 'Industry', APP.jobIndustries(job).some(i => (c.industries || []).indexOf(i) !== -1) ? 1 : 0);
+  const rw = rd.reduce((a, x) => a + x.w, 0);
+  const ready = rw ? rd.reduce((a, x) => a + x.f * x.w, 0) / rw : 1;
+  rd.sort((a, b) => b.w - a.w).forEach(x => parts.push({ stage: 'ready', label: x.label, pct: pct(x.f), note: x.note, weight: x.w }));
+
+  /* ---- context (preferences: they nudge, never decide) ---- */
+  const W = pf.ctx, ctx = [];
+  const add = (key, label, f, note) => { if (W[key] > 0 && f != null) ctx.push({ key: key, label: label, f: f, w: W[key], note: note || '' }); };
+  const ind = APP.jobIndustries(job);
+  if (ind.length) { const mine = c.industries || []; add('ind', 'Industry', APP.overlapFit(ind, mine, 8, i => mine.indexOf(i) !== -1)); }
   if (job.preferredSpecialties && job.preferredSpecialties.length) {
     const mine = c.specialties || [];
-    addCtx('spec', 'Specialties', job.preferredSpecialties.some(id => mine.indexOf(id) !== -1 || mine.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id)) ? 1 : 0);
+    add('spec', 'Specialties', APP.overlapFit(job.preferredSpecialties, mine, 12, id => mine.indexOf(id) !== -1 || mine.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id)));
   }
-  if (job.preferredGender === 'male' || job.preferredGender === 'female') {
-    const gg = c.gender; /* soft preference: ranks higher, never hides; unknown stays neutral */
-    ctx.push({ key: 'gen', label: 'Gender preference', f: gg ? (gg === job.preferredGender ? 1 : 0) : 0.5, w: 2, note: 'Employer prefers ' + APP.genderLabel(job.preferredGender).toLowerCase() });
+  const langs = c.languages || [], lr = [];
+  if (job.languages && job.languages.length) lr.push(langs.length ? (job.languages.every(l => langs.indexOf(l) !== -1) ? 1 : 0) : 0.3);
+  if (job.preferredLangs && job.preferredLangs.length) {
+    const ok = job.preferredLangs.some(l => langs.indexOf(l) !== -1);
+    lr.push(ok ? 1 : 0);
+    if (!ok) gaps.push('Preferred language: ' + job.preferredLangs.join(' / '));
   }
+  if (lr.length) add('lang', 'Languages', lr.reduce((a, b) => a + b, 0) / lr.length);
   if (job.certification) {
     const ok = APP.consultantCertInJob(c, job);
-    addCtx('cert', 'Certification', ok ? 1 : (job.certification === 'required' ? 0 : 0.2));
+    add('cert', 'Certification', ok ? 1 : (job.certification === 'required' ? 0 : 0.3));
     if (!ok) gaps.push('Not certified in the required modules');
   }
-  if (job.remote) addCtx('loc', 'Location', 1, 'Remote-friendly');
+  if (job.remote) add('loc', 'Location', 1, 'Remote-friendly');
   else {
     const cc = APP.countriesById[c.country], jc = APP.countriesById[job.country];
     if (jc) {
-      let l = 0;
-      if (!cc) l = 0.4;
-      else if (job.city && c.city === job.city) l = 1;
-      else if (cc.id === jc.id) l = 0.75;
-      else if (cc.region === jc.region) l = 0.5;
-      addCtx('loc', 'Location', l);
-      if (cc && l < 0.75) gaps.push('Based in ' + (c.city || cc.name) + ', role is in ' + (job.city || jc.name));
+      const l = !cc ? 0.4 : (job.city && c.city === job.city) ? 1 : cc.id === jc.id ? 0.9 : cc.region === jc.region ? 0.6 : 0.3;
+      add('loc', 'Location', l);
+      if (cc && l < 0.9) gaps.push('Based in ' + (c.city || cc.name) + ', role is in ' + (job.city || jc.name));
     }
   }
-  const av = { 'Immediate': 1, 'Within 15 days': 0.75, 'Within 30 days': 0.5 }[c.availability];
-  addCtx('avail', 'Availability', av != null ? av : 0.2);
-  if (av == null && c.availability) gaps.push('Available: ' + c.availability.toLowerCase());
-  const wSum = ctx.reduce((a, x) => a + x.w, 0);
-  const other = wSum ? ctx.reduce((a, x) => a + x.f * x.w, 0) / wSum : 1;
-  ctx.sort((a, b) => b.w - a.w).forEach(x => parts.push({ stage: 'other', label: x.label, pct: pct(x.f), note: x.note || '', weight: x.w }));
+  const cw = ctx.reduce((a, x) => a + x.w, 0);
+  const other = cw ? ctx.reduce((a, x) => a + x.f * x.w, 0) / cw : 1;
+  const ctxFactor = 1 - pf.swing * (1 - other);
+  ctx.sort((a, b) => b.w - a.w).forEach(x => parts.push({ stage: 'other', label: x.label, pct: pct(x.f), note: x.note, weight: x.w }));
 
   /* Rate fit (info only, no score) */
   if (APP.SHOW_RATES && job.rateMax && c.dailyRate && (c.currency || 'USD') === (job.currency || 'USD')) {
@@ -1365,14 +1447,9 @@ APP.matchDetail = function (c, job) {
     }
   }
 
-  /* ---- combine ---- */
-  let raw = core * (0.6 + 0.4 * other) * rf.f * 100;
-  let cap = null;
-  const lower = (v, why) => { if (v < raw && (!cap || v < cap.value)) cap = { value: v, reason: why }; };
-  if (missing.length) lower(65, 'Missing ' + missing.join(', '));
-  if (rf.cap) lower(rf.cap, 'Role type does not match');
-  const score = Math.max(0, Math.min(100, Math.round(cap ? Math.min(raw, cap.value) : raw)));
-  return { score: score, parts: parts, gaps: gaps, cap: cap, coreFit: Math.round(core * 100), otherFit: Math.round(other * 100), roleType: rt };
+  const raw = core * rf.f * ready * ctxFactor * 100;
+  const score = Math.max(0, Math.min(100, Math.round(raw)));
+  return { score: score, parts: parts, gaps: gaps, cap: null, coreFit: pct(core), readyFit: pct(ready), otherFit: pct(other), roleFit: pct(rf.f), ctxSwing: Math.round(pf.swing * 100), roleType: rt };
 };
 APP.matchScore = function (c, job) { return APP.matchDetail(c, job).score; };
 
@@ -1403,11 +1480,11 @@ APP.fitReasons = function (c, job) {
   const out = [];
   const push = (t) => { if (t && out.indexOf(t) === -1) out.push(t); };
   for (const r of (job.requires || [])) {
-    const m = APP.reqMatch(c, r);
-    if (m.kind === 'none' || m.kind === 'product') continue;
+    const m = APP.reqFit(c, r, APP.jobRoleType(job));
+    if (m.kind === 'none' || m.kind === 'adjacent' || m.credit < 0.3) continue;
     let label = APP.reqLabel(r);
-    if (m.kind === 'transfer') label += ' (' + APP.productShort(m.via.productId) + ')';
-    else if (m.kind === 'exact' && r.minProjects) label += ' ✓';
+    if (m.kind === 'transfer' && m.via) label += ' (' + APP.productShort(m.via.productId) + ')';
+    else if (m.kind === 'direct' && r.minProjects) label += ' ✓';
     push(label);
   }
   if (job.languages && job.languages.length && job.languages.every(l => (c.languages || []).indexOf(l) !== -1)) {
@@ -1777,11 +1854,11 @@ APP.matchPartsHtml = function (d) {
   const row = (p, cls) => '<li class="' + (cls || '') + '"><div class="mb-row"><span>' + APP.h(p.label) + (p.note ? ' <em>' + APP.h(p.note) + '</em>' : '') + '</span><b>' + p.pct + '%</b></div>' +
     '<div class="mb-bar"><span class="' + (p.pct >= 75 ? 'hi' : p.pct >= 40 ? 'mid' : 'lo') + '" style="width:' + p.pct + '%"></span></div></li>';
   const by = (st) => d.parts.filter(p => p.stage === st);
-  const role = by('role'), core = by('core'), other = by('other');
-  return (d.cap ? '<p class="mb-cap">' + APP.icon('spark', 13) + ' Capped at ' + d.cap.value + '%: ' + APP.h(d.cap.reason) + '</p>' : '') +
-    '<ul class="mb-parts">' + role.map(p => row(p)).join('') + core.map(p => row(p)).join('') + '</ul>' +
-    (other.length ? '<h5 class="mb-sub">Other factors <span>' + d.otherFit + '%</span></h5><ul class="mb-parts mb-other">' + other.map(p => row(p)).join('') + '</ul>' : '') +
-    '<p class="muted small mb-how">Skills set the ceiling: the other factors can lift a match, but cannot make up for missing skills. Required certification and languages still hide roles from people who don’t meet them.</p>';
+  const role = by('role'), core = by('core'), ready = by('ready'), other = by('other');
+  return '<ul class="mb-parts">' + core.map(p => row(p)).join('') + role.map(p => row(p)).join('') + '</ul>' +
+    (ready.length ? '<h5 class="mb-sub">Experience &amp; seniority <span>' + d.readyFit + '%</span></h5><ul class="mb-parts mb-other">' + ready.map(p => row(p)).join('') + '</ul>' : '') +
+    (other.length ? '<h5 class="mb-sub">Context <span>' + d.otherFit + '%</span></h5><ul class="mb-parts mb-other">' + other.map(p => row(p)).join('') + '</ul>' : '') +
+    '<p class="muted small mb-how">Score = skills × role type × experience &amp; seniority × context. Product and module count together, so a different module earns nothing. Industry, specialties, languages and location can lift or lower the score by at most ' + d.ctxSwing + '%. Required certification and languages still hide roles from people who don’t meet them.</p>';
 };
 
 APP.matchDrawerHtml = function (c, job) {
