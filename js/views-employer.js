@@ -662,13 +662,21 @@ APP.views['e-job-detail'] = function (ctx) {
 
   let body;
   if (tab === 'applicants') {
+    const stg = (x) => APP.appStage(job, x.c.id);
     const nS = scored.filter(x => x.score >= 75).length, nU = scored.filter(x => x.unmet).length;
-    const shown = scored.filter(x => flt === 'strong' ? x.score >= 75 : flt === 'unmet' ? x.unmet : true);
+    const nNew = scored.filter(x => stg(x) === 'new').length, nSh = scored.filter(x => stg(x) === 'shortlisted').length, nDe = scored.filter(x => stg(x) === 'declined').length;
+    const shown = scored.filter(x => flt === 'strong' ? x.score >= 75 : flt === 'unmet' ? x.unmet : flt === 'new' || flt === 'shortlisted' || flt === 'declined' ? stg(x) === flt : true);
     const fbtn = (id, label) => '<button type="button" class="chip' + (flt === id ? ' chip-on' : '') + '" aria-pressed="' + (flt === id) + '" data-action="app-filter" data-jid="' + job.id + '" data-f="' + id + '">' + label + '</button>';
-    const filters = applicants.length > 1
-      ? '<div class="jd-filters"><span class="muted small">Ranked by match</span><span class="grow"></span>' + fbtn('all', 'All (' + scored.length + ')') + fbtn('strong', 'Strong 75%+ (' + nS + ')') + (nU ? fbtn('unmet', 'Doesn’t meet a requirement (' + nU + ')') : '') + '</div>' : '';
+    const filters = applicants.length
+      ? '<div class="jd-filters"><span class="muted small">Ranked by match</span><span class="grow"></span>' + fbtn('all', 'All (' + scored.length + ')') + fbtn('new', 'New (' + nNew + ')') + fbtn('shortlisted', 'Shortlisted (' + nSh + ')') + fbtn('declined', 'Not selected (' + nDe + ')') +
+        (applicants.length > 1 ? fbtn('strong', 'Strong 75%+ (' + nS + ')') : '') + (nU ? fbtn('unmet', 'Doesn’t meet a requirement (' + nU + ')') : '') + '</div>' : '';
+    /* opening the applicant list marks applications as viewed (the professional sees "Viewed") */
+    if (applicants.some(c => !(job.appViewed || {})[c.id])) {
+      job.appViewed = job.appViewed || {}; applicants.forEach(c => { if (!job.appViewed[c.id]) job.appViewed[c.id] = Date.now(); });
+      if (APP.LIVE && APP.backend) APP.backend.rpc('mark_applications_viewed', { p_job: job.id }).then(null, function () { /* best effort */ }); else APP.save();
+    }
     body = filters + (shown.length ? shown.map(x => APP.talentCard(x.c, {
-      score: x.score, job: job, quote: APP.applyQuoteHtml(job, x.c.id),
+      score: x.score, job: job, quote: APP.applyQuoteHtml(job, x.c.id), extra: open ? APP.appStageHtml(job, x.c.id) : (job.hiredId === x.c.id ? '<span class="pill inv">Hired through Arnour</span>' : ''),
       note: x.unmet ? ' <span class="pill warn-pill" title="Since the role was edited, this applicant no longer meets a required language or certification">Doesn’t meet a requirement</span>' : ''
     })).join('') : applicants.length ? '<div class="card empty small">No applicants in this filter.</div>'
       : '<div class="card empty">No applications yet — it can take a day or two. Meanwhile, <button type="button" class="link" data-action="job-tab" data-jid="' + job.id + '" data-tab="talent">invite recommended professionals</button>.</div>');
@@ -692,7 +700,7 @@ APP.views['e-job-detail'] = function (ctx) {
       : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + job.id + '">Reopen role</button>') +
     '</div>' +
     '<div class="card"><h2 class="jd-side-h">At a glance</h2><div class="jd-stats">' +
-    stat(applicants.length, 'Applicants') + stat(nStrongApp(scored), 'Strong matches') + stat(invited.length, 'Invited') + stat(days != null ? days : '–', open ? 'Days open' : 'Days since posted') + '</div></div>' +
+    stat(applicants.length, 'Applicants') + stat(scored.filter(x => APP.appStage(job, x.c.id) === 'shortlisted').length, 'Shortlisted') + stat(nStrongApp(scored), 'Strong matches') + stat(invited.length, 'Invited') + stat(days != null ? days : '–', open ? 'Days open' : 'Days since posted') + '</div></div>' +
     '<div class="card"><h2 class="jd-side-h">Share this role</h2>' + APP.shareHtml({
       title: job.title + (co ? ' — ' + co.name : ''),
       text: job.title + (co ? ' at ' + co.name : '') + ' · ' + APP.locText(job, job.remote ? 'Remote' : '') + (job.remote && (job.city || job.country) ? ' (remote ok)' : '') + ' — now hiring on Arnour, the SAP talent network.',

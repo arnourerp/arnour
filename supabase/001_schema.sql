@@ -57,6 +57,10 @@ create table if not exists public.applications (
   primary key (job_id, consultant_id)
 );
 create index if not exists applications_c_idx on public.applications(consultant_id);
+-- simple pipeline: the company shortlists or passes; the professional sees Applied → Viewed → Shortlisted (or "not moving forward" once the role closes)
+alter table public.applications add column if not exists viewed_ts bigint;
+alter table public.applications add column if not exists shortlisted_ts bigint;
+alter table public.applications add column if not exists closed_notified boolean not null default false;
 
 create table if not exists public.invites (
   job_id        text not null references public.jobs(id) on delete cascade,
@@ -757,6 +761,98 @@ begin
   return public._ent_label(p_ent, p_viewer);
 end $$;
 
+-- ---------- applicant review (company side) ----------
+-- "Not selected" stays private to the company until the role closes, so it lives in its own table
+create table if not exists public.app_review (
+  job_id        text not null references public.jobs(id) on delete cascade,
+  consultant_id text not null references public.consultants(id) on delete cascade,
+  declined_ts   bigint not null default (extract(epoch from now())*1000)::bigint,
+  primary key (job_id, consultant_id)
+);
+alter table public.app_review enable row level security;
+revoke all on public.app_review from anon, authenticated;
+grant select on public.app_review to authenticated;
+drop policy if exists p_review_read on public.app_review;
+create policy p_review_read on public.app_review for select to authenticated using (
+  exists (select 1 from public.jobs j where j.id = job_id and j.owner = auth.uid()));
+alter table public.jobs add column if not exists hired_id text references public.consultants(id) on delete set null;
+alter table public.jobs add column if not exists closed_ts bigint;
+
+create or replace function public._my_job(p_job text) returns public.jobs
+language plpgsql stable security definer set search_path = public as
+$$
+declare j public.jobs;
+begin
+  select * into j from public.jobs where id = p_job;
+  if j.id is null or j.owner is distinct from auth.uid() then raise exception 'not allowed'; end if;
+  return j;
+end $$;
+
+create or replace function public.set_application_stage(p_job text, p_cid text, p_stage text) returns void
+language plpgsql security definer set search_path = public as
+$$
+declare j public.jobs := public._my_job(p_job); a public.applications; now_ms bigint := (extract(epoch from clock_timestamp())*1000)::bigint;
+begin
+  select * into a from public.applications where job_id = p_job and consultant_id = p_cid;
+  if a.job_id is null then raise exception 'not an applicant'; end if;
+  if p_stage = 'shortlisted' then
+    update public.applications set shortlisted_ts = coalesce(shortlisted_ts, now_ms), viewed_ts = coalesce(viewed_ts, now_ms) where job_id = p_job and consultant_id = p_cid;
+    delete from public.app_review where job_id = p_job and consultant_id = p_cid;
+    if a.shortlisted_ts is null then
+      insert into public.notifications(user_key, type, text, link, from_user)
+      values (p_cid, 'job', public._ent_label_job(j.company_id, p_cid, j.id) || ' shortlisted you for "' || left(coalesce(j.data->>'title', 'a role'), 120) || '"', '#/c/applied', auth.uid());
+    end if;
+  elsif p_stage = 'declined' then
+    update public.applications set shortlisted_ts = null where job_id = p_job and consultant_id = p_cid;
+    insert into public.app_review(job_id, consultant_id, declined_ts) values (p_job, p_cid, now_ms)
+      on conflict (job_id, consultant_id) do update set declined_ts = excluded.declined_ts;
+  elsif p_stage = 'new' then
+    update public.applications set shortlisted_ts = null where job_id = p_job and consultant_id = p_cid;
+    delete from public.app_review where job_id = p_job and consultant_id = p_cid;
+  else raise exception 'unknown stage'; end if;
+end $$;
+
+create or replace function public.mark_applications_viewed(p_job text) returns void
+language plpgsql security definer set search_path = public as
+$$
+declare j public.jobs := public._my_job(p_job);
+begin
+  update public.applications set viewed_ts = (extract(epoch from clock_timestamp())*1000)::bigint where job_id = j.id and viewed_ts is null;
+end $$;
+
+-- optional at close: who was hired through Arnour (null = not said / no one)
+create or replace function public.set_job_hired(p_job text, p_cid text) returns void
+language plpgsql security definer set search_path = public as
+$$
+declare j public.jobs := public._my_job(p_job);
+begin
+  if p_cid is not null and p_cid <> '' and not exists (select 1 from public.consultants where id = p_cid) then raise exception 'unknown professional'; end if;
+  update public.jobs set hired_id = nullif(p_cid, '') where id = j.id;
+end $$;
+
+-- a role that closes tells every applicant who was not hired, once, politely
+create or replace function public._job_closed() returns trigger
+language plpgsql security definer set search_path = public as
+$$
+declare a record; who text; ttl text;
+begin
+  if old.status = 'open' and new.status <> 'open' then
+    new.closed_ts := (extract(epoch from now())*1000)::bigint;
+    ttl := left(coalesce(new.data->>'title', 'the role'), 120);
+    for a in select * from public.applications where job_id = new.id and not closed_notified and consultant_id is distinct from new.hired_id loop
+      who := public._ent_label_job(new.company_id, a.consultant_id, new.id);
+      insert into public.notifications(user_key, type, text, link)
+      values (a.consultant_id, 'job', 'The role "' || ttl || '" is now closed. Thank you for applying — ' || who || ' has decided not to move forward this time.', '#/c/applied');
+    end loop;
+    update public.applications set closed_notified = true where job_id = new.id and consultant_id is distinct from new.hired_id;
+  elsif old.status <> 'open' and new.status = 'open' then
+    new.closed_ts := null;
+  end if;
+  return new;
+end $$;
+drop trigger if exists jobs_closed on public.jobs;
+create trigger jobs_closed before update of status on public.jobs for each row execute function public._job_closed();
+
 create or replace function public.send_notification(p_key text, p_type text, p_text text, p_link text) returns void
 language plpgsql security definer set search_path = public as
 $$
@@ -877,7 +973,7 @@ revoke all on all tables in schema public from anon, authenticated;
 revoke all on all functions in schema public from public, anon, authenticated;
 
 -- direct table reads (writes only ever happen through the functions above)
-grant select on public.profiles, public.applications, public.invites, public.messages to authenticated;
+grant select on public.profiles, public.applications, public.invites, public.messages, public.app_review to authenticated;
 grant select, update, delete on public.notifications to authenticated;
 grant select on public.consultants, public.companies, public.jobs to authenticated;  -- own rows only, see policies
 
@@ -916,6 +1012,8 @@ grant update (read) on public.notifications to authenticated;
 -- who may call what
 grant execute on function public.my_entity(), public.my_role(), public.is_revealed(text,text), public.is_revealed_job(text,text,text) to authenticated;
 grant execute on function public.in_conversation(text) to authenticated;   -- used by the messages policy
+grant execute on function public.set_application_stage(text,text,text), public.mark_applications_viewed(text), public.set_job_hired(text,text) to authenticated;
+revoke all on function public._my_job(text), public._job_closed() from public, anon, authenticated;
 grant execute on function public.list_consultants(), public.my_conversations(), public.my_intros(),
   public.claim_profile(text,jsonb), public.save_profile(jsonb), public.save_job(text,jsonb), public.delete_job(text),
   public.apply_to_job(text,text), public.withdraw_application(text), public.invite_to_job(text,text),
@@ -942,7 +1040,7 @@ begin
     (select count(*) || ':' || coalesce(max(n.ts),0) from public.notifications n where n.user_key = ent),
     (select count(*) || ':' || coalesce(max(greatest(i.ts, coalesce(i.resp_ts,0))),0) || ':' || count(*) filter (where i.status <> 'pending')
        from public.intros i where i.cid = ent or i.eid = ent),
-    case when r = 'consultant' then (select count(*) || ':' || coalesce(max(a.ts),0) from public.applications a where a.consultant_id = ent)
+    case when r = 'consultant' then (select count(*) || ':' || coalesce(max(a.ts),0) || ':' || coalesce(max(a.viewed_ts),0) || ':' || coalesce(max(a.shortlisted_ts),0) from public.applications a where a.consultant_id = ent)
          else (select count(*) || ':' || coalesce(max(a.ts),0) from public.applications a join public.jobs j on j.id = a.job_id where j.company_id = ent) end,
     case when r = 'consultant' then (select count(*)::text from public.invites x where x.consultant_id = ent)
          else (select count(*)::text from public.invites x join public.jobs j on j.id = x.job_id where j.company_id = ent) end

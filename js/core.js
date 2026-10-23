@@ -2351,6 +2351,22 @@ APP.newApplicants = function (co) {
   return Object.values(APP.db.jobs || {}).filter(j => j.companyId === co.id).reduce((n, j) => n + Math.max(0, (j.applicants || []).length - (seen[j.id] || 0)), 0);
 };
 APP.newApplicants1 = function (co, j) { return Math.max(0, (j.applicants || []).length - ((co.seenApplicants || {})[j.id] || 0)); };
+/* ---------- simple applicant pipeline: New → Shortlisted, or Not selected (company); Applied → Viewed → Shortlisted (professional) ---------- */
+APP.appStage = (job, cid) => (job && job.appStage && job.appStage[cid]) || 'new';
+/* what the professional sees on My jobs → Applied */
+APP.appProgressHtml = function (j, cid) {
+  const ts = (j.appliedTs || {})[cid], viewed = (j.appViewed || {})[cid], short = APP.appStage(j, cid) === 'shortlisted';
+  if (j.status !== 'open') return '<span class="app-status app-closed">Role closed · the company is not moving forward</span>';
+  const step = (on, label, when) => '<li class="' + (on ? 'done' : '') + '">' + (on ? APP.icon('check', 12) : '<i></i>') + '<span>' + label + (on && when ? ' <small>' + APP.timeAgo(when) + '</small>' : '') + '</span></li>';
+  return '<ol class="app-steps" aria-label="Application progress">' + step(true, 'Applied', ts) + step(!!viewed || short, 'Viewed', viewed) + step(short, 'Shortlisted', null) + '</ol>';
+};
+/* the company's two buttons on each applicant */
+APP.appStageHtml = function (job, cid) {
+  const st = APP.appStage(job, cid), b = (stage, label, cls) => '<button type="button" class="btn ' + cls + ' btn-sm" data-action="app-stage" data-jid="' + job.id + '" data-cid="' + cid + '" data-stage="' + stage + '">' + label + '</button>';
+  if (st === 'shortlisted') return '<span class="pill inv">' + APP.icon('check', 12) + ' Shortlisted</span>' + b('new', 'Undo', 'btn-ghost');
+  if (st === 'declined') return '<span class="pill muted-pill">Not selected</span>' + b('new', 'Undo', 'btn-ghost');
+  return b('declined', 'Not selected', 'btn-ghost') + b('shortlisted', APP.icon('check', 13) + ' Shortlist', 'btn-outline');
+};
 APP.countBadge = function (n, title) { return n ? '<span class="nav-count" title="' + APP.h(title) + '">' + (n > 9 ? '9+' : n) + '</span>' : ''; };
 /* Phone-only bottom tab bar for the signed-in app. */
 APP.tabbarHtml = function () {
@@ -4092,12 +4108,44 @@ APP.onClick = function (el, e) {
       const j = APP.job(d.id);
       if (!j) break;
       const nApp = (j.applicants || []).length;
+      const opts = (j.applicants || []).map(id => APP.consultant(id)).filter(Boolean)
+        .sort((a, b) => (APP.appStage(j, b.id) === 'shortlisted') - (APP.appStage(j, a.id) === 'shortlisted'))
+        .map(c => '<option value="' + c.id + '">' + APP.h(APP.consultantFullName(c)) + (APP.appStage(j, c.id) === 'shortlisted' ? ' (shortlisted)' : '') + '</option>').join('');
       APP.openDialog({
         title: 'Close ' + APP.h(j.title) + '?',
-        sub: 'It disappears from the job feed and professionals can no longer apply.' + (nApp ? ' Your ' + nApp + ' applicant' + (nApp === 1 ? '' : 's') + ' stay on the role.' : '') + ' You can reopen it any time.',
-        body: '', confirmLabel: 'Close role', danger: true,
-        onConfirm: function () { j.status = 'closed'; APP.save(); APP.render(); APP.toast('Role closed'); }
+        sub: 'It disappears from the job feed and professionals can no longer apply.' + (nApp ? ' Applicants you did not hire get a short, polite message that the role is closed.' : '') + ' You can reopen it any time.',
+        body: '<label class="field"><span class="label">Did you hire someone through Arnour? <span class="muted">(optional)</span></span><select id="dlg-hired" class="input">' +
+          '<option value="">Skip this question</option>' + opts + '<option value="none">No one from Arnour</option></select></label>',
+        confirmLabel: 'Close role', danger: true,
+        onConfirm: function () {
+          const sel = document.getElementById('dlg-hired'), hv = sel ? sel.value : '';
+          const hired = hv && hv !== 'none' ? hv : '';
+          const close = function () {
+            if (hv) j.hiredId = hired;
+            if (!APP.LIVE) (j.applicants || []).forEach(cid => { if (cid !== hired) APP.addNotif(cid, 'job', 'The role "' + j.title + '" is now closed. Thank you for applying — ' + APP.coLabel(APP.company(j.companyId), j, cid) + ' has decided not to move forward this time.', '#/c/applied'); });
+            j.status = 'closed'; APP.save(); APP.render(); APP.toast(hired ? 'Role closed · congratulations on the hire 🎉' : 'Role closed');
+          };
+          if (APP.LIVE && APP.backend && hv) APP.backend.rpc('set_job_hired', { p_job: j.id, p_cid: hired || null }).then(close, close);
+          else close();
+        }
       });
+      break;
+    }
+
+    case 'app-stage': {
+      const j = APP.job(d.jid); if (!j) break;
+      const was = APP.appStage(j, d.cid), to = d.stage;
+      const apply = function () {
+        j.appStage = j.appStage || {};
+        if (to === 'new') delete j.appStage[d.cid]; else j.appStage[d.cid] = to;
+        if (to === 'shortlisted') { j.appViewed = j.appViewed || {}; if (!j.appViewed[d.cid]) j.appViewed[d.cid] = Date.now(); }
+        if (!APP.LIVE && to === 'shortlisted' && was !== 'shortlisted') APP.addNotif(d.cid, 'job', APP.coLabel(APP.company(j.companyId), j, d.cid) + ' shortlisted you for "' + j.title + '"', '#/c/applied');
+        if (!APP.LIVE) APP.save();
+        APP.toast(to === 'shortlisted' ? 'Shortlisted ✓ — they have been told' : to === 'declined' ? 'Marked not selected — they will be told politely when the role closes' : 'Moved back to new');
+        APP.renderKeep();
+      };
+      if (APP.LIVE && APP.backend) APP.backend.rpc('set_application_stage', { p_job: j.id, p_cid: d.cid, p_stage: to }).then(apply, function () { APP.toast('Could not update the applicant. Please try again.'); });
+      else apply();
       break;
     }
     case 'job-tab':

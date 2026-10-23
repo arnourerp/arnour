@@ -23,7 +23,7 @@
   function clean(o) { var c = JSON.parse(JSON.stringify(o)); delete c._anon; delete c.sample; delete c.mine; delete c.certRevoked; return c; }
   function jobSig(j) {
     var c = JSON.parse(JSON.stringify(j));
-    ['applicants', 'appliedTs', 'applyNotes', 'invited', 'postedTs', 'sample', 'mine'].forEach(function (k) { delete c[k]; });
+    ['applicants', 'appliedTs', 'applyNotes', 'invited', 'postedTs', 'sample', 'mine', 'appStage', 'appViewed', 'hiredId'].forEach(function (k) { delete c[k]; });
     return JSON.stringify(c);
   }
   function unwrap(res, fn) {
@@ -105,20 +105,27 @@
       B.sb.rpc('my_intros'),
       B.sb.rpc('my_conversations'),
       B.sb.from('messages').select('*').order('ts', { ascending: false }).limit(5000), /* newest first, so a long history never hides new messages */
-      B.sb.from('notifications').select('*').order('ts', { ascending: false }).limit(200)
+      B.sb.from('notifications').select('*').order('ts', { ascending: false }).limit(200),
+      /* company only (the rules return nothing to others); a missing table must not stop the rest loading */
+      B.profile && B.profile.role === 'employer' ? B.sb.from('app_review').select('*').then(function (x) { return x.error ? { data: [] } : x; }, function () { return { data: [] }; }) : Promise.resolve({ data: [] }),
+      B.profile && B.profile.role === 'employer' ? B.sb.from('jobs').select('id,hired_id').then(function (x) { return x.error ? { data: [] } : x; }, function () { return { data: [] }; }) : Promise.resolve({ data: [] })
     ]).then(function (r) {
-      r.forEach(function (x) { if (x.error) throw x.error; });
-      return { consultants: r[0].data === null ? null : unwrap(r[0], 'list_consultants'), apps: r[1].data || [], invs: r[2].data || [], intros: r[3].data || [], convs: r[4].data || [], msgs: (r[5].data || []).slice().reverse(), nots: r[6].data || [] };
+      r.slice(0, 7).forEach(function (x) { if (x.error) throw x.error; });
+      return { consultants: r[0].data === null ? null : unwrap(r[0], 'list_consultants'), apps: r[1].data || [], invs: r[2].data || [], intros: r[3].data || [], convs: r[4].data || [], msgs: (r[5].data || []).slice().reverse(), nots: r[6].data || [], reviews: r[7].data || [], hired: r[8].data || [] };
     });
   };
 
   B.applyPrivate = function (db, p) {
     var ent = B.profile.entity_id, role = B.profile.role, side = role === 'consultant' ? 'c' : 'e';
-    Object.values(db.jobs).forEach(function (j) { j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = []; });
+    Object.values(db.jobs).forEach(function (j) { j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = []; j.appStage = {}; j.appViewed = {}; });
     p.apps.forEach(function (a) {
       var j = db.jobs[a.job_id]; if (!j) return;
       j.applicants.push(a.consultant_id); j.appliedTs[a.consultant_id] = +a.ts; j.applyNotes[a.consultant_id] = a.note || '';
+      if (a.viewed_ts) j.appViewed[a.consultant_id] = +a.viewed_ts;
+      if (a.shortlisted_ts) j.appStage[a.consultant_id] = 'shortlisted';
     });
+    (p.reviews || []).forEach(function (rv) { var j = db.jobs[rv.job_id]; if (j && !j.appStage[rv.consultant_id]) j.appStage[rv.consultant_id] = 'declined'; });
+    (p.hired || []).forEach(function (h) { var j = db.jobs[h.id]; if (j) j.hiredId = h.hired_id || ''; });
     p.invs.forEach(function (i) { var j = db.jobs[i.job_id]; if (j) j.invited.push(i.consultant_id); });
     db.intros = {};
     p.intros.forEach(function (i) {
@@ -887,7 +894,7 @@
       (role === 'consultant'
         ? '<label class="field"><span class="label">New roles that match you (75%+)</span><select name="ep_matches" class="input">' + opt([['daily', 'Daily summary (8 am UAE time)'], ['instant', 'Right away'], ['weekly', 'Weekly summary (Mondays)'], ['off', 'Off']], p.matches || 'daily') + '</select></label>'
         : '<label class="field"><span class="label">New applicants on your roles</span><select name="ep_applicants" class="input">' + opt([['instant', 'Right away'], ['daily', 'Daily summary (8 am UAE time)'], ['off', 'Off']], p.applicants || 'instant') + '</select></label>') +
-      sw('invites', role === 'consultant' ? 'Invitations and introductions' : 'Introduction requests', role === 'consultant' ? 'A company invites you to apply or wants to connect' : 'A professional wants to connect, or accepts your request', p.invites !== false) +
+      sw('invites', role === 'consultant' ? 'Invitations, introductions and application updates' : 'Introduction requests', role === 'consultant' ? 'A company invites you to apply, wants to connect, or shortlists you' : 'A professional wants to connect, or accepts your request', p.invites !== false) +
       sw('messages', 'New messages', 'Only if unread after 15 minutes — at most one email per chat per hour', p.messages !== false) +
       sw('community', 'Community answers', 'Someone answers your question, or your answer is accepted', p.community !== false) +
       '<button class="btn btn-outline" type="submit">Save email settings</button></form>';

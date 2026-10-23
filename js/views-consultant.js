@@ -403,9 +403,8 @@ APP.views['c-saved'] = function () {
       : '<div class="card empty">Nothing saved yet — use “☆ Save” on any role to park it here.</div>';
   } else {
     body = applied.length ? applied.map(j => {
-      const ts = (j.appliedTs || {})[c.id];
-      const st = '<span class="app-status">' + APP.icon('check', 14) + ' ' + (ts ? 'Applied ' + APP.timeAgo(ts) : 'Applied') + (j.status !== 'open' ? ' · Role closed' : '') + '</span>';
-      return APP.jobCard(j, APP.matchScore(c, j), st + '<button class="btn btn-outline btn-sm" data-action="withdraw" data-id="' + j.id + '">Withdraw</button>');
+      const st = APP.appProgressHtml(j, c.id);
+      return APP.jobCard(j, APP.matchScore(c, j), st + (j.status === 'open' ? '<button class="btn btn-outline btn-sm" data-action="withdraw" data-id="' + j.id + '">Withdraw</button>' : ''));
     }).join('')
       : '<div class="card empty">No applications yet — your best matches are waiting. <a class="link" href="#/c/jobs">Browse roles</a></div>';
   }

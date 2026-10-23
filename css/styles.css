@@ -1851,3 +1851,11 @@ a.sr-title:hover { text-decoration: underline; }
 .sr-sub { margin: 3px 0 0; }
 .sr-skills, .sr-snip { margin: 5px 0 0; font-size: 13px; color: var(--text-secondary); }
 .sr-item mark, .sr-sug mark { background: #fff3c4; color: inherit; padding: 0 1px; border-radius: 3px; }
+
+/* applicant pipeline */
+.app-steps { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
+.app-steps li { display: inline-flex; align-items: center; gap: 5px; color: var(--mut); padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: #fff; }
+.app-steps li i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--line); display: inline-block; }
+.app-steps li.done { color: #166534; border-color: #bbe5c6; background: #ecf8ef; font-weight: 600; }
+.app-steps li small { font-weight: 400; color: var(--mut); }
+.app-closed { color: var(--mut); }

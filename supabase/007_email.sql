@@ -88,7 +88,7 @@ language sql immutable as
 $$ select case
     when p_text like 'New role matches your profile:%' then 'matches'
     when p_text like '%invited you to apply%' or p_text like '%would like to connect%' or p_text like '%is interested%'
-      or p_text like '%accepted your introduction%' then 'invites'
+      or p_text like '%accepted your introduction%' or p_text like '% shortlisted you for "%' or p_text like 'The role "%" is now closed. Thank you for applying%' then 'invites'
     when p_link ~ '^#/[ce]/messages/' and (p_text like '%sent you a message' or p_text like '%replied to your message' or p_text like '%proposed a call') then 'messages'
     when p_text like '% applied to "%' then 'applicants'
     when p_text like '%answered your question%' or (p_text like 'Your answer on %' and p_text like '%marked accepted') then 'community'
