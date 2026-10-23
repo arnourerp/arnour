@@ -12,7 +12,8 @@ async function page(withOAuth,email,meta){
   p.on('pageerror',e=>errors.push(e.message));
   await p.exposeFunction('__sb',be.handle);
   await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
-  if(withOAuth) await p.route('**/js/config.js',r=>r.fulfill({contentType:'application/javascript',body:CFGJS.replace("legalDate:","oauth: ['google','linkedin_oidc'], legalDate:")}));
+  const cfg=CFGJS.replace(/\n\s*oauth:[^\n]*/,'');
+  await p.route('**/js/config.js',r=>r.fulfill({contentType:'application/javascript',body:withOAuth?cfg.replace("legalDate:","oauth: ['google','linkedin_oidc'], legalDate:"):cfg}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await ctx.addInitScript(([e,m])=>{ window.__oauthEmail=e; window.__oauthMeta=m; },[email||'oauth@test.com',meta||{}]);
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); return p;
@@ -20,6 +21,7 @@ async function page(withOAuth,email,meta){
 const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x},h); await p.waitForTimeout(300); };
 const hash=p=>p.evaluate(()=>location.hash);
 const q=async(s,a)=>(await be.db.query(s,a)).rows;
+t('live config switches both providers on',/oauth:\s*\['google',\s*'linkedin_oidc'\]/.test(CFGJS));
 // switched off: no buttons
 let p=await page(false); await go(p,'#/register/c');
 t('no buttons until providers are switched on',await p.locator('[data-action=live-oauth]').count()===0);
