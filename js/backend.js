@@ -515,7 +515,9 @@
     var q = new URLSearchParams(location.search), step = Promise.resolve();
     var hashQ = new URLSearchParams((location.hash.split('?')[1]) || '');
     var errDesc = q.get('error_description') || hashQ.get('error_description');
-    if (errDesc) { B.notice = /expired|invalid/i.test(errDesc) ? 'That link has expired or was already used. Please sign in, or request a new one.' : errDesc; B.cleanUrl(); }
+    var pendingOAuth = null; try { pendingOAuth = localStorage.getItem('arnour-oauth-pending'); } catch (e) { /* ignore */ }
+    if (errDesc && pendingOAuth) { try { localStorage.removeItem('arnour-oauth-pending'); } catch (e) { /* ignore */ } B.notice = 'Sign-in with ' + (OAUTH_NAMES[pendingOAuth] || 'that account') + ' was cancelled or did not finish. You can try again, or use your email.'; try { history.replaceState(null, '', location.pathname + '#/login'); } catch (e) { /* ignore */ } }
+    else if (errDesc) { B.notice = /expired|invalid/i.test(errDesc) ? 'That link has expired or was already used. Please sign in, or request a new one.' : errDesc; B.cleanUrl(); }
     if (q.get('token_hash') && q.get('type')) {
       var type = q.get('type');
       step = B.sb.auth.verifyOtp({ token_hash: q.get('token_hash'), type: type }).then(function (r) {
@@ -525,11 +527,13 @@
         B.cleanUrl();
       });
     } else if (q.get('code')) {
+      var viaOAuth = null; try { viaOAuth = localStorage.getItem('arnour-oauth-pending'); localStorage.removeItem('arnour-oauth-pending'); } catch (e) { /* ignore */ }
+      var oauthFail = 'Sign-in with ' + (OAUTH_NAMES[viaOAuth] || 'that account') + ' did not finish. Please try again, or use your email.';
       step = B.sb.auth.exchangeCodeForSession(q.get('code')).then(function (r) {
-        if (r.error) { B.justConfirmedElsewhere = true; B.notice = 'Your email is confirmed. Please sign in to continue.'; }
+        if (r.error) { if (viaOAuth) { B.notice = oauthFail; B.cleanUrl(); try { history.replaceState(null, '', location.pathname + '#/login'); } catch (e) { /* ignore */ } return; } else { B.justConfirmedElsewhere = true; B.notice = 'Your email is confirmed. Please sign in to continue.'; } }
         else { B.justConfirmed = true; }
         B.cleanUrl();
-      }, function () { B.notice = 'Your email is confirmed. Please sign in to continue.'; B.cleanUrl(); });
+      }, function () { B.notice = viaOAuth ? oauthFail : 'Your email is confirmed. Please sign in to continue.'; B.cleanUrl(); });
     }
     B.sb.auth.onAuthStateChange(function (ev) {
       if (ev === 'SIGNED_OUT' && B.profile) { /* signed out elsewhere or session expired */ B.user = null; B.profile = null; APP.db = B.emptyDb(); B.snap = B.makeSnap(); location.hash = '#/login'; APP.render(); }
@@ -548,7 +552,38 @@
     else if (B.isAdmin) APP.go('#/admin');
     else APP.go(B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard');
   };
-  B.metaRole = function () { var r = B.user && B.user.user_metadata && B.user.user_metadata.role; return r === 'employer' || r === 'e' ? 'e' : 'c'; };
+  B.metaRole = function () {
+    var r = B.user && B.user.user_metadata && B.user.user_metadata.role;
+    if (!r) { try { r = localStorage.getItem('arnour-oauth-role'); } catch (e) { r = null; } }
+    return r === 'employer' || r === 'e' ? 'e' : 'c';
+  };
+  B.hasRole = function () {
+    if (B.user && B.user.user_metadata && B.user.user_metadata.role) return true;
+    try { return !!localStorage.getItem('arnour-oauth-role'); } catch (e) { return false; }
+  };
+  /* ---------- Continue with Google / LinkedIn (shown only for providers switched on in config.js) ---------- */
+  var OAUTH_NAMES = { google: 'Google', linkedin_oidc: 'LinkedIn' };
+  B.oauthList = function () { return (CFG.oauth || []).filter(function (p) { return OAUTH_NAMES[p]; }); };
+  B.oauthHtml = function (role) {
+    var list = B.oauthList(); if (!list.length) return '';
+    return '<div class="oauth-btns">' + list.map(function (p) {
+      return '<button type="button" class="btn btn-outline btn-block oauth-btn oauth-' + p.replace('_oidc', '') + '" data-action="live-oauth" data-provider="' + p + '"' + (role ? ' data-role="' + role + '"' : '') + '>Continue with ' + OAUTH_NAMES[p] + '</button>';
+    }).join('') + (role ? '<p class="muted small center">By continuing with ' + list.map(function (p) { return OAUTH_NAMES[p]; }).join(' or ') + ' you agree to the <a href="#/terms" target="_blank" rel="noopener">Terms</a> and the <a href="#/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>' : '') +
+      '<div class="oauth-or"><span>or use your email</span></div></div>';
+  };
+  B.startOAuth = function (provider, role) {
+    try { if (role) localStorage.setItem('arnour-oauth-role', role); localStorage.setItem('arnour-oauth-pending', provider); } catch (e) { /* ignore */ }
+    B.sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: location.origin + location.pathname.replace(/index\.html$/, '') } }).then(function (r) {
+      if (r && r.error) APP.toast('Could not open ' + OAUTH_NAMES[provider] + '. Please try again or use your email.');
+    }, function () { APP.toast('Could not open ' + OAUTH_NAMES[provider] + '. Please try again or use your email.'); });
+  };
+  /* names from Google / LinkedIn prefill the profile steps (never the photo) */
+  B.oauthNames = function () {
+    var m = (B.user && B.user.user_metadata) || {};
+    var first = m.given_name || m.first_name || '', last = m.family_name || m.last_name || '';
+    if (!first && !last && (m.full_name || m.name)) { var parts = String(m.full_name || m.name).trim().split(/\s+/); first = parts.shift() || ''; last = parts.join(' '); }
+    return { first: String(first).slice(0, 60), last: String(last).slice(0, 60) };
+  };
 
   /* ---------- bot check (Cloudflare Turnstile) ----------
      Shown only on the real site (arnour.com). Supabase verifies the token when CAPTCHA protection is switched on there;
@@ -651,6 +686,11 @@
   };
 
   /* wizards end here: the server creates the profile and gives it its id */
+  /* Google / LinkedIn names fill the first step (only when the person has not typed anything yet) */
+  var origCDef = APP.wizCDefaults, origEDef = APP.wizEDefaults;
+  if (origCDef) APP.wizCDefaults = function () { var d = origCDef.apply(this, arguments), n = B.user ? B.oauthNames() : null; if (n) { if (!d.firstName) d.firstName = n.first; if (!d.lastName) d.lastName = n.last; } return d; };
+  if (origEDef) APP.wizEDefaults = function () { var d = origEDef.apply(this, arguments), n = B.user ? B.oauthNames() : null; if (n && !d.contactName && (n.first || n.last)) d.contactName = (n.first + ' ' + n.last).trim(); return d; };
+
   /* the sign-in can be lost between the email link and the last step (another tab, an in-app mail browser, a phone
      that cleared its storage). Before saving, make sure it is still there; if not, keep the answers and ask to sign in. */
   var WIZ_KEY = 'arnour-wizard-draft';
@@ -723,14 +763,15 @@
     if (v === 'admin' && !B.isAdmin) return B.user ? '#/' : '#/login';
     if (B.user && !B.profile) {
       if (B.isAdmin && v === 'landing' && !/^#\/home/.test(location.hash)) return '#/admin';
-      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset', 'unsubscribe'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);
+      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset', 'unsubscribe', 'start'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);
       if (ok.indexOf(v) === -1) return B.isAdmin ? '#/admin' : (B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard'); /* an admin never has to create a profile */
       if (v === 'wiz-c' && B.metaRole() === 'e') return '#/onboard-e';
       if (v === 'wiz-e' && B.metaRole() === 'c') return '#/onboard';
       return null;
     }
     if (!B.user && (v === 'wiz-c' || v === 'wiz-e')) return v === 'wiz-e' ? '#/register/e' : '#/register/c';
-    if (B.profile && ['login', 'register', 'wiz-c', 'wiz-e', 'forgot', 'check-email'].indexOf(v) !== -1) return B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard';
+    if (!B.user && v === 'start') return '#/login';
+    if (B.profile && ['login', 'register', 'wiz-c', 'wiz-e', 'forgot', 'check-email', 'start'].indexOf(v) !== -1) return B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard';
     if (!B.user && v === 'account') return '#/login';
     return null;
   };
@@ -748,7 +789,7 @@
     document.title = 'Sign in — Arnour';
     var email = (APP.state.liveEmail || '');
     var nc = APP.state.liveNotConfirmed ? '<p class="live-note warn">Please confirm your email first — we sent you a link. <button type="button" class="link-btn" data-action="live-resend">Send it again</button></p>' : '';
-    return card('<h1>Sign in to Arnour</h1>' + noticeHtml() + nc +
+    return card('<h1>Sign in to Arnour</h1>' + noticeHtml() + nc + B.oauthHtml(null) +
       '<form data-form="live-login" novalidate>' +
       '<label class="field"><span class="label">Email</span><input class="input" type="email" name="email" autocomplete="email" value="' + esc(email) + '" required></label>' +
       '<label class="field"><span class="label">Password</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>' +
@@ -768,6 +809,7 @@
       '<a role="tab" aria-selected="' + (role === 'c') + '" class="seg-tab' + (role === 'c' ? ' on' : '') + '" href="#/register/c">I\'m an SAP professional</a>' +
       '<a role="tab" aria-selected="' + (role === 'e') + '" class="seg-tab' + (role === 'e' ? ' on' : '') + '" href="#/register/e">I\'m hiring</a></div>' +
       '<p class="muted small center">' + (role === 'c' ? 'Build your SAP profile and get roles ranked by fit.' : 'Create your company profile and post precise SAP roles.') + '</p>' +
+      B.oauthHtml(role) +
       '<form data-form="live-register" data-role="' + role + '" novalidate>' +
       '<label class="field"><span class="label">Work or personal email</span><input class="input" type="email" name="email" autocomplete="email" required></label>' +
       '<label class="field"><span class="label">Password</span><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required>' + pwHint() + '</label>' +
@@ -776,6 +818,14 @@
       tsBox() + '<p class="field-error" id="live-err" role="alert"></p>' +
       '<button class="btn btn-primary btn-block" type="submit">Create account</button></form>' +
       '<p class="center small">Already have an account? <a href="#/login">Sign in</a></p>');
+  };
+
+  APP.views.start = function () {
+    document.title = 'Welcome to Arnour';
+    var nm = B.oauthNames();
+    return card('<h1>Welcome' + (nm.first ? ', ' + esc(nm.first) : '') + '</h1><p class="muted center">How will you use Arnour?</p>' +
+      '<button type="button" class="btn btn-primary btn-block" data-action="live-pick-role" data-role="c">I\'m an SAP professional</button>' +
+      '<button type="button" class="btn btn-outline btn-block" data-action="live-pick-role" data-role="e">I\'m hiring for a company</button>');
   };
 
   APP.views['check-email'] = function () {
@@ -982,6 +1032,11 @@
       B.sb.auth.resend({ type: 'signup', email: em, options: { emailRedirectTo: location.origin + '/', captchaToken: B.captchaToken() } }).then(function (r) { B.captchaReset(); APP.toast(r.error ? authError(r.error) : 'Confirmation email sent'); }, function () { B._resendAt = 0; APP.toast('Could not send the email — check your connection and try again.'); });
       return;
     }
+    if (a === 'live-oauth') { B.startOAuth(el.dataset.provider, el.dataset.role || ''); return; }
+    if (a === 'live-pick-role') {
+      try { localStorage.setItem('arnour-oauth-role', el.dataset.role === 'e' ? 'e' : 'c'); } catch (e) { /* ignore */ }
+      APP.go(el.dataset.role === 'e' ? '#/onboard-e' : '#/onboard'); return;
+    }
     if (a === 'live-delete') {
       APP.openDialog({
         title: 'Delete your account?',
@@ -1114,8 +1169,11 @@
     APP.db = B.emptyDb();
     B.boot().then(function () {
       if (B.justConfirmed && B.user && !B.profile && B.isAdmin) location.hash = '#/admin';
-      else if (B.justConfirmed && B.user && !B.profile) { /* freshly confirmed: go straight to the profile steps */ location.hash = B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard'; }
-      else if (B.justConfirmed && B.profile && /^#?\/?(login|register)?$/.test(location.hash)) location.hash = B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard';
+      else if (B.justConfirmed && B.user && !B.profile) { /* freshly confirmed: go straight to the profile steps (or pick a side first, after Google / LinkedIn from the sign-in page) */
+        if (B.restoreWizardDraft()) location.hash = B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard';
+        else location.hash = B.hasRole() ? (B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard') : '#/start';
+      }
+      else if (B.justConfirmed && B.profile && /^#?\/?(login|register)?$/.test(location.hash)) { try { localStorage.removeItem('arnour-oauth-role'); } catch (e) { /* ignore */ } location.hash = B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'; }
     }, function () {
       root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><h2>We could not reach Arnour right now</h2><p class="muted">Check your connection and try again.</p><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
       throw new Error('boot failed');

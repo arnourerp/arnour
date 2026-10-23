@@ -1815,3 +1815,9 @@ a.chat-who-link:hover, a.cr-title:hover, a.q-who-link:hover, a.jd-co:hover, a.td
 [data-card-href] { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
 [data-card-href]:hover { border-color: var(--border-strong); box-shadow: 0 4px 14px rgba(15, 23, 41, .08); }
 .crumb .link[data-action="nav-back"] { font-weight: 600; }
+
+/* Continue with Google / LinkedIn */
+.oauth-btns { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; }
+.oauth-btn { font-weight: 600; justify-content: center; }
+.oauth-or { display: flex; align-items: center; gap: 10px; color: var(--mut); font-size: 12.5px; margin: 8px 0 2px; }
+.oauth-or::before, .oauth-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }

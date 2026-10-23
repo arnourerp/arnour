@@ -2776,6 +2776,7 @@ APP.routes = [
   { re: /^#\/reset$/, view: 'reset', auth: null },
   { re: /^#\/check-email$/, view: 'check-email', auth: null },
   { re: /^#\/account$/, view: 'account', auth: null },
+  { re: /^#\/start$/, view: 'start', auth: null },
   { re: /^#\/unsubscribe(?:\?.*)?$/, view: 'unsubscribe', auth: null },
   { re: /^#\/suspended$/, view: 'suspended', auth: null },
   { re: /^#\/admin(?:\/([a-z]+)(?:\/(.+))?)?$/, view: 'admin', auth: null },
