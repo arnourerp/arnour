@@ -2388,7 +2388,7 @@ APP.navbar = function () {
   return '<header class="nav">' +
     '<div class="nav-inner">' +
     '<a class="brand" href="' + home + '"><span class="brand-logo">A</span>Arnour</a>' +
-    '<form data-form="nav-search" data-target="' + searchTarget + '" class="nav-search"><span class="nav-search-ico">' + APP.icon('search') + '</span><input name="q" value="' + APP.h(isC ? APP.state.jobFilters.q : APP.state.talentFilters.q) + '" placeholder="' + ph + '"></form>' +
+    '<form data-form="nav-search" data-target="' + searchTarget + '" class="nav-search" role="search"><span class="nav-search-ico">' + APP.icon('search') + '</span><input name="q" value="' + APP.h(APP.state.navQ || '') + '" placeholder="Search roles, people, companies, SAP modules…" aria-label="Search Arnour" autocomplete="off"></form>' +
     '<nav class="nav-actions">' +
     (isC
       ? '<a class="nav-link' + (/^#\/c\/(jobs|applied|saved|intros)/.test(location.hash) ? ' active' : '') + '" href="#/c/jobs">' + APP.icon('briefcase', 16) + ' Jobs' + APP.countBadge(APP.newStrongMatches(u) + APP.waitingForMe(), 'New strong matches (75%+), invitations and introductions waiting for your answer') + '</a>'
@@ -2396,6 +2396,7 @@ APP.navbar = function () {
         '<a class="nav-link' + ((location.hash.indexOf('#/e/jobs') === 0 && location.hash !== '#/e/jobs/new') || location.hash === '#/e/intros' ? ' active' : '') + '" href="#/e/jobs">' + APP.icon('briefcase', 16) + ' My roles' + APP.countBadge(APP.newApplicants(u) + APP.waitingForMe(), 'New applicants and introductions waiting for your answer') + '</a>') +
     '<a class="nav-link' + (location.hash.indexOf('#/community') === 0 ? ' active' : '') + '" href="#/community">' + APP.icon('users', 16) + ' Community' + (ncount ? '<span class="nav-count" title="New unanswered questions in your SAP areas since your last visit">' + ncount + '</span>' : '') + (u.communitySeen ? '' : '<span class="new-dot" title="New — the community is where SAP people ask and answer"></span>') + (u.communitySeen || u.pointerGone ? '' : '<span class="nav-pointer" id="nav-pointer">New: ask and answer SAP questions</span>') + '</a>' +
     (isC ? '' : '<a class="btn btn-primary btn-sm nav-post" href="#/e/jobs/new">' + APP.icon('plus', 14) + ' Post a job</a>') +
+    '<a class="nav-ico nav-search-m" href="#/search" title="Search" aria-label="Search">' + APP.icon('search', 20) + '</a>' +
     '<button class="nav-ico" data-action="go" data-href="' + (isC ? '#/c/messages' : '#/e/messages') + '" title="Messages">' + APP.icon('msg', 20) + (m ? '<span class="badge">' + m + '</span>' : '') + '</button>' +
     '<button class="nav-ico" data-action="toggle-notif" title="Notifications">' + APP.icon('bell', 20) + (n ? '<span class="badge">' + n + '</span>' : '') + '</button>' +
     '<div class="nav-user">' +
@@ -2419,7 +2420,9 @@ APP.pubHeader = function () {
   return '<header class="nav pub">' +
     '<div class="nav-inner pub-inner">' +
     '<a class="brand" href="#/"><span class="brand-logo">A</span>Arnour</a>' +
+    '<form data-form="nav-search" class="nav-search" role="search"><span class="nav-search-ico">' + APP.icon('search') + '</span><input name="q" value="' + APP.h(APP.state.navQ || '') + '" placeholder="Search roles, people, companies, SAP modules…" aria-label="Search Arnour" autocomplete="off"></form>' +
     '<nav class="nav-actions">' +
+    '<a class="nav-ico nav-search-m" href="#/search" title="Search" aria-label="Search">' + APP.icon('search', 20) + '</a>' +
     '<a class="nav-link' + (location.hash.indexOf('#/jobs') === 0 ? ' active' : '') + '" href="#/jobs">' + APP.icon('briefcase', 16) + ' Jobs</a>' +
     '<a class="nav-link' + (location.hash.indexOf('#/community') === 0 ? ' active' : '') + '" href="#/community">' + APP.icon('users', 16) + ' Community</a>' +
     (APP.LIVE && APP.backend && APP.backend.user
@@ -2777,6 +2780,7 @@ APP.routes = [
   { re: /^#\/check-email$/, view: 'check-email', auth: null },
   { re: /^#\/account$/, view: 'account', auth: null },
   { re: /^#\/start$/, view: 'start', auth: null },
+  { re: /^#\/search(?:\?.*)?$/, view: 'search', auth: null },
   { re: /^#\/unsubscribe(?:\?.*)?$/, view: 'unsubscribe', auth: null },
   { re: /^#\/suspended$/, view: 'suspended', auth: null },
   { re: /^#\/admin(?:\/([a-z]+)(?:\/(.+))?)?$/, view: 'admin', auth: null },
@@ -2852,7 +2856,8 @@ APP.formDraftTarget = function (f) {
     case 'community-filters': return APP.state.communityFilters;
     case 'people-filters': return APP.state.peopleFilters;
     case 'nav-search':
-      return (f.dataset.target || '').indexOf('jobs') >= 0 ? APP.state.jobFilters : APP.state.talentFilters;
+      return { set q(v) { APP.state.navQ = v; } };
+    case 'search-filters': return APP.state.searchF;
     case 'chat':
       if (f.dataset.convId) {
         if (!APP.chatDraft[f.dataset.convId]) APP.chatDraft[f.dataset.convId] = {};
@@ -3151,6 +3156,7 @@ APP.navLabel = function (hash) {
   if ((m = hash.match(/^#\/community\/q\/([^/?]+)$/))) { const q = (APP.db.questions || {})[m[1]]; return q ? cut(q.title) : 'the question'; }
   if ((m = hash.match(/^#\/community\/a\/([^/?]+)$/))) { const a = (APP.db.articles || {})[m[1]]; return a ? cut(a.title) : 'the article'; }
   if (/^#\/[ce]\/messages/.test(hash)) return 'Messages';
+  if ((m = hash.match(/^#\/search\?q=([^&]*)/))) { const sq = decodeURIComponent(m[1] || '').trim(); return sq ? 'results for “' + cut(sq) + '”' : 'search'; }
   const map = [[/^#\/community\/people/, 'People'], [/^#\/community/, 'Community'], [/^#\/c\/jobs/, 'your job search'], [/^#\/c\/(saved)/, 'My jobs'],
     [/^#\/c\/applied/, 'your applications'], [/^#\/c\/intros/, 'Introductions'], [/^#\/c\/profile/, 'My profile'], [/^#\/c\/dashboard|^#\/e\/dashboard|^#\/?$|^#\/home/, 'Home'],
     [/^#\/e\/talent/, 'Talent search'], [/^#\/e\/jobs/, 'My roles'], [/^#\/e\/intros/, 'Introductions'], [/^#\/e\/company/, 'Company profile'], [/^#\/jobs/, 'Open roles'],
@@ -3407,6 +3413,7 @@ APP.bindGlobal = function () {
     /* job search: selects apply immediately, like the talent search */
     if (t.form && t.form.dataset.form === 'job-filters' && t.tagName === 'SELECT') { APP._tfKeep = '#app [name="' + t.name + '"]'; APP.onSubmit(t.form); return; }
     if (t.form && t.form.dataset.form === 'job-q' && t.name === 'sort') { APP._tfKeep = '#app [name="sort"]'; APP.onSubmit(t.form); return; }
+    if (t.form && t.form.dataset.form === 'search-filters' && t.tagName === 'SELECT') { APP._tfKeep = '#app [name="' + t.name + '"]'; APP.onSubmit(t.form); return; }
     /* People search: a filter change searches right away (product → module cascade first) */
     if (t.form && t.form.dataset.form === 'people-filters' && t.tagName === 'SELECT') {
       if (t.name === 'product') { const ms = t.form.querySelector('[name="module"]'); const npx = CAT_INDEX.byId[t.value]; const keep = ms && npx && npx.modules.some(m => m.id === ms.value) ? ms.value : ''; if (ms) ms.innerHTML = APP.moduleOptions(t.value || null, keep); }
@@ -4205,6 +4212,17 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'search-reset': {
+      const sf = APP.state.searchF; if (sf) { sf.product = ''; sf.country = ''; sf.industry = ''; sf.roleType = ''; sf.show = 20; }
+      APP._formSyncSkip = ['search-filters']; APP.render();
+      break;
+    }
+
+    case 'search-more': {
+      if (APP.state.searchF) APP.state.searchF.show += 20; APP.renderKeep();
+      break;
+    }
+
     case 'people-reset': {
       APP.state.peopleFilters = APP.peopleFilterDefaults(); APP.state.peopleShow = 30;
       APP._formSyncSkip = ['people-filters']; APP.render();
@@ -4287,18 +4305,22 @@ APP.onSubmit = function (f) {
   const g = (n) => { const v = fd.get(n); return v == null ? '' : String(v).trim(); };
 
   switch (type) {
-    case 'nav-search': {
+    case 'nav-search':
+    case 'search-page': {
+      /* one search for everything: roles, people, companies and community */
       const q = g('q');
-      const target = f.dataset.target || '';
-      if (target.indexOf('jobs') >= 0) {
-        APP.state.jobFilters.q = q;
-        APP._formSyncSkip = ['job-q', 'job-filters'];
-        APP.go('#/c/jobs');
-      } else {
-        APP.state.talentFilters.q = q;
-        APP._formSyncSkip = ['talent-q', 'talent-search'];
-        APP.go('#/e/talent');
-      }
+      const sg = document.getElementById('sr-sug'); if (sg) sg.remove();
+      APP.state.navQ = q;
+      APP._formSyncSkip = ['nav-search', 'search-page'];
+      APP.go(APP.searchHref(q));
+      break;
+    }
+
+    case 'search-filters': {
+      const sf = APP.state.searchF || {};
+      ['product', 'country', 'industry', 'roleType'].forEach(n => { const el = f.querySelector('[name="' + n + '"]'); if (el) sf[n] = el.value; });
+      sf.show = 20;
+      if (APP._tfKeep) { const k = APP._tfKeep; APP._tfKeep = null; APP.renderKeep(k); } else APP.render();
       break;
     }
 

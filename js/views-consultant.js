@@ -262,8 +262,8 @@ APP.applyJobFilters = function (c, jobs) {
     const q = f.q.toLowerCase();
     out = out.filter(j => {
       const co = APP.coFor(APP.company(j.companyId), j);
-      const hay = (j.title + ' ' + (co ? co.name : '') + ' ' + (j.requires || []).map(r => APP.productShort(r.productId) + ' ' + APP.skillName(r.productId, r.moduleId)).join(' ') + ' ' + (j.city || '')).toLowerCase();
-      return hay.includes(q);
+      const hay = (j.title + ' ' + (j.external ? (j.extEmployer || '') : (co && !co._anon ? co.name : '')) + ' ' + (j.requires || []).map(r => APP.productShort(r.productId) + ' ' + APP.skillName(r.productId, r.moduleId)).join(' ') + ' ' + (j.city || '') + ' ' + (APP.countryName ? APP.countryName(j.country) : '')).toLowerCase();
+      return q.split(/\s+/).filter(Boolean).every(w => hay.includes(w)); /* every word, in any order; imported roles match their employer's name */
     });
   }
   if (f.sort === 'newest') out = out.slice().sort((a, b) => b.postedTs - a.postedTs);
