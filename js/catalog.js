@@ -6,6 +6,8 @@
 
    v15: replaced with the client's product & module taxonomy
    (11 products / 98 modules). Names are exactly as supplied.
+   v20: +EHS, FSCM, GTS, Grants, PI/PO on S/4 Private, Event Mesh, MDG,
+   Data Migration, Archiving & ILM; Treasury renamed (id kept) - 116 modules.
    `short` is the compact product label used inside chips; `name` is the full
    label shown in dropdowns. Module ids are stable; saved data from the previous
    hierarchy is mapped across by APP.migrateCatalog() in core.js.
@@ -33,13 +35,18 @@ window.CATALOG = {
         { id: 'ps', name: 'PS (Project System)' },
         { id: 'ewm', name: 'EWM (Extended Warehouse Management)' },
         { id: 'tm', name: 'TM (Transportation Management)' },
-        { id: 'trm', name: 'TRM (Treasury & Risk Management)' },
+        { id: 'trm', name: 'Treasury & Bank Communication (TRM / BCM / Cash)' },
+        { id: 'fscm', name: 'FSCM (Credit, Collections & Dispute Management)' },
+        { id: 'ehs', name: 'EHS (Environment, Health & Safety)' },
+        { id: 'gts', name: 'GTS (Global Trade Services)' },
+        { id: 'grants', name: 'Grants Management' },
         { id: 'abap', name: 'ABAP / ABAP Cloud' },
         { id: 'fiorui5', name: 'Fiori / UI5 Development' },
         { id: 'basis', name: 'BASIS & System Administration' },
         { id: 'hanadba', name: 'HANA Database Administration' },
         { id: 'securitygrc', name: 'Security & GRC' },
-        { id: 'solman', name: 'Solution Manager / Cloud ALM' }
+        { id: 'solman', name: 'Solution Manager / Cloud ALM' },
+        { id: 'po', name: 'PO / PI (Process Orchestration / Integration)' }
       ]
     },
     {
@@ -58,7 +65,11 @@ window.CATALOG = {
         { id: 'hcmpay', name: 'HCM Payroll' },
         { id: 'ewm', name: 'EWM (Extended Warehouse Management)' },
         { id: 'tm', name: 'TM (Transportation Management)' },
-        { id: 'trm', name: 'TRM (Treasury & Risk Management)' },
+        { id: 'trm', name: 'Treasury & Bank Communication (TRM / BCM / Cash)' },
+        { id: 'fscm', name: 'FSCM (Credit, Collections & Dispute Management)' },
+        { id: 'ehs', name: 'EHS (Environment, Health & Safety)' },
+        { id: 'gts', name: 'GTS (Global Trade Services)' },
+        { id: 'grants', name: 'Grants Management' },
         { id: 'abap', name: 'ABAP' },
         { id: 'basis', name: 'BASIS' },
         { id: 'securitygrc', name: 'Security & GRC' },
@@ -79,7 +90,9 @@ window.CATALOG = {
         { id: 'cs', name: 'Service' },
         { id: 'ps', name: 'EPPM / Project Systems (PS)' },
         { id: 'cbc', name: 'CBC (Central Business Configuration)' },
-        { id: 'trm', name: 'Treasury (TRM)' }
+        { id: 'trm', name: 'Treasury & Bank Communication (TRM / BCM / Cash)' },
+        { id: 'fscm', name: 'FSCM (Credit, Collections & Dispute Management)' },
+        { id: 'ehs', name: 'EHS (Environment, Health & Safety)' }
       ]
     },
     {
@@ -116,7 +129,8 @@ window.CATALOG = {
         { id: 'cap', name: 'CAP (Cloud Application Programming Model)' },
         { id: 'abapcloud', name: 'ABAP Cloud' },
         { id: 'btpadmin', name: 'BTP Administration (Subaccounts, Connectivity, Cloud Connector)' },
-        { id: 'identity', name: 'Cloud Identity Services (IAS / IPS)' }
+        { id: 'identity', name: 'Cloud Identity Services (IAS / IPS)' },
+        { id: 'eventmesh', name: 'Event Mesh (Advanced Event Mesh)' }
       ]
     },
     {
@@ -126,7 +140,10 @@ window.CATALOG = {
         { id: 'planning', name: 'SAP Analytics Cloud (SAC) - Planning (FP&A)' },
         { id: 'datasphere', name: 'SAP Datasphere' },
         { id: 'bw', name: 'SAP BW / BW/4HANA' },
-        { id: 'bods', name: 'SAP BODS (Data Services / ETL)' }
+        { id: 'bods', name: 'SAP BODS (Data Services / ETL)' },
+        { id: 'mdg', name: 'MDG (Master Data Governance)' },
+        { id: 'datamigration', name: 'Data Migration & Transformation (Migration Cockpit, SLT, TDMS, LSMW)' },
+        { id: 'archiving', name: 'Data Archiving & ILM' }
       ]
     },
     {

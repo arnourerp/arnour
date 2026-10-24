@@ -1246,9 +1246,9 @@ APP.XFER = {
   s4public: { ecc: 0.65, s4onprem: 0.80, s4public: 1 }
 };
 APP.MODULE_FAMILY = {
-  fi: 'fin', co: 'fin', cfin: 'fin', groupreporting: 'fin', trm: 'fin', fico: 'fin',
-  sd: 'log', mm: 'log', pp: 'log', qm: 'log', pm: 'log', ewm: 'log', tm: 'log', cs: 'log', ps: 'log', scm: 'log', cbc: 'log',
-  abap: 'tech', fiorui5: 'tech', basis: 'tech', hanadba: 'tech', securitygrc: 'tech', solman: 'tech'
+  fi: 'fin', co: 'fin', cfin: 'fin', groupreporting: 'fin', trm: 'fin', fico: 'fin', fscm: 'fin', grants: 'fin',
+  sd: 'log', mm: 'log', pp: 'log', qm: 'log', pm: 'log', ewm: 'log', tm: 'log', cs: 'log', ps: 'log', scm: 'log', cbc: 'log', ehs: 'log', gts: 'log',
+  abap: 'tech', fiorui5: 'tech', basis: 'tech', hanadba: 'tech', securitygrc: 'tech', solman: 'tech', po: 'tech'
 };
 /* strict: skills read module by module (wrong module = 0).  floor: credit for a module held with 0 projects when the job asks for a minimum.
    slope: how steeply credit falls when years are below the minimum.  swing: the most context can move the score.
