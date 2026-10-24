@@ -6,6 +6,8 @@
 
    v15: replaced with the client's product & module taxonomy
    (11 products / 98 modules). Names are exactly as supplied.
+   v21: 15 products / 147 modules (+AI, Qualtrics, Supply Chain Cloud, Business Network;
+   Fiori id fiorui5 -> fioriui5; IBP moved to scmcloud). Old ids are mapped by APP.catalogMigrate.
    v20: +EHS, FSCM, GTS, Grants, PI/PO on S/4 Private, Event Mesh, MDG,
    Data Migration, Archiving & ILM; Treasury renamed (id kept) - 116 modules.
    `short` is the compact product label used inside chips; `name` is the full
@@ -32,7 +34,7 @@ window.CATALOG = {
         { id: 'pp', name: 'PP (Production Planning)' },
         { id: 'qm', name: 'QM (Quality Management)' },
         { id: 'pm', name: 'PM / EAM (Plant Maintenance / Asset Management)' },
-        { id: 'ps', name: 'PS (Project System)' },
+        { id: 'ps', name: 'EPPM / PS (Project System)' },
         { id: 'ewm', name: 'EWM (Extended Warehouse Management)' },
         { id: 'tm', name: 'TM (Transportation Management)' },
         { id: 'trm', name: 'Treasury & Bank Communication (TRM / BCM / Cash)' },
@@ -41,12 +43,13 @@ window.CATALOG = {
         { id: 'gts', name: 'GTS (Global Trade Services)' },
         { id: 'grants', name: 'Grants Management' },
         { id: 'abap', name: 'ABAP / ABAP Cloud' },
-        { id: 'fiorui5', name: 'Fiori / UI5 Development' },
+        { id: 'fioriui5', name: 'Fiori / UI5 Development' },
         { id: 'basis', name: 'BASIS & System Administration' },
         { id: 'hanadba', name: 'HANA Database Administration' },
         { id: 'securitygrc', name: 'Security & GRC' },
         { id: 'solman', name: 'Solution Manager / Cloud ALM' },
-        { id: 'po', name: 'PO / PI (Process Orchestration / Integration)' }
+        { id: 'po', name: 'PO / PI (Process Orchestration / Integration)' },
+        { id: 'hcm', name: 'HCM on S/4HANA (Human Resources – private cloud)' }
       ]
     },
     {
@@ -92,7 +95,9 @@ window.CATALOG = {
         { id: 'cbc', name: 'CBC (Central Business Configuration)' },
         { id: 'trm', name: 'Treasury & Bank Communication (TRM / BCM / Cash)' },
         { id: 'fscm', name: 'FSCM (Credit, Collections & Dispute Management)' },
-        { id: 'ehs', name: 'EHS (Environment, Health & Safety)' }
+        { id: 'ehs', name: 'EHS (Environment, Health & Safety)' },
+        { id: 'cfin', name: 'Central Finance (cFin)' },
+        { id: 'groupreporting', name: 'Group Reporting (Consolidation)' }
       ]
     },
     {
@@ -105,7 +110,9 @@ window.CATALOG = {
         { id: 'perfgoals', name: 'Performance & Goals (PMGM)' },
         { id: 'learning', name: 'Learning (LMS)' },
         { id: 'compensation', name: 'Compensation (COMP)' },
-        { id: 'succession', name: 'Succession & Development (CDP)' }
+        { id: 'succession', name: 'Succession & Development (CDP)' },
+        { id: 'wfm', name: 'Workforce Management – Time, Attendance & Scheduling (WFM)' },
+        { id: 'wfa', name: 'Workforce Analytics & Planning (WFA)' }
       ]
     },
     {
@@ -115,8 +122,9 @@ window.CATALOG = {
         { id: 'contracts', name: 'Ariba Contracts' },
         { id: 'slp', name: 'Ariba SLP (Supplier Lifecycle & Performance)' },
         { id: 'buying', name: 'Ariba Buying & Invoicing' },
-        { id: 'commerceautomation', name: 'Commerce Automation / Ariba Network' },
-        { id: 'cig', name: 'Ariba CIG / Integration Suite' }
+        { id: 'commerceautomation', name: 'Commerce Automation' },
+        { id: 'cig', name: 'Ariba CIG / Integration Suite' },
+        { id: 'taulia', name: 'SAP Taulia (Supply Chain Finance / Dynamic Discounting)' }
       ]
     },
     {
@@ -130,7 +138,10 @@ window.CATALOG = {
         { id: 'abapcloud', name: 'ABAP Cloud' },
         { id: 'btpadmin', name: 'BTP Administration (Subaccounts, Connectivity, Cloud Connector)' },
         { id: 'identity', name: 'Cloud Identity Services (IAS / IPS)' },
-        { id: 'eventmesh', name: 'Event Mesh (Advanced Event Mesh)' }
+        { id: 'eventmesh', name: 'Event Mesh (Advanced Event Mesh)' },
+        { id: 'hanacloud', name: 'SAP HANA Cloud (Managed Cloud Database)' },
+        { id: 'workzone', name: 'SAP Work Zone (Digital Workplace / Employee Portal)' },
+        { id: 'drc', name: 'SAP Document & Reporting Compliance – Cloud (DRC / e-Invoicing)' }
       ]
     },
     {
@@ -151,11 +162,14 @@ window.CATALOG = {
       modules: [
         { id: 'commercecloud', name: 'Commerce Cloud (Hybris)' },
         { id: 'salescloud', name: 'Sales Cloud (C4C)' },
-        { id: 'servicecloud', name: 'Service Cloud (C4C / FSM)' },
+        { id: 'servicecloud', name: 'Service Cloud (C4C)' },
         { id: 'marketingcloud', name: 'Customer Data Platform (CDP) / Marketing Cloud' },
         { id: 'crmsales', name: 'CRM Sales (Classic & S/4HANA)' },
         { id: 'crmservice', name: 'CRM Service (Classic & S/4HANA)' },
-        { id: 'crmmarketing', name: 'CRM Marketing (Classic & S/4HANA)' }
+        { id: 'crmmarketing', name: 'CRM Marketing (Classic & S/4HANA)' },
+        { id: 'emarsys', name: 'SAP Emarsys / Engagement Cloud (Marketing Automation & Omnichannel)' },
+        { id: 'cpq', name: 'SAP CPQ (Configure, Price, Quote)' },
+        { id: 'fsm', name: 'SAP Field Service & Asset Management (FSM – standalone)' }
       ]
     },
     {
@@ -178,16 +192,55 @@ window.CATALOG = {
         { id: 'isautomotive', name: 'IS-Automotive (DBM / VMS / Proaxia)' },
         { id: 'isbanking', name: 'IS-Banking & Financial Services (FS-CD / Loans)' },
         { id: 'ishealthcare', name: 'IS-Healthcare (IS-H)' },
-        { id: 'ismills', name: 'IS-Mill Products & Mining' }
+        { id: 'ismills', name: 'IS-Mill Products & Mining' },
+        { id: 'iseco', name: 'IS-Engineering, Construction & Operations (EC&O)' },
+        { id: 'islifesciences', name: 'IS-Life Sciences & Pharmaceuticals (GxP / Serialization)' }
       ]
     },
     {
       id: 'specialized', name: 'Specialized Cloud & SaaS Solutions', short: 'Specialized Cloud & SaaS',
       modules: [
-        { id: 'ibp', name: 'SAP IBP (Integrated Business Planning - Demand, S&OP, Inventory)' },
         { id: 'concur', name: 'SAP Concur (Travel, Expense & Invoice)' },
         { id: 'fieldglass', name: 'SAP Fieldglass (Vendor Management / External Workforce)' },
-        { id: 'signavio', name: 'SAP Signavio (Process Insights, Modeling & Mining)' }
+        { id: 'signavio', name: 'SAP Signavio (Process Insights, Modeling & Mining)' },
+        { id: 'leanix', name: 'SAP LeanIX (Enterprise Architecture Management)' }
+      ]
+    },
+    {
+      id: 'ai', name: 'AI & Intelligent Technologies', short: 'AI & Intelligent Tech',
+      modules: [
+        { id: 'aicore', name: 'SAP AI Core (ML Lifecycle Management & Model Deployment)' },
+        { id: 'ailaunchpad', name: 'SAP AI Launchpad / Generative AI Hub (Prompt Engineering & LLM Orchestration)' },
+        { id: 'joule', name: 'SAP Joule (AI Copilot – Configuration, Activation & Skills)' },
+        { id: 'bdc', name: 'SAP Business Data Cloud (BDC – Unified Data + AI Platform)' },
+        { id: 'dox', name: 'SAP Document Information Extraction (DOX – AI Document Processing)' }
+      ]
+    },
+    {
+      id: 'qualtrics', name: 'SAP Qualtrics (Experience Management)', short: 'Qualtrics',
+      modules: [
+        { id: 'qualtrics-cx', name: 'Customer Experience Management (XM – CX / NPS / CES)' },
+        { id: 'qualtrics-ex', name: 'Employee Experience Management (XM – EX / Engagement)' },
+        { id: 'qualtrics-bx', name: 'Brand & Market Research (XM – BX / Research)' },
+        { id: 'qualtrics-admin', name: 'Qualtrics Platform Administration & CoreXM' }
+      ]
+    },
+    {
+      id: 'scmcloud', name: 'SAP Supply Chain Cloud (Standalone)', short: 'Supply Chain Cloud',
+      modules: [
+        { id: 'ibp', name: 'SAP IBP (Integrated Business Planning - Demand, S&OP, Inventory)' },
+        { id: 'dmc', name: 'SAP Digital Manufacturing (DMC – Manufacturing Execution)' },
+        { id: 'apm', name: 'SAP Asset Performance Management (APM / Intelligent Asset Management)' },
+        { id: 'oms', name: 'SAP Order Management Services (OMS – Order Orchestration)' },
+        { id: 'sustainability', name: 'SAP Sustainability Cloud (Green Ledger, Sustainability Control Tower)' }
+      ]
+    },
+    {
+      id: 'biznetwork', name: 'SAP Business Network', short: 'Business Network',
+      modules: [
+        { id: 'bn-procurement', name: 'SAP Business Network for Procurement (Supplier / Buyer Collaboration)' },
+        { id: 'bn-supplychain', name: 'SAP Business Network for Supply Chain (Trading Partner Collaboration)' },
+        { id: 'bn-assets', name: 'SAP Business Network for Asset Management' }
       ]
     }
   ]

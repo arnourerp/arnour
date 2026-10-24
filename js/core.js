@@ -49,7 +49,7 @@ APP.genderLabel = (g) => (APP.genders.find(x => x[0] === g) || [0, ''])[1];
 APP.availability = ['Immediate', 'Within 15 days', 'Within 30 days', 'Within 60 days', 'Within 90 days'];
 APP.workPrefs = ['Remote', 'Part-time', 'Hybrid'];
 
-/* Curated SAP specialty hierarchy — 4 practice areas, 36 specialties (consultant step 4, profile, job "preferred specialties", talent search). Groups with an empty name render without a heading. */
+/* Curated SAP specialty hierarchy — 5 practice areas, 40 specialties (consultant step 4, profile, job "preferred specialties", talent search). Groups with an empty name render without a heading. */
 APP.specialties = [
   { id: 'strategic', name: 'Strategic Advisory & Architecture', groups: [
     { name: 'Cloud Transformation Programs', items: [
@@ -118,6 +118,16 @@ APP.specialties = [
       { id: 'training', name: 'User Enablement & Training', short: 'Training & Enablement' },
       { id: 'process-doc', name: 'Process Documentation', short: 'Process Docs' }
     ] }
+  ] },
+  { id: 'ai', name: 'AI & Intelligent Technologies', groups: [
+    { name: 'AI Strategy & Architecture', items: [
+      { id: 'ai-strategy', name: 'Business AI Strategy & Roadmap', short: 'Business AI Strategy' },
+      { id: 'joule-config', name: 'Joule Configuration & Activation', short: 'Joule Config' }
+    ] },
+    { name: 'AI Development', items: [
+      { id: 'genai-dev', name: 'Generative AI Development (AI Core / GenAI Hub / ABAP AI SDK)', short: 'GenAI Development' },
+      { id: 'agentic-ai', name: 'Agentic AI & MCP (Multi-Agent Systems / AI Agents)', short: 'Agentic AI' }
+    ] }
   ] }
 ];
 /* Ids from the previous hierarchy → the new one (applied to saved data on load so nothing is lost) */
@@ -143,7 +153,9 @@ APP.catalogMigrate = [
   ['ecc', 'isoilgas', 'industry', 'isoilgas'], ['ecc', 'isretail', 'industry', 'isretail'], ['ecc', 'isrealestate', 'industry', 'isrealestate'],
   ['ecc', 'isautomotive-proaxia', 'industry', 'isautomotive'], ['ecc', 'isautomotive-dbm', 'industry', 'isautomotive'],
   ['sac', 'bistories', 'data', 'bistories'], ['sac', 'planning', 'data', 'planning'], ['sac', 'datasphere', 'data', 'datasphere'],
-  ['sac', 'designer', 'data', 'bistories']
+  ['sac', 'designer', 'data', 'bistories'],
+  /* v21 */
+  ['s4onprem', 'fiorui5', 's4onprem', 'fioriui5'], ['specialized', 'ibp', 'scmcloud', 'ibp']
 ];
 APP.migrateCatalog = function (db) {
   const map = (p, m) => {
@@ -285,10 +297,10 @@ APP.normalizeLandscape = function (skills) {
 };
 APP.ROLE_SPECIALTIES = {
   functional: ['fit-standard', 'process-mining', 'greenfield', 'brownfield', 'activate', 'data-migration', 'mdg', 'cutover', 'localization', 'testing', 'hypercare', 'training'],
-  technical:  ['clean-core', 'extensibility', 'integration-arch', 'greenfield', 'brownfield', 'data-migration', 'btp', 'build', 'testing', 'hypercare', 'perf'],
-  basis:      ['rise', 's4cloud-arch', 'clean-core', 'brownfield', 'sdt', 'cutover', 'hadr', 'btp', 'alm', 'security', 'hypercare', 'perf'],
-  architect:  ['presales', 'value-discovery', 'rise', 'grow', 's4cloud-arch', 'clean-core', 'integration-arch', 'fit-standard', 'process-mining', 'greenfield', 'brownfield', 'sdt', 'btp'],
-  delivery:   ['rise', 'grow', 'greenfield', 'brownfield', 'sdt', 'activate', 'pmo', 'release', 'cutover', 'alm', 'hypercare', 'ocm'],
+  technical:  ['clean-core', 'extensibility', 'integration-arch', 'greenfield', 'brownfield', 'data-migration', 'btp', 'build', 'testing', 'hypercare', 'perf', 'joule-config', 'genai-dev', 'agentic-ai'],
+  basis:      ['rise', 's4cloud-arch', 'clean-core', 'brownfield', 'sdt', 'cutover', 'hadr', 'btp', 'alm', 'security', 'hypercare', 'perf', 'joule-config'],
+  architect:  ['presales', 'value-discovery', 'rise', 'grow', 's4cloud-arch', 'clean-core', 'integration-arch', 'fit-standard', 'process-mining', 'greenfield', 'brownfield', 'sdt', 'btp', 'ai-strategy', 'joule-config', 'genai-dev', 'agentic-ai'],
+  delivery:   ['rise', 'grow', 'greenfield', 'brownfield', 'sdt', 'activate', 'pmo', 'release', 'cutover', 'alm', 'hypercare', 'ocm', 'ai-strategy'],
   support:    ['sla', 'upgrades', 'testing', 'alm', 'security', 'hypercare', 'ams', 'perf'],
   keyuser:    ['fit-standard', 'process-mining', 'activate', 'data-cleansing', 'mdg', 'build', 'uat', 'hypercare', 'ocm', 'training'],
   junior:     ['activate', 'data-migration', 'testing', 'process-doc', 'hypercare', 'training']
@@ -1248,7 +1260,7 @@ APP.XFER = {
 APP.MODULE_FAMILY = {
   fi: 'fin', co: 'fin', cfin: 'fin', groupreporting: 'fin', trm: 'fin', fico: 'fin', fscm: 'fin', grants: 'fin',
   sd: 'log', mm: 'log', pp: 'log', qm: 'log', pm: 'log', ewm: 'log', tm: 'log', cs: 'log', ps: 'log', scm: 'log', cbc: 'log', ehs: 'log', gts: 'log',
-  abap: 'tech', fiorui5: 'tech', basis: 'tech', hanadba: 'tech', securitygrc: 'tech', solman: 'tech', po: 'tech'
+  abap: 'tech', fiorui5: 'tech', basis: 'tech', hanadba: 'tech', securitygrc: 'tech', solman: 'tech', po: 'tech', bobods: 'tech', fioriui5: 'tech'
 };
 /* strict: skills read module by module (wrong module = 0).  floor: credit for a module held with 0 projects when the job asks for a minimum.
    slope: how steeply credit falls when years are below the minimum.  swing: the most context can move the score.

@@ -10,8 +10,8 @@ const ev=(f,a)=>p.evaluate(f,a);
 // every id in every role list exists in the catalogue; sizes as agreed
 const cat=await ev(()=>{ const bad=[]; const sz={}; for(const [rt,l] of Object.entries(APP.ROLE_SPECIALTIES)){ sz[rt]=l.length; l.forEach(id=>{ if(!APP.SPECIAL_IDX[id]) bad.push(rt+':'+id); }); } return {bad,sz,total:Object.keys(APP.SPECIAL_IDX).length,roles:APP.roleTypes.map(r=>r.id)}; });
 t('every role specialty exists in the catalogue',cat.bad.length===0,cat.bad);
-t('36 specialties in the catalogue',cat.total===36,cat.total);
-t('sizes: F12 T11 B12 A13 D12 S8 K10 J6',JSON.stringify(cat.sz)===JSON.stringify({functional:12,technical:11,basis:12,architect:13,delivery:12,support:8,keyuser:10,junior:6}),cat.sz);
+t('40 specialties in the catalogue',cat.total===40,cat.total);
+t('sizes: F12 T14 B13 A17 D13 S8 K10 J6',JSON.stringify(cat.sz)===JSON.stringify({functional:12,technical:14,basis:13,architect:17,delivery:13,support:8,keyuser:10,junior:6}),cat.sz);
 t('Basis role renamed',await ev(()=>APP.roleTypeLabel('basis')==='Basis, Cloud & Security'));
 // wizard: single role, note shown, one role only
 await ev(()=>{ APP.wizC=null; location.hash='#/onboard'; }); await p.waitForTimeout(400);
@@ -50,7 +50,7 @@ for(const rt of Object.keys(modes)){
     if(rt==='functional'){
       await p.click('[data-action=mod-toggle][data-mid=qm]'); await p.waitForTimeout(120);
       t('projects rows use full module names, 1 project by default',await ev(()=>{const n=Array.from(document.querySelectorAll('.mod-line .ml-n')).map(x=>x.textContent); const v=Array.from(document.querySelectorAll('.mod-line input[data-skill-field=projects]')).map(x=>x.value); return n.join()==='Project System,Quality Management'&&v.join()==='1,1';}),await ev(()=>Array.from(document.querySelectorAll('.mod-line .ml-n')).map(x=>x.textContent)));
-      t('module chips stay short (PS / QM)',await ev(()=>Array.from(document.querySelectorAll('.mod-chips .mchip.on')).map(x=>x.textContent.trim()).sort().join()==='PS,QM'));
+      t('module chips stay short (EPPM / PS, QM)',await ev(()=>Array.from(document.querySelectorAll('.mod-chips .mchip.on')).map(x=>x.textContent.trim()).sort().join()==='EPPM / PS,QM'));
       t('certification is a separate block, no checkbox beside projects',await ev(()=>!!document.querySelector('.cert-box')&&!document.querySelector('.mod-line input[type=checkbox]')&&document.querySelectorAll('.cert-box .cert-chip').length===2));
       await p.click('.cert-chip[data-mid=qm]'); await p.waitForTimeout(120);
       t('tapping a cert chip certifies only that module',await ev(()=>{const s=APP.wizC.data.skills; return s.find(x=>x.moduleId==='qm').certified===true&&s.find(x=>x.moduleId==='ps').certified===false;}));
