@@ -93,7 +93,7 @@
   }
 
   /* ---------- views ---------- */
-  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
+  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['catalog', 'Catalog'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
 
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0;
@@ -337,15 +337,171 @@
       }).join('') + '</div>' : '<div class="empty">No actions yet.</div>');
   }
 
+
+  /* ---------- catalog: products, modules, practice areas, specialties ---------- */
+  var CORE_P = { s4onprem: 1, ecc: 1, s4public: 1 };
+  var FAM_LABEL = { fin: 'Finance', log: 'Logistics & operations', tech: 'Technical' };
+  var ROLE_LABEL = { functional: 'Functional', technical: 'Technical', basis: 'Basis', architect: 'Architect', delivery: 'Delivery Manager', support: 'Support', keyuser: 'Key User', junior: 'Junior' };
+  A.cat = { sub: 'skills', openP: {}, openA: {}, ed: null, merge: null, busy: false };
+  function pl(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function useTxt(u, withPosts) {
+    if (!u) return '<span class="muted small">Not used</span>';
+    var b = [];
+    if (u.pros) b.push(pl(u.pros, 'professional'));
+    if (u.roles) b.push(pl(u.roles, 'role'));
+    if (withPosts && u.posts) b.push(pl(u.posts, 'post'));
+    return b.length ? '<span class="small">Used by ' + b.join(' · ') + '</span>' : '<span class="muted small">Not used</span>';
+  }
+  function cb(a, label, d, cls) {
+    var at = ''; Object.keys(d || {}).forEach(function (k) { at += ' data-' + k + '="' + h(d[k]) + '"'; });
+    return '<button type="button" class="btn ' + (cls || 'btn-outline') + ' btn-sm" data-action="' + a + '"' + at + '>' + label + '</button>';
+  }
+  function arrows(kind, d) {
+    return cb('adm-cat-move', '↑', Object.assign({ kind: kind, dir: '-1' }, d), 'btn-ghost') + cb('adm-cat-move', '↓', Object.assign({ kind: kind, dir: '1' }, d), 'btn-ghost');
+  }
+  function findProduct(C, id) { return (C.products || []).filter(function (p) { return p.id === id; })[0]; }
+  function findModule(C, pid, mid) { var p = findProduct(C, pid); return p && (p.modules || []).filter(function (m) { return m.id === mid; })[0]; }
+  function allSpecs(C) { var out = []; (C.areas || []).forEach(function (a) { (a.groups || []).forEach(function (g) { (g.items || []).forEach(function (it) { out.push(Object.assign({ area: a.id, areaName: a.name, grp: g.name }, it)); }); }); }); return out; }
+  function catSave(op, args, ok) {
+    if (A.cat.busy) return Promise.resolve();
+    A.cat.busy = true;
+    return B.rpc('admin_catalog_save', { p_op: op, p_args: args }).then(function (r) {
+      A.cat.busy = false;
+      if (r && r.catalog) { A.data.catalog = r.catalog; try { APP.applyCatalog(r.catalog); } catch (e) { /* ignore */ } }
+      delete A.data.catusage; delete A.data.catlog; reload('log');
+      A.cat.ed = null; A.cat.merge = null;
+      if (ok) APP.toast(typeof ok === 'function' ? ok(r) : ok);
+      APP.render();
+    }, function (e) { A.cat.busy = false; APP.toast(String((e && e.message) || 'Could not save').replace(/^.*?(Please|That|The|Unknown|Choose|Merges|Nothing)/, '$1')); APP.render(); });
+  }
+
+  function edForm(C) {
+    var ed = A.cat.ed; if (!ed) return '';
+    var v = ed.vals, k = ed.kind, title, fields = '';
+    var nm = '<label class="field"><span class="label">Name</span><input class="input" name="name" maxlength="120" value="' + h(v.name) + '" autocomplete="off"></label>';
+    var sh = '<label class="field"><span class="label">Short label <span class="muted">(shown in chips)</span></span><input class="input" name="short" maxlength="60" value="' + h(v.short) + '" autocomplete="off"></label>';
+    var hid = '<label class="check-row"><input type="checkbox" name="hidden"' + (v.hidden ? ' checked' : '') + '> <span>Hidden <span class="muted small">— not offered in new choices; anyone who already has it keeps it</span></span></label>';
+    if (k === 'product') { title = ed.id ? 'Edit product' : 'New product'; fields = nm + sh + hid; }
+    else if (k === 'module') {
+      var pr = findProduct(C, ed.product_id);
+      title = (ed.id ? 'Edit module' : 'New module') + ' · ' + h(pr ? pr.name : '');
+      fields = nm + (CORE_P[ed.product_id] ? '<label class="field"><span class="label">Match family <span class="muted">(a different module in the same family still earns partial credit for ERP skills)</span></span><select class="input" name="family">' +
+        [['', 'None'], ['fin', 'Finance'], ['log', 'Logistics & operations'], ['tech', 'Technical']].map(function (o) { return '<option value="' + o[0] + '"' + (v.family === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' : '') + hid;
+    } else if (k === 'area') { title = ed.id ? 'Edit practice area' : 'New practice area'; fields = nm + hid; }
+    else {
+      title = ed.id ? 'Edit specialty' : 'New specialty';
+      var groups = {}; (C.areas || []).forEach(function (a) { if (a.id === v.area_id) (a.groups || []).forEach(function (g) { if (g.name) groups[g.name] = 1; }); });
+      fields = nm + sh +
+        '<label class="field"><span class="label">Practice area</span><select class="input" name="area_id">' + (C.areas || []).map(function (a) { return '<option value="' + h(a.id) + '"' + (a.id === v.area_id ? ' selected' : '') + '>' + h(a.name) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="field"><span class="label">Group <span class="muted">(optional — pick one or type a new one)</span></span><input class="input" name="grp" list="cat-groups" maxlength="80" value="' + h(v.grp) + '" autocomplete="off"><datalist id="cat-groups">' + Object.keys(groups).map(function (g) { return '<option value="' + h(g) + '"></option>'; }).join('') + '</datalist></label>' +
+        '<div class="field"><span class="label">Suggested first for these role types</span><div class="adm-row" style="gap:4px 18px">' + Object.keys(ROLE_LABEL).map(function (r) {
+          return '<label class="check-row" style="margin:4px 0"><input type="checkbox" name="role" value="' + r + '"' + (v.roles.indexOf(r) !== -1 ? ' checked' : '') + '> <span>' + ROLE_LABEL[r] + '</span></label>'; }).join('') + '</div></div>' + hid;
+    }
+    return '<form class="adm-card" data-form="adm-cat-ed"><h2 style="margin-top:0">' + title + '</h2>' + fields +
+      (ed.id ? '<p class="muted small">Id: <code>' + h(ed.id) + '</code> — ids never change, so existing profiles and roles keep working.</p>' : '<p class="muted small">The id is made from the name and then stays fixed.</p>') +
+      '<div class="adm-actions"><button class="btn btn-primary btn-sm" type="submit"' + (A.cat.busy ? ' disabled' : '') + '>Save</button>' + cb('adm-cat-cancel', 'Cancel', {}, 'btn-ghost') + '</div></form>';
+  }
+
+  function mergeForm(C, U) {
+    var m = A.cat.merge; if (!m) return '';
+    if (m.kind === 'module') {
+      var from = findModule(C, m.fp, m.fm), fp = findProduct(C, m.fp), use = (U.mods || {})[m.fp + ':' + m.fm];
+      var tp = m.tp || m.fp, tprod = findProduct(C, tp);
+      var opts = (tprod ? tprod.modules : []).filter(function (x) { return !x.hidden && !(tp === m.fp && x.id === m.fm); });
+      return '<form class="adm-card sus" data-form="adm-cat-merge"><h2 style="margin-top:0">Merge “' + h(from ? from.name : m.fm) + '” into another module</h2>' +
+        '<p>Everyone who has it — ' + (use ? pl(use.pros || 0, 'professional') + ', ' + pl(use.roles || 0, 'role') + (use.posts ? ', ' + pl(use.posts, 'post') : '') : 'nobody right now') + ' — will move to the module you pick. Where someone already has both, the higher project count is kept. The old one is hidden. <strong>This cannot be undone.</strong></p>' +
+        '<div class="adm-row"><label class="field" style="flex:1"><span class="label">Product</span><select class="input" name="tp" data-cat-tp>' + (C.products || []).filter(function (p) { return !p.hidden; }).map(function (p) { return '<option value="' + h(p.id) + '"' + (p.id === tp ? ' selected' : '') + '>' + h(p.name) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="field" style="flex:1"><span class="label">Module</span><select class="input" name="tm"><option value="">Choose…</option>' + opts.map(function (x) { return '<option value="' + h(x.id) + '"' + (m.tm === x.id ? ' selected' : '') + '>' + h(x.name) + '</option>'; }).join('') + '</select></label></div>' +
+        '<label class="field"><span class="label">Type MERGE to confirm</span><input class="input" name="confirm" placeholder="MERGE" autocomplete="off"></label>' +
+        '<div class="adm-actions"><button class="btn btn-danger btn-sm" type="submit"' + (A.cat.busy ? ' disabled' : '') + '>Merge</button>' + cb('adm-cat-cancel', 'Cancel', {}, 'btn-ghost') + '</div></form>';
+    }
+    var f0 = allSpecs(C).filter(function (x) { return x.id === m.from; })[0], use2 = (U.specs || {})[m.from];
+    return '<form class="adm-card sus" data-form="adm-cat-merge"><h2 style="margin-top:0">Merge “' + h(f0 ? f0.name : m.from) + '” into another specialty</h2>' +
+      '<p>Everyone who has it — ' + (use2 ? pl(use2.pros || 0, 'professional') + ', ' + pl(use2.roles || 0, 'role') : 'nobody right now') + ' — will move to the specialty you pick. The old one is hidden. <strong>This cannot be undone.</strong></p>' +
+      '<label class="field"><span class="label">Merge into</span><select class="input" name="to"><option value="">Choose…</option>' + allSpecs(C).filter(function (x) { return !x.hidden && x.id !== m.from; }).map(function (x) { return '<option value="' + h(x.id) + '"' + (m.to === x.id ? ' selected' : '') + '>' + h(x.areaName + ' · ' + x.name) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field"><span class="label">Type MERGE to confirm</span><input class="input" name="confirm" placeholder="MERGE" autocomplete="off"></label>' +
+      '<div class="adm-actions"><button class="btn btn-danger btn-sm" type="submit"' + (A.cat.busy ? ' disabled' : '') + '>Merge</button>' + cb('adm-cat-cancel', 'Cancel', {}, 'btn-ghost') + '</div></form>';
+  }
+
+  function vCatalogSkills(C, U) {
+    var q = (A.q.catalog || '').toLowerCase();
+    return '<div class="adm-actions" style="margin-top:0">' + cb('adm-cat-add', 'Add product', { kind: 'product' }, 'btn-primary') + '</div>' + searchBar('catalog', 'Find a product or module…') +
+      (C.products || []).map(function (p, pi) {
+        var mods = (p.modules || []).filter(function (m) { return !q || (m.name + ' ' + m.id).toLowerCase().indexOf(q) !== -1 || (p.name.toLowerCase().indexOf(q) !== -1); });
+        if (q && !mods.length && p.name.toLowerCase().indexOf(q) === -1) return '';
+        var open = A.cat.openP[p.id] || !!q;
+        var vis = (p.modules || []).filter(function (m) { return !m.hidden; }).length;
+        return '<article class="adm-card' + (p.hidden ? ' cat-dim' : '') + '"><div class="adm-row"><strong>' + h(p.name) + '</strong> <code class="muted small">' + h(p.id) + '</code>' +
+          (p.hidden ? ' <span class="pill muted-pill">Hidden</span>' : '') + ' <span class="muted small">' + vis + ' module' + (vis === 1 ? '' : 's') + (vis !== (p.modules || []).length ? ' (+' + ((p.modules || []).length - vis) + ' hidden)' : '') + '</span> ' + useTxt((U.prods || {})[p.id]) + '</div>' +
+          '<div class="adm-actions">' + cb('adm-cat-toggle', open ? 'Hide modules' : 'Show modules', { id: p.id }) + cb('adm-cat-edit', 'Edit', { kind: 'product', id: p.id }) +
+          cb('adm-cat-edit', p.hidden ? 'Unhide' : 'Hide', { kind: 'product', id: p.id, quick: p.hidden ? 'unhide' : 'hide' }) + cb('adm-cat-add', 'Add module', { kind: 'module', product: p.id }) + arrows('product', { id: p.id }) + '</div>' +
+          (open ? '<table class="adm-table" style="margin-top:10px"><thead><tr><th>Module</th><th>Usage</th><th></th></tr></thead><tbody>' + (mods.length ? mods.map(function (m) {
+            var mu = (U.mods || {})[p.id + ':' + m.id];
+            var merged = (C.merged || []).filter(function (x) { return x[0] === p.id && x[1] === m.id; })[0];
+            return '<tr class="' + (m.hidden ? 'cat-dim' : '') + '"><td>' + h(m.name) + ' <code class="muted small">' + h(m.id) + '</code>' + (m.hidden ? ' <span class="pill muted-pill">' + (merged ? 'Merged into ' + h(merged[2] + ':' + merged[3]) : 'Hidden') + '</span>' : '') +
+              (CORE_P[p.id] && m.family ? ' <span class="pill">' + h(FAM_LABEL[m.family]) + '</span>' : '') + '</td><td>' + useTxt(mu, true) + '</td><td><div class="adm-actions" style="margin:0">' +
+              cb('adm-cat-edit', 'Edit', { kind: 'module', product: p.id, id: m.id }) + cb('adm-cat-edit', m.hidden ? 'Unhide' : 'Hide', { kind: 'module', product: p.id, id: m.id, quick: m.hidden ? 'unhide' : 'hide' }) +
+              (merged ? '' : cb('adm-cat-merge', 'Merge…', { kind: 'module', product: p.id, id: m.id })) + (q ? '' : arrows('module', { product: p.id, id: m.id })) + '</div></td></tr>';
+          }).join('') : '<tr><td colspan="3" class="muted">No modules yet.</td></tr>') + '</tbody></table>' : '') + '</article>';
+      }).join('');
+  }
+
+  function vCatalogSpecs(C, U) {
+    return '<div class="adm-actions" style="margin-top:0">' + cb('adm-cat-add', 'Add practice area', { kind: 'area' }, 'btn-primary') + cb('adm-cat-add', 'Add specialty', { kind: 'spec' }) + '</div>' +
+      '<p class="muted small">“Suggested first for” decides which specialties a role type sees on top of its list. Everything else stays under “Add other specialties”.</p>' +
+      (C.areas || []).map(function (a) {
+        var open = A.cat.openA[a.id] !== false;
+        return '<article class="adm-card' + (a.hidden ? ' cat-dim' : '') + '"><div class="adm-row"><strong>' + h(a.name) + '</strong> <code class="muted small">' + h(a.id) + '</code>' + (a.hidden ? ' <span class="pill muted-pill">Hidden</span>' : '') + '</div>' +
+          '<div class="adm-actions">' + cb('adm-cat-atoggle', open ? 'Collapse' : 'Expand', { id: a.id }) + cb('adm-cat-edit', 'Edit', { kind: 'area', id: a.id }) + cb('adm-cat-edit', a.hidden ? 'Unhide' : 'Hide', { kind: 'area', id: a.id, quick: a.hidden ? 'unhide' : 'hide' }) +
+          cb('adm-cat-add', 'Add specialty', { kind: 'spec', area: a.id }) + arrows('area', { id: a.id }) + '</div>' +
+          (open ? (a.groups || []).map(function (g) {
+            return '<div style="margin-top:12px"><div class="adm-row"><strong class="small">' + h(g.name || 'No group') + '</strong>' + (g.name ? arrows('group', { area: a.id, id: g.name }) : '') + '</div>' +
+              '<table class="adm-table"><tbody>' + g.items.map(function (it) {
+                var roles = Object.keys(C.roles || {}).filter(function (r) { return (C.roles[r] || []).indexOf(it.id) !== -1; });
+                var mg = (C.mergedSpecs || []).filter(function (x) { return x[0] === it.id; })[0];
+                return '<tr class="' + (it.hidden ? 'cat-dim' : '') + '"><td>' + h(it.name) + ' <code class="muted small">' + h(it.id) + '</code>' + (it.hidden ? ' <span class="pill muted-pill">' + (mg ? 'Merged into ' + h(mg[1]) : 'Hidden') + '</span>' : '') +
+                  '<div class="muted small">' + (roles.length ? 'Suggested first for ' + roles.map(function (r) { return h(ROLE_LABEL[r] || r); }).join(', ') : 'Not suggested first for any role type') + '</div></td><td>' + useTxt((U.specs || {})[it.id]) + '</td><td><div class="adm-actions" style="margin:0">' +
+                  cb('adm-cat-edit', 'Edit', { kind: 'spec', id: it.id }) + cb('adm-cat-edit', it.hidden ? 'Unhide' : 'Hide', { kind: 'spec', id: it.id, quick: it.hidden ? 'unhide' : 'hide' }) +
+                  (mg ? '' : cb('adm-cat-merge', 'Merge…', { kind: 'spec', id: it.id })) + arrows('spec', { area: a.id, group: g.name, id: it.id }) + '</div></td></tr>';
+              }).join('') + '</tbody></table></div>';
+          }).join('') : '') + '</article>';
+      }).join('');
+  }
+
+  function vCatalogHistory(L) {
+    return L.length ? '<div class="adm-log">' + L.map(function (l) {
+      return '<p><span class="muted small">' + h(new Date(l.ts).toLocaleString('en-GB')) + '</span> <strong>' + h(l.summary) + '</strong> <span class="muted small">by ' + h(l.admin) + '</span>' +
+        (l.undone ? ' <span class="pill muted-pill">Undone</span>' : '') + (l.canUndo ? ' ' + cb('adm-cat-undo', 'Undo', {}) : '') + '</p>';
+    }).join('') + '</div>' : '<div class="empty">No catalog changes yet.</div>';
+  }
+
+  function vCatalog() {
+    var w = need('catalog', 'get_catalog') || need('catusage', 'admin_catalog_usage') || need('catlog', 'admin_catalog_log', { p_limit: 60 }); if (w) return w;
+    var C = A.data.catalog, U = A.data.catusage, L = A.data.catlog, sub = A.cat.sub;
+    var undo = L.length && L[0].canUndo ? cb('adm-cat-undo', 'Undo: ' + h(L[0].summary), {}) : '';
+    return '<h1>Catalog</h1><p class="muted">The SAP products, modules and specialties people choose from. Changes are live for everyone within seconds of the next page load. Nothing is ever deleted: <strong>hide</strong> an item and it leaves the pickers while people who already have it keep it, or <strong>merge</strong> it into another item to move everyone across.</p>' +
+      '<div class="chip-wrap" style="margin-bottom:14px">' + [['skills', 'Skills (' + (C.products || []).reduce(function (n, p) { return n + (p.hidden ? 0 : (p.modules || []).filter(function (m) { return !m.hidden; }).length); }, 0) + ')'], ['specs', 'Specialties (' + allSpecs(C).filter(function (x) { return !x.hidden; }).length + ')'], ['history', 'History']].map(function (t) {
+        return '<button type="button" class="chip' + (sub === t[0] ? ' chip-on' : '') + '" data-action="adm-cat-sub" data-s="' + t[0] + '">' + t[1] + '</button>'; }).join('') + (undo ? ' ' + undo : '') + '</div>' +
+      edForm(C) + mergeForm(C, U) + (sub === 'specs' ? vCatalogSpecs(C, U) : sub === 'history' ? vCatalogHistory(L) : vCatalogSkills(C, U));
+  }
+
   APP.views.admin = function (ctx) {
     document.title = 'Admin — Arnour';
     if (!B.isAdmin) return '<div class="empty">Not available.</div>';
     var tab = (ctx && ctx.p && ctx.p[0]) || 'overview', rest = ctx && ctx.p && ctx.p[1];
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
+
+
+  function catQuick(d, v) {
+    var op = d.kind + '_save', args = { id: d.id, name: v.name, short: v.short, family: v.family, hidden: v.hidden };
+    if (d.kind === 'module') args.product_id = d.product;
+    if (d.kind === 'spec') { args.area_id = v.area_id; args.grp = v.grp; args.roles = v.roles; }
+    catSave(op, args, v.hidden ? 'Hidden — people who have it keep it ✓' : 'Visible again ✓');
+  }
 
   /* ---------- actions ---------- */
   var prevClick = APP.onClick, prevSubmit = APP.onSubmit;
@@ -418,6 +574,52 @@
         }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
         break;
       }
+      case 'adm-cat-sub': A.cat.sub = d.s; A.cat.ed = null; A.cat.merge = null; APP.render(); break;
+      case 'adm-cat-toggle': A.cat.openP[d.id] = !A.cat.openP[d.id]; APP.render(); break;
+      case 'adm-cat-atoggle': A.cat.openA[d.id] = A.cat.openA[d.id] === false; APP.render(); break;
+      case 'adm-cat-cancel': A.cat.ed = null; A.cat.merge = null; APP.render(); break;
+      case 'adm-cat-undo': catSave('undo', {}, function (r) { return 'Undone: ' + (r && r.undone || 'last change'); }); break;
+      case 'adm-cat-add': {
+        A.cat.merge = null;
+        var area0 = d.area || ((A.data.catalog.areas || [])[0] || {}).id || '';
+        A.cat.ed = { kind: d.kind, id: '', product_id: d.product || '', vals: { name: '', short: '', family: '', hidden: false, grp: '', area_id: area0, roles: [] } };
+        if (d.kind === 'module') A.cat.openP[d.product] = true;
+        APP.render(); setTimeout(function () { var i = document.querySelector('form[data-form="adm-cat-ed"] [name="name"]'); if (i) { i.focus(); i.scrollIntoView({ block: 'center' }); } }, 30);
+        break;
+      }
+      case 'adm-cat-edit': {
+        var C0 = A.data.catalog, v0 = null;
+        if (d.kind === 'product') { var pp = findProduct(C0, d.id); if (pp) v0 = { name: pp.name, short: pp.short, family: '', hidden: !!pp.hidden, grp: '', area_id: '', roles: [] }; }
+        else if (d.kind === 'module') { var mm = findModule(C0, d.product, d.id); if (mm) v0 = { name: mm.name, short: '', family: mm.family || '', hidden: !!mm.hidden, grp: '', area_id: '', roles: [] }; }
+        else if (d.kind === 'area') { var aa = (C0.areas || []).filter(function (x) { return x.id === d.id; })[0]; if (aa) v0 = { name: aa.name, short: '', family: '', hidden: !!aa.hidden, grp: '', area_id: '', roles: [] }; }
+        else { var sp = allSpecs(C0).filter(function (x) { return x.id === d.id; })[0]; if (sp) v0 = { name: sp.name, short: sp.short, family: '', hidden: !!sp.hidden, grp: sp.grp || '', area_id: sp.area, roles: Object.keys(C0.roles || {}).filter(function (r) { return (C0.roles[r] || []).indexOf(sp.id) !== -1; }) }; }
+        if (!v0) break;
+        if (d.quick) { v0.hidden = d.quick === 'hide'; catQuick(d, v0); break; }
+        A.cat.merge = null; A.cat.ed = { kind: d.kind, id: d.id, product_id: d.product || '', vals: v0 };
+        APP.render(); setTimeout(function () { var i = document.querySelector('form[data-form="adm-cat-ed"] [name="name"]'); if (i) { i.focus(); i.scrollIntoView({ block: 'center' }); } }, 30);
+        break;
+      }
+      case 'adm-cat-merge':
+        A.cat.ed = null;
+        A.cat.merge = d.kind === 'module' ? { kind: 'module', fp: d.product, fm: d.id, tp: d.product, tm: '' } : { kind: 'spec', from: d.id, to: '' };
+        APP.render(); setTimeout(function () { var i = document.querySelector('form[data-form="adm-cat-merge"]'); if (i) i.scrollIntoView({ block: 'center' }); }, 30);
+        break;
+      case 'adm-cat-move': {
+        var C1 = A.data.catalog, dir = Number(d.dir), ids, args;
+        function swap(list, id) { var i = list.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= list.length) return null; var c = list.slice(); c[i] = list[j]; c[j] = list[i]; return c; }
+        if (d.kind === 'product') { ids = swap((C1.products || []).map(function (x) { return x.id; }), d.id); args = { kind: 'product', ids: ids }; }
+        else if (d.kind === 'module') { ids = swap(findProduct(C1, d.product).modules.map(function (x) { return x.id; }), d.id); args = { kind: 'module', parent: d.product, ids: ids }; }
+        else if (d.kind === 'area') { ids = swap((C1.areas || []).map(function (x) { return x.id; }), d.id); args = { kind: 'area', ids: ids }; }
+        else if (d.kind === 'group') { var ar = (C1.areas || []).filter(function (x) { return x.id === d.area; })[0]; ids = swap(ar.groups.map(function (g) { return g.name; }), d.id); args = { kind: 'group', parent: d.area, ids: ids }; }
+        else {
+          var ar2 = (C1.areas || []).filter(function (x) { return x.id === d.area; })[0], grp = ar2.groups.filter(function (g) { return g.name === d.group; })[0];
+          var gl = swap(grp.items.map(function (x) { return x.id; }), d.id);
+          if (gl) { var all = []; ar2.groups.forEach(function (g) { if (g.name === d.group) all = all.concat(gl); else all = all.concat(g.items.map(function (x) { return x.id; })); }); ids = all; }
+          args = { kind: 'spec', parent: d.area, ids: ids };
+        }
+        if (ids) catSave('reorder', args, 'Order changed ✓');
+        break;
+      }
       case 'adm-fstatus': A.fstatus = d.s; APP.render(); break;
       case 'adm-fb-set': act('admin_feedback_set', { p_id: Number(d.id), p_status: d.s, p_note: '' }, d.s === 'done' ? 'Marked done ✓' : 'Reopened', ['feedback:open', 'feedback:done', 'health']); break;
       case 'adm-fb-shot':
@@ -441,9 +643,52 @@
     };
     rd.readAsText(t.files[0]); t.value = '';
   });
+  /* keep what is typed in the catalog forms across re-renders */
+  function catKeep(e) {
+    var t = e.target, f = t && t.closest ? t.closest('form[data-form="adm-cat-ed"]') : null;
+    if (f && A.cat.ed) {
+      var v = A.cat.ed.vals;
+      if (t.name === 'name' || t.name === 'short' || t.name === 'grp' || t.name === 'family' || t.name === 'area_id') v[t.name] = t.value;
+      else if (t.name === 'hidden') v.hidden = t.checked;
+      else if (t.name === 'role') { v.roles = Array.prototype.map.call(f.querySelectorAll('input[name="role"]:checked'), function (x) { return x.value; }); }
+      if (t.name === 'area_id' && e.type === 'change') APP.render();
+      return;
+    }
+    var mf = t && t.closest ? t.closest('form[data-form="adm-cat-merge"]') : null;
+    if (mf && A.cat.merge) {
+      var m = A.cat.merge;
+      if (t.name === 'tp' && e.type === 'change') { m.tp = t.value; m.tm = ''; APP.render(); }
+      else if (t.name === 'tm') m.tm = t.value;
+      else if (t.name === 'to') m.to = t.value;
+    }
+  }
+  document.addEventListener('input', catKeep);
+  document.addEventListener('change', catKeep);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'adm-del') window.__admDel = e.target.value.trim(); });
 
   APP.onSubmit = function (f) {
+    if (f.dataset.form === 'adm-cat-ed') {
+      var ed = A.cat.ed; if (!ed) return;
+      var fd = new FormData(f), vals = ed.vals;
+      var args = { id: ed.id || undefined, name: String(fd.get('name') || '').trim(), short: String(fd.get('short') || '').trim(), hidden: fd.get('hidden') === 'on' };
+      if (ed.kind === 'module') { args.product_id = ed.product_id; args.family = String(fd.get('family') || ''); }
+      if (ed.kind === 'spec') { args.area_id = String(fd.get('area_id') || ''); args.grp = String(fd.get('grp') || '').trim(); args.roles = fd.getAll('role'); }
+      if (!args.name) { APP.toast('Please give it a name'); return; }
+      catSave(ed.kind + '_save', args, ed.id ? 'Saved ✓' : 'Added ✓'); return;
+    }
+    if (f.dataset.form === 'adm-cat-merge') {
+      var m = A.cat.merge; if (!m) return;
+      var g = new FormData(f);
+      if (String(g.get('confirm') || '').trim() !== 'MERGE') { APP.toast('Not merged — type MERGE to confirm'); return; }
+      if (m.kind === 'module') {
+        var tm = String(g.get('tm') || ''); if (!tm) { APP.toast('Choose the module to merge into'); return; }
+        catSave('merge_module', { from_p: m.fp, from_m: m.fm, to_p: String(g.get('tp') || m.fp), to_m: tm }, function (r) { return 'Merged ✓ ' + pl(r.profiles || 0, 'profile') + ' and ' + pl(r.roles || 0, 'role') + ' moved'; });
+      } else {
+        var to = String(g.get('to') || ''); if (!to) { APP.toast('Choose the specialty to merge into'); return; }
+        catSave('merge_spec', { from: m.from, to: to }, function (r) { return 'Merged ✓ ' + pl(r.profiles || 0, 'profile') + ' and ' + pl(r.roles || 0, 'role') + ' moved'; });
+      }
+      return;
+    }
     if (f.dataset.form === 'adm-search') {
       var q = String(new FormData(f).get('q') || '').trim();
       A.q[f.dataset.tab] = q; APP.render(); return;

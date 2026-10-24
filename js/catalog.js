@@ -246,17 +246,25 @@ window.CATALOG = {
   ]
 };
 
-/* Convenience indexes (built from CATALOG) */
-window.CAT_INDEX = (() => {
-  const byId = {};
-  const mods = {};
+/* Convenience indexes (built from the product list).
+   CATALOG.products   = what the pickers offer: visible products with their visible modules.
+   CAT_INDEX.byId/mods = everything, hidden items included, so a skill someone already has keeps its name.
+   CAT_SET() is called once with the built-in list, and again with the database copy (APP.applyCatalog). */
+window.CAT_SET = function (all) {
+  const vis = [], byId = {}, mods = {};
   let totalModules = 0;
-  for (const p of CATALOG.products) {
-    byId[p.id] = p;
-    totalModules += p.modules.length;
-    for (const m of p.modules) {
-      mods[p.id + ':' + m.id] = { id: m.id, name: m.name, productId: p.id, productName: p.name };
+  for (const p of all) {
+    const full = { id: p.id, name: p.name, short: p.short || p.name, hidden: !!p.hidden,
+      modules: (p.modules || []).map(m => ({ id: m.id, name: m.name, hidden: !!m.hidden, family: m.family || '' })) };
+    byId[p.id] = full;
+    for (const m of full.modules) mods[p.id + ':' + m.id] = { id: m.id, name: m.name, hidden: m.hidden, productId: p.id, productName: p.name };
+    if (!p.hidden) {
+      const vm = full.modules.filter(m => !m.hidden);
+      vis.push({ id: full.id, name: full.name, short: full.short, modules: vm });
+      totalModules += vm.length;
     }
   }
-  return { byId, mods, totalModules };
-})();
+  window.CATALOG = { products: vis };
+  window.CAT_INDEX = { byId, mods, totalModules };
+};
+window.CAT_SET(window.CATALOG.products);

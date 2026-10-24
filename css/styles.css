@@ -1859,3 +1859,10 @@ a.sr-title:hover { text-decoration: underline; }
 .app-steps li.done { color: #166534; border-color: #bbe5c6; background: #ecf8ef; font-weight: 600; }
 .app-steps li small { font-weight: 400; color: var(--mut); }
 .app-closed { color: var(--mut); }
+
+/* admin > catalog */
+.cat-dim { opacity: .62; }
+.cat-dim .adm-actions, .cat-dim .btn { opacity: 1; }
+.adm-main code { font-size: 12px; background: var(--bg-subtle); padding: 1px 5px; border-radius: 4px; }
+.check-row { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; font-size: 14px; }
+.check-row input { margin-top: 3px; }

@@ -18,9 +18,10 @@ create function storage.foldername(name text) returns text[] language sql as $$ 
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/005_admin.sql','utf8'));
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/006_feedback.sql','utf8'));
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/007_email.sql','utf8'));
+  await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/008_catalog.sql','utf8'));
   const users={}; let tok=0; const log=[];
   const SETOF=['list_consultants','list_jobs','list_companies'];
-  const JSONB=['p_data','p_cv','p_call'];
+  const JSONB=['p_data','p_cv','p_call','p_args'];
   async function withRole(uid,fn){
     await db.exec(`reset role; select set_config('request.jwt.claim.sub','${uid||''}',false); set role ${uid?'authenticated':'anon'};`);
     try{ return await fn(); } finally { await db.exec('reset role'); }

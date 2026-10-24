@@ -196,6 +196,39 @@ for (const _cat of APP.specialties) {
     }
   }
 }
+/* The catalog now lives in the database (Admin > Catalog). Called with get_catalog() after load and after every admin save.
+   Hidden items stay in the lookups (SPECIAL_IDX, CAT_INDEX) so what someone already has keeps its name, but leave the pickers. */
+APP.applyCatalog = function (c) {
+  if (!c || !Array.isArray(c.products) || !c.products.length || !Array.isArray(c.areas)) return false;
+  window.CAT_SET(c.products);
+  const fam = {};
+  c.products.forEach(p => (p.modules || []).forEach(m => { if (m.family && !fam[m.id]) fam[m.id] = m.family; }));
+  Object.keys(APP.MODULE_FAMILY).forEach(k => { delete APP.MODULE_FAMILY[k]; });
+  Object.assign(APP.MODULE_FAMILY, fam);
+  const tree = [], idx = {}, items = [];
+  c.areas.forEach(a => {
+    const groups = [];
+    (a.groups || []).forEach(g => {
+      const vi = [];
+      (g.items || []).forEach(it => {
+        const o = { id: it.id, name: it.name, short: it.short || it.name, hidden: !!it.hidden };
+        idx[it.id] = Object.assign({}, o, { categoryId: a.id, category: a.name });
+        if (!o.hidden) { vi.push(o); items.push(o); }
+      });
+      if (vi.length) groups.push({ name: g.name || '', items: vi });
+    });
+    if (!a.hidden && groups.length) tree.push({ id: a.id, name: a.name, groups: groups });
+  });
+  APP.specialties = tree; APP.specialtyItems = items; APP.SPECIAL_IDX = idx;
+  const roles = {}; Object.keys(APP.ROLE_SPECIALTIES).forEach(k => { roles[k] = []; });
+  Object.keys(c.roles || {}).forEach(k => { roles[k] = c.roles[k]; });
+  APP.ROLE_SPECIALTIES = roles;
+  if (!APP._catMigBase) APP._catMigBase = APP.catalogMigrate.slice();
+  APP.catalogMigrate = APP._catMigBase.concat((c.merged || []).filter(r => r.length === 4));
+  (c.mergedSpecs || []).forEach(r => { APP.specialtyMigrate[r[0]] = r[1]; });
+  APP.CATALOG_V = c.v;
+  return true;
+};
 /** Display name for a specialty (or practice-area) id — short label when available. */
 APP.specialtyName = function (id) {
   if (!id) return '';
@@ -328,7 +361,7 @@ APP.rtCounts = function (rt) { const p = APP.ROLE_PROFILE[rt]; return !!p && (p.
 /* Specialties to suggest first: the primary role's, then the others'. */
 APP.specialtiesForRoles = function (rts) {
   const out = [];
-  (rts || []).forEach(rt => (APP.ROLE_SPECIALTIES[rt] || []).forEach(id => { if (out.indexOf(id) === -1 && APP.SPECIAL_IDX[id]) out.push(id); }));
+  (rts || []).forEach(rt => (APP.ROLE_SPECIALTIES[rt] || []).forEach(id => { if (out.indexOf(id) === -1 && APP.SPECIAL_IDX[id] && !APP.SPECIAL_IDX[id].hidden) out.push(id); }));
   return out;
 };
 APP.levelFromYears = function (y) { y = +y || 0; return y <= 3 ? 'Junior' : y <= 8 ? 'Mid' : 'Senior'; };
@@ -2486,11 +2519,17 @@ APP.cityInputHtml = function (countryId, city) {
     '<input name="city" class="input" list="city-list" autocomplete="off" value="' + APP.h(city || '') + '" placeholder="' + (cities[0] ? 'e.g. ' + APP.h(cities[0]) : 'City') + '">' +
     '<datalist id="city-list">' + cities.map(x => '<option value="' + APP.h(x) + '"></option>').join('') + '</datalist></label>';
 };
-APP.productOptions = (sel) => APP.opt(CATALOG.products.map(p => [p.id, p.name]), sel);
+/* visible products, plus the one already chosen even if it was hidden later */
+APP.productsPick = function (sel) {
+  const l = CATALOG.products.slice();
+  if (sel && !l.some(p => p.id === sel) && CAT_INDEX.byId[sel]) l.push(CAT_INDEX.byId[sel]);
+  return l;
+};
+APP.productOptions = (sel) => APP.opt(APP.productsPick(sel).map(p => [p.id, p.name]), sel);
 
 APP.moduleOptions = function (productId, sel, allowAny) {
   const p = CAT_INDEX.byId[productId];
-  const list = p ? p.modules : [];
+  const list = p ? p.modules.filter(m => !m.hidden || m.id === sel) : [];
   return '<option value="">Module…</option>' +
     (allowAny ? '<option value="*"' + (sel === '*' ? ' selected' : '') + '>Any module (general)</option>' : '') +
     APP.opt(list.map(m => [m.id, m.name]), sel);
@@ -2576,7 +2615,7 @@ APP.skillRowsHtml = function (target, skills, withMin, withCert) {
 /* ---------------------------- job post: requirement rows, summary, wizard helpers ---------------------------- */
 /* ---- module chips (shared by job requirement cards and professional skill cards) ---- */
 APP.moduleChipsHtml = function (pid, selected, attrs, qKey, allowAny) {
-  const mods = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []);
+  const mods = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).filter(m => !m.hidden || selected.indexOf(m.id) !== -1);
   const q = ((APP.state.modQ || {})[qKey] || '').toLowerCase();
   const one = function (id, name, title) {
     const on = selected.indexOf(id) !== -1;
@@ -2660,7 +2699,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
   const cards = order.map(function (pid) {
     const idxs = []; skills.forEach((k, i) => { if (k.productId === pid) idxs.push(i); });
     const sel = idxs.filter(i => real(skills[i])).map(i => skills[i].moduleId); nMods += sel.length;
-    const opts = APP.opt(CATALOG.products.filter(p => p.id === pid || order.indexOf(p.id) === -1).map(p => [p.id, p.name]), pid);
+    const opts = APP.opt(APP.productsPick(pid).filter(p => p.id === pid || order.indexOf(p.id) === -1).map(p => [p.id, p.name]), pid);
     const lines = mode === 'modules' ? '' : idxs.filter(i => real(skills[i])).map(function (i) {
       const k = skills[i]; const m = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).find(x => x.id === k.moduleId);
       return '<div class="skill-row mod-line" data-skill-row="' + i + '" data-target="' + target + '">' +

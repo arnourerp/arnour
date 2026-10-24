@@ -75,9 +75,18 @@
 
   /* ------------------------------ loading ------------------------------ */
   B.fetchPublic = function () {
-    return Promise.all([B.sb.rpc('list_jobs'), B.sb.rpc('list_companies'), B.fetchCommunity()]).then(function (r) {
+    return Promise.all([B.sb.rpc('list_jobs'), B.sb.rpc('list_companies'), B.fetchCommunity(), B.fetchCatalog()]).then(function (r) {
+      /* the catalog (products, modules, specialties) is kept in the database; the built-in copy is the fallback */
+      if (r[3] && r[3].v !== APP.CATALOG_V && APP.applyCatalog) { try { APP.applyCatalog(r[3]); } catch (e) { /* keep what we have */ } }
       return { jobs: unwrap(r[0], 'list_jobs'), companies: unwrap(r[1], 'list_companies'), community: r[2] };
     });
+  };
+  B.fetchCatalog = function () {
+    return B.sb.rpc('get_catalog').then(function (r) {
+      var d = r && r.data;
+      if (r.error || !d || typeof d !== 'object' || !Array.isArray(d.products)) return null;
+      return d;
+    }, function () { return null; });
   };
   /* community posts: a failure here must never stop the rest of the site from loading */
   B.fetchCommunity = function () {
