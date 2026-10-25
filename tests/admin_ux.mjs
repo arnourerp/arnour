@@ -41,19 +41,19 @@ t('sidebar has the five groups',await A.locator('.adm-group').count()===5&&/Over
 const groups=await A.evaluate(()=>[...document.querySelectorAll('.adm-group-t')].map(x=>x.textContent.trim()).join('|'));
 t('groups are named clearly',/Overview\|People & roles\|Content\|Communicate\|Settings/.test(groups),groups);
 t('settings are split: Site settings and Activity log',await A.locator('a.adm-tab:has-text("Site settings")').count()===1&&await A.locator('a.adm-tab:has-text("Activity log")').count()===1);
-await A.click('a.adm-tab:has-text("Activity log")'); await A.waitForSelector('.adm-main h1');
+await A.click('a.adm-tab:has-text("Activity log")'); await A.waitForFunction(()=>/Activity log/.test((document.querySelector('.adm-main h1')||{}).textContent||''),null,{timeout:15000});
 t('activity log page',/Activity log/.test(await A.textContent('.adm-main h1')));
-await A.click('a.adm-tab:has-text("Site settings")'); await A.waitForTimeout(400);
+await A.click('a.adm-tab:has-text("Site settings")'); await A.waitForFunction(()=>/Sample content/.test((document.querySelector('.adm-main')||{}).textContent||''),null,{timeout:15000});
 t('site settings page has the sample switch',/Sample content/.test(await A.textContent('.adm-main')));
 t('the current page is highlighted',await A.locator('a.adm-tab.on').count()===1&&/Site settings/.test(await A.textContent('a.adm-tab.on')));
-await A.click('a:has-text("View the site")'); await A.waitForTimeout(500);
+await A.click('a:has-text("View the site")'); await A.waitForFunction(()=>/^#\/home/.test(location.hash),null,{timeout:15000}); await A.waitForTimeout(300);
 t('"View the site" shows the public home, not a loop',await A.evaluate(()=>/^#\/home/.test(location.hash)&&!!document.querySelector('.hero, .nav.pub')));
 // phone
 const M=await page('adm',390,800); await go(M,'#/admin/catalog'); await M.waitForSelector('.adm-main h1');
 t('phone: sidebar is behind a menu button',await M.locator('.adm-menu-btn').isVisible()&&!(await M.locator('.adm-tabs').isVisible()));
 await M.click('.adm-menu-btn'); await M.waitForTimeout(200);
 t('phone: menu opens, no sideways scroll',await M.locator('.adm-tabs').isVisible()&&await M.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
-await M.click('a.adm-tab:has-text("Announcements")'); await M.waitForTimeout(400);
+await M.click('a.adm-tab:has-text("Announcements")'); await M.waitForFunction(()=>/Announcements/.test((document.querySelector('.adm-main h1')||{}).textContent||''),null,{timeout:15000});
 t('phone: choosing a page closes the menu',/Announcements/.test(await M.textContent('.adm-main h1'))&&!(await M.locator('.adm-tabs').isVisible()));
 t('no page errors',errors.length===0,errors);
 await browser.close(); process.exit(fails?1:0);
