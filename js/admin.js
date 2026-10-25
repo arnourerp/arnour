@@ -93,7 +93,7 @@
   }
 
   /* ---------- views ---------- */
-  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['catalog', 'Catalog'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
+  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['catalog', 'Catalog'], ['lists', 'Lists'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
 
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0;
@@ -475,6 +475,117 @@
     }).join('') + '</div>' : '<div class="empty">No catalog changes yet.</div>';
   }
 
+
+  /* ---------- lists: regions, countries, cities, nationalities, languages ---------- */
+  var LST_LABEL = { region: 'region', country: 'country', city: 'city', nationality: 'nationality', language: 'language' };
+  A.lst = { sub: 'countries', open: {}, ed: null, merge: null, busy: false };
+  function lstSave(op, args, ok) {
+    if (A.lst.busy) return Promise.resolve();
+    A.lst.busy = true;
+    return B.rpc('admin_lists_save', { p_op: op, p_args: args }).then(function (r) {
+      A.lst.busy = false;
+      if (r && r.lists) { A.data.lists = r.lists; try { APP.applyLists(r.lists); } catch (e) { /* ignore */ } }
+      delete A.data.lstusage; delete A.data.lstlog; reload('log');
+      A.lst.ed = null; A.lst.merge = null;
+      if (ok) APP.toast(typeof ok === 'function' ? ok(r) : ok);
+      APP.render();
+    }, function (e) { A.lst.busy = false; APP.toast(String((e && e.message) || 'Could not save').replace(/^.*?(Please|That|The|Unknown|Choose|Merges|Nothing|Cities|Regions|This)/, '$1')); APP.render(); });
+  }
+  function lcb(a, label, d, cls) { return cb(a, label, d, cls); }
+  function lItems(L, kind, parent) {
+    if (kind === 'region') return L.regions || [];
+    if (kind === 'country') return L.countries || [];
+    if (kind === 'nationality') return L.nationalities || [];
+    if (kind === 'language') return L.languages || [];
+    var c = (L.countries || []).filter(function (x) { return x.id === parent; })[0]; return c ? c.cities : [];
+  }
+  function lFind(L, kind, id, parent) { return lItems(L, kind, parent).filter(function (x) { return x.id === id; })[0]; }
+  function lUse(U, kind, it, parent) {
+    if (kind === 'country') return U.country && U.country[it.id];
+    if (kind === 'city') return U.city && U.city[parent + '|' + it.name];
+    if (kind === 'nationality') return U.nationality && U.nationality[it.name];
+    if (kind === 'language') return U.language && U.language[it.name];
+    return null;
+  }
+  function lRow(L, U, kind, it, parent, extra) {
+    var u = lUse(U, kind, it, parent), merged = it.hidden && (L.mergedCountries || []).some(function (m) { return m[0] === it.id; });
+    return '<div class="adm-row" style="padding:6px 0;border-top:1px solid var(--border,#e5e7eb)"><div style="flex:1;min-width:200px"><strong>' + h(it.name) + '</strong>' + (it.hidden ? ' <span class="pill muted-pill">' + (merged ? 'Merged' : 'Hidden') + '</span>' : '') + (extra || '') + ' ' + useTxt(u, false) + '</div>' +
+      '<div class="adm-actions" style="margin:0">' + cb('adm-lst-edit', 'Edit', { kind: kind, id: it.id, parent: parent || '' }) + cb('adm-lst-edit', it.hidden ? 'Unhide' : 'Hide', { kind: kind, id: it.id, parent: parent || '', quick: it.hidden ? 'unhide' : 'hide' }) +
+      (kind === 'region' || it.hidden ? '' : cb('adm-lst-merge', 'Merge…', { kind: kind, id: it.id, parent: parent || '' })) + cb('adm-lst-move', '↑', { kind: kind, id: it.id, parent: parent || '', dir: '-1' }, 'btn-ghost') + cb('adm-lst-move', '↓', { kind: kind, id: it.id, parent: parent || '', dir: '1' }, 'btn-ghost') + '</div></div>';
+  }
+  function lstForm(L) {
+    var ed = A.lst.ed; if (!ed) return '';
+    var v = ed.vals, k = ed.kind, lbl = LST_LABEL[k];
+    var par = '';
+    if (k === 'country') par = '<label class="field"><span class="label">Region</span><select class="input" name="parent">' + (L.regions || []).filter(function (r) { return !r.hidden || r.id === v.parent; }).map(function (r) { return '<option value="' + h(r.id) + '"' + (r.id === v.parent ? ' selected' : '') + '>' + h(r.name) + '</option>'; }).join('') + '</select></label>';
+    var cn = k === 'city' ? (lFind(L, 'country', ed.parent) || {}).name : '';
+    var note = ed.id && (k === 'city' || k === 'nationality' || k === 'language') ? '<p class="muted small">Renaming updates every profile and role that uses it.</p>' : '';
+    return '<form class="adm-card" data-form="adm-lst-ed"><h2 style="margin-top:0">' + (ed.id ? 'Edit ' : 'New ') + lbl + (cn ? ' · ' + h(cn) : '') + '</h2>' +
+      '<label class="field"><span class="label">Name' + (k === 'nationality' ? ' <span class="muted">(e.g. Egyptian)</span>' : '') + '</span><input class="input" name="name" maxlength="80" value="' + h(v.name) + '" autocomplete="off"></label>' + par + note +
+      '<label class="check-row"><input type="checkbox" name="hidden"' + (v.hidden ? ' checked' : '') + '> <span>Hidden <span class="muted small">— not offered in new choices; anyone who already has it keeps it</span></span></label>' +
+      '<div class="adm-actions"><button class="btn btn-primary btn-sm" type="submit"' + (A.lst.busy ? ' disabled' : '') + '>Save</button>' + cb('adm-lst-cancel', 'Cancel', {}, 'btn-ghost') + '</div></form>';
+  }
+  function lstMergeForm(L, U) {
+    var m = A.lst.merge; if (!m) return '';
+    var from = lFind(L, m.kind, m.id, m.parent), use = from && lUse(U, m.kind, from, m.parent);
+    var opts = lItems(L, m.kind, m.parent).filter(function (x) { return !x.hidden && x.id !== m.id; });
+    return '<form class="adm-card sus" data-form="adm-lst-merge"><h2 style="margin-top:0">Merge “' + h(from ? from.name : m.id) + '” into another ' + LST_LABEL[m.kind] + '</h2>' +
+      '<p>Everyone who has it — ' + (use ? pl(use.pros || 0, 'professional') + (m.kind === 'nationality' ? '' : ', ' + pl(use.roles || 0, 'role')) : 'nobody right now') + ' — will move to the one you pick' + (m.kind === 'country' ? ', and its cities move with it' : '') + '. The old one is hidden. <strong>This cannot be undone.</strong></p>' +
+      '<label class="field"><span class="label">Merge into</span><select class="input" name="to"><option value="">Choose…</option>' + opts.map(function (x) { return '<option value="' + h(x.id) + '"' + (m.to === x.id ? ' selected' : '') + '>' + h(x.name) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field"><span class="label">Type MERGE to confirm</span><input class="input" name="confirm" placeholder="MERGE" autocomplete="off"></label>' +
+      '<div class="adm-actions"><button class="btn btn-danger btn-sm" type="submit"' + (A.lst.busy ? ' disabled' : '') + '>Merge</button>' + cb('adm-lst-cancel', 'Cancel', {}, 'btn-ghost') + '</div></form>';
+  }
+  function vListsCountries(L, U) {
+    return '<div class="adm-actions" style="margin-top:0">' + cb('adm-lst-add', 'Add country', { kind: 'country' }, 'btn-primary') + '</div>' +
+      (L.countries || []).map(function (c) {
+        var open = !!A.lst.open[c.id], vis = c.cities.filter(function (x) { return !x.hidden; }).length;
+        var rg = (L.regions || []).filter(function (r) { return r.id === c.region; })[0];
+        return '<div class="adm-card"><div class="adm-row"><strong>' + h(c.name) + '</strong> <code>' + h(c.id) + '</code> <span class="muted small">' + h(rg ? rg.name : c.region) + ' · ' + pl(vis, 'city').replace('citys', 'cities') + '</span>' +
+          (c.hidden ? ' <span class="pill muted-pill">' + ((L.mergedCountries || []).some(function (m) { return m[0] === c.id; }) ? 'Merged' : 'Hidden') + '</span>' : '') + ' ' + useTxt(lUse(U, 'country', c), false) + '</div>' +
+          '<div class="adm-actions">' + cb('adm-lst-toggle', open ? 'Hide cities' : 'Show cities', { id: c.id }) + cb('adm-lst-edit', 'Edit', { kind: 'country', id: c.id }) + cb('adm-lst-edit', c.hidden ? 'Unhide' : 'Hide', { kind: 'country', id: c.id, quick: c.hidden ? 'unhide' : 'hide' }) +
+          (c.hidden ? '' : cb('adm-lst-merge', 'Merge…', { kind: 'country', id: c.id })) + cb('adm-lst-add', 'Add city', { kind: 'city', parent: c.id }) + cb('adm-lst-move', '↑', { kind: 'country', id: c.id, dir: '-1' }, 'btn-ghost') + cb('adm-lst-move', '↓', { kind: 'country', id: c.id, dir: '1' }, 'btn-ghost') + '</div>' +
+          (open ? (c.cities.length ? c.cities.map(function (t) { return lRow(L, U, 'city', t, c.id); }).join('') : '<p class="muted small">No cities yet.</p>') : '') + '</div>';
+      }).join('');
+  }
+  function vListsSimple(L, U, kind) {
+    var items = lItems(L, kind), what = { region: 'Region', nationality: 'Nationality', language: 'Language' }[kind];
+    return '<div class="adm-actions" style="margin-top:0">' + cb('adm-lst-add', 'Add ' + what.toLowerCase(), { kind: kind }, 'btn-primary') + '</div>' +
+      (kind === 'region' ? '<p class="muted small">Regions group countries for the region filters. A region can be hidden once it has no visible countries. Move countries between regions with Edit on the country.</p>' : '') +
+      '<div class="adm-card">' + (items.length ? items.map(function (it) {
+        var extra = kind === 'region' ? ' <span class="muted small">' + pl((L.countries || []).filter(function (c) { return c.region === it.id && !c.hidden; }).length, 'country').replace('countrys', 'countries') + '</span>' : '';
+        return lRow(L, U, kind, it, '', extra); }).join('') : '<p class="muted">Nothing yet.</p>') + '</div>';
+  }
+  function lstExport(L) {
+    var vis = function (a) { return (a || []).filter(function (x) { return !x.hidden; }); };
+    return '## Countries (id = name; cities)\n' + vis(L.countries).map(function (c) { return c.id + ' ' + c.name + ' (' + (vis(c.cities).map(function (t) { return t.name; }).join(', ') || '—') + ')'; }).join('; ') +
+      '\n\n## Languages\n' + vis(L.languages).map(function (x) { return x.name; }).join(', ') +
+      '\n\n## Nationalities\n' + vis(L.nationalities).map(function (x) { return x.name; }).join(', ');
+  }
+  function vListsExport(L) {
+    return '<div class="adm-card"><h2 style="margin-top:0">Export for the job-import skill</h2><p class="muted">The current countries, cities, languages and nationalities as plain text. Paste it into the “Countries” part of the job-import skill whenever you change the lists, so imported roles use the right ids.</p>' +
+      '<textarea class="input" readonly rows="14" style="width:100%;font-family:monospace;font-size:12px" id="adm-lst-export">' + h(lstExport(L)) + '</textarea>' +
+      '<div class="adm-actions">' + cb('adm-lst-copy', 'Copy to clipboard', {}, 'btn-primary') + '</div></div>';
+  }
+  function vListsHistory(Lg) {
+    if (!Lg.length) return '<div class="empty">No changes yet.</div>';
+    return '<div class="adm-card">' + Lg.map(function (l) {
+      return '<p><span class="muted small">' + h(new Date(l.ts).toLocaleString('en-GB')) + '</span> <strong>' + h(l.admin) + '</strong> — ' + h(l.summary) +
+        (l.undone ? ' <span class="pill muted-pill">Undone</span>' : '') + (l.canUndo ? ' ' + cb('adm-lst-undo', 'Undo', {}) : '') + '</p>';
+    }).join('') + '</div>';
+  }
+  function vLists() {
+    var w = need('lists', 'get_lists') || need('lstusage', 'admin_lists_usage') || need('lstlog', 'admin_lists_log', { p_limit: 60 }); if (w) return w;
+    var L = A.data.lists, U = A.data.lstusage, Lg = A.data.lstlog, sub = A.lst.sub;
+    var undo = Lg.length && Lg[0].canUndo ? cb('adm-lst-undo', 'Undo: ' + h(Lg[0].summary), {}) : '';
+    var vis = function (a) { return (a || []).filter(function (x) { return !x.hidden; }).length; };
+    var tabs = [['countries', 'Countries & cities (' + vis(L.countries) + ')'], ['regions', 'Regions (' + vis(L.regions) + ')'], ['nationalities', 'Nationalities (' + vis(L.nationalities) + ')'], ['languages', 'Languages (' + vis(L.languages) + ')'], ['history', 'History'], ['export', 'Export for skill']];
+    return '<h1>Lists</h1><p class="muted">The countries, cities, regions, nationalities and languages people choose from. Changes are live for everyone on their next page load. Nothing is ever deleted: <strong>hide</strong> an item and it leaves the pickers while people who already have it keep it, or <strong>merge</strong> it into another to move everyone across.</p>' +
+      '<div class="chip-wrap" style="margin-bottom:14px">' + tabs.map(function (t) {
+        return '<button type="button" class="chip' + (sub === t[0] ? ' chip-on' : '') + '" data-action="adm-lst-sub" data-s="' + t[0] + '">' + t[1] + '</button>'; }).join('') + (undo ? ' ' + undo : '') + '</div>' +
+      lstForm(L) + lstMergeForm(L, U) +
+      (sub === 'regions' ? vListsSimple(L, U, 'region') : sub === 'nationalities' ? vListsSimple(L, U, 'nationality') : sub === 'languages' ? vListsSimple(L, U, 'language') : sub === 'history' ? vListsHistory(Lg) : sub === 'export' ? vListsExport(L) : vListsCountries(L, U));
+  }
+
   function vCatalog() {
     var w = need('catalog', 'get_catalog') || need('catusage', 'admin_catalog_usage') || need('catlog', 'admin_catalog_log', { p_limit: 60 }); if (w) return w;
     var C = A.data.catalog, U = A.data.catusage, L = A.data.catlog, sub = A.cat.sub;
@@ -491,7 +602,7 @@
     var tab = (ctx && ctx.p && ctx.p[0]) || 'overview', rest = ctx && ctx.p && ctx.p[1];
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -572,6 +683,40 @@
           allKeys().forEach(reload); reload('overview'); reload('log');
           if (B.fetchCommunity) B.fetchCommunity().then(function (cm) { if (cm && !B.commBusy) B.applyCommunity(APP.db, cm); APP.render(); }, function () { APP.render(); }); else APP.render();
         }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
+        break;
+      }
+      case 'adm-lst-sub': A.lst.sub = d.s; A.lst.ed = null; A.lst.merge = null; APP.render(); break;
+      case 'adm-lst-toggle': A.lst.open[d.id] = !A.lst.open[d.id]; APP.render(); break;
+      case 'adm-lst-cancel': A.lst.ed = null; A.lst.merge = null; APP.render(); break;
+      case 'adm-lst-undo': lstSave('undo', {}, function (r) { return 'Undone: ' + (r && r.undone || 'last change'); }); break;
+      case 'adm-lst-copy': {
+        var tx = document.getElementById('adm-lst-export');
+        if (tx) { tx.select(); try { navigator.clipboard.writeText(tx.value).then(function () { APP.toast('Copied ✓'); }, function () { document.execCommand('copy'); APP.toast('Copied ✓'); }); } catch (er) { try { document.execCommand('copy'); APP.toast('Copied ✓'); } catch (e2) { /* ignore */ } } }
+        break;
+      }
+      case 'adm-lst-add':
+        A.lst.merge = null;
+        A.lst.ed = { kind: d.kind, id: '', parent: d.parent || '', vals: { name: '', hidden: false, parent: d.kind === 'country' ? (((A.data.lists.regions || []).filter(function (r) { return !r.hidden; })[0] || {}).id || '') : (d.parent || '') } };
+        if (d.kind === 'city') A.lst.open[d.parent] = true;
+        APP.render(); setTimeout(function () { var i = document.querySelector('form[data-form="adm-lst-ed"] [name="name"]'); if (i) { i.focus(); i.scrollIntoView({ block: 'center' }); } }, 30);
+        break;
+      case 'adm-lst-edit': {
+        var it = lFind(A.data.lists, d.kind, d.id, d.parent); if (!it) break;
+        var lv = { name: it.name, hidden: !!it.hidden, parent: d.kind === 'country' ? it.region : (d.parent || '') };
+        if (d.quick) { lv.hidden = d.quick === 'hide'; lstSave('save', { kind: d.kind, id: d.id, name: lv.name, parent: lv.parent, hidden: lv.hidden }, lv.hidden ? 'Hidden — people who have it keep it ✓' : 'Visible again ✓'); break; }
+        A.lst.merge = null; A.lst.ed = { kind: d.kind, id: d.id, parent: d.parent || '', vals: lv };
+        APP.render(); setTimeout(function () { var i = document.querySelector('form[data-form="adm-lst-ed"] [name="name"]'); if (i) { i.focus(); i.scrollIntoView({ block: 'center' }); } }, 30);
+        break;
+      }
+      case 'adm-lst-merge':
+        A.lst.ed = null; A.lst.merge = { kind: d.kind, id: d.id, parent: d.parent || '', to: '' };
+        APP.render(); setTimeout(function () { var i = document.querySelector('form[data-form="adm-lst-merge"]'); if (i) i.scrollIntoView({ block: 'center' }); }, 30);
+        break;
+      case 'adm-lst-move': {
+        var arr = lItems(A.data.lists, d.kind, d.parent).map(function (x) { return x.id; }), at = arr.indexOf(d.id), to2 = at + Number(d.dir);
+        if (at < 0 || to2 < 0 || to2 >= arr.length) break;
+        var tmp = arr[at]; arr[at] = arr[to2]; arr[to2] = tmp;
+        lstSave('reorder', { kind: d.kind, parent: d.parent || '', ids: arr }, 'Order changed ✓');
         break;
       }
       case 'adm-cat-sub': A.cat.sub = d.s; A.cat.ed = null; A.cat.merge = null; APP.render(); break;
@@ -662,11 +807,39 @@
       else if (t.name === 'to') m.to = t.value;
     }
   }
+  function lstKeep(e) {
+    var t = e.target, f = t && t.closest ? t.closest('form[data-form="adm-lst-ed"]') : null;
+    if (f && A.lst.ed) {
+      if (t.name === 'name' || t.name === 'parent') A.lst.ed.vals[t.name] = t.value;
+      else if (t.name === 'hidden') A.lst.ed.vals.hidden = t.checked;
+      return;
+    }
+    var mf = t && t.closest ? t.closest('form[data-form="adm-lst-merge"]') : null;
+    if (mf && A.lst.merge && t.name === 'to') A.lst.merge.to = t.value;
+  }
+  document.addEventListener('input', lstKeep);
+  document.addEventListener('change', lstKeep);
   document.addEventListener('input', catKeep);
   document.addEventListener('change', catKeep);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'adm-del') window.__admDel = e.target.value.trim(); });
 
   APP.onSubmit = function (f) {
+    if (f.dataset.form === 'adm-lst-ed') {
+      var le = A.lst.ed; if (!le) return;
+      var lf = new FormData(f), lname = String(lf.get('name') || '').trim();
+      if (!lname) { APP.toast('Please give it a name'); return; }
+      lstSave('save', { kind: le.kind, id: le.id || undefined, name: lname, parent: le.kind === 'country' ? String(lf.get('parent') || '') : (le.parent || ''), hidden: lf.get('hidden') === 'on' }, function (r) {
+        var rw = r && r.rewrite; return (le.id ? 'Saved ✓' : 'Added ✓') + (rw && (rw.profiles || rw.roles) ? ' ' + pl(rw.profiles || 0, 'profile') + ' and ' + pl(rw.roles || 0, 'role') + ' updated' : ''); });
+      return;
+    }
+    if (f.dataset.form === 'adm-lst-merge') {
+      var lm = A.lst.merge; if (!lm) return;
+      var lg = new FormData(f);
+      if (String(lg.get('confirm') || '').trim() !== 'MERGE') { APP.toast('Not merged — type MERGE to confirm'); return; }
+      var lto = String(lg.get('to') || ''); if (!lto) { APP.toast('Choose where to merge it'); return; }
+      lstSave('merge', { kind: lm.kind, from: lm.id, to: lto }, function (r) { return 'Merged ✓ ' + pl(r.profiles || 0, 'profile') + ' and ' + pl(r.roles || 0, 'role') + ' moved'; });
+      return;
+    }
     if (f.dataset.form === 'adm-cat-ed') {
       var ed = A.cat.ed; if (!ed) return;
       var fd = new FormData(f), vals = ed.vals;

@@ -75,7 +75,8 @@
 
   /* ------------------------------ loading ------------------------------ */
   B.fetchPublic = function () {
-    return Promise.all([B.sb.rpc('list_jobs'), B.sb.rpc('list_companies'), B.fetchCommunity(), B.fetchCatalog()]).then(function (r) {
+    return Promise.all([B.sb.rpc('list_jobs'), B.sb.rpc('list_companies'), B.fetchCommunity(), B.fetchCatalog(), B.fetchLists()]).then(function (r) {
+      if (r[4] && r[4].v !== APP.LISTS_V && APP.applyLists) { try { APP.applyLists(r[4]); } catch (e) { /* keep what we have */ } }
       /* the catalog (products, modules, specialties) is kept in the database; the built-in copy is the fallback */
       if (r[3] && r[3].v !== APP.CATALOG_V && APP.applyCatalog) { try { APP.applyCatalog(r[3]); } catch (e) { /* keep what we have */ } }
       return { jobs: unwrap(r[0], 'list_jobs'), companies: unwrap(r[1], 'list_companies'), community: r[2] };
@@ -85,6 +86,13 @@
     return B.sb.rpc('get_catalog').then(function (r) {
       var d = r && r.data;
       if (r.error || !d || typeof d !== 'object' || !Array.isArray(d.products)) return null;
+      return d;
+    }, function () { return null; });
+  };
+  B.fetchLists = function () {
+    return B.sb.rpc('get_lists').then(function (r) {
+      var d = r && r.data;
+      if (r.error || !d || typeof d !== 'object' || !Array.isArray(d.countries)) return null;
       return d;
     }, function () { return null; });
   };

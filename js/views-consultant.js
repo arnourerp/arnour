@@ -204,11 +204,11 @@ APP.views['c-profile'] = function () {
       '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
       '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + addedNote + '</div>' +
       '<div class="form-grid">' +
-      '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input">' + APP.opt(APP.nationalities.map(n => [n, n]), d.nationality) + '</select></label>' +
+      '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input">' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select></label>' +
       '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
       '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
       '</div>' +
-      '<div class="field"><span class="label">Languages <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('profile', 'languages', APP.languages, d.languages || []) + '</div></div>' +
+      '<div class="field"><span class="label">Languages <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('profile', 'languages', APP.withSelected(APP.languages, d.languages), d.languages || []) + '</div></div>' +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Years of experience</span><input name="yearsExp" type="number" min="1" max="40" class="input" value="' + APP.h(d.yearsExp) + '"></label>' +
       (rp.lvl ? '<label class="field"><span class="label">Level</span><select name="level" class="input">' + APP.opt(APP.levels.map(l => [l, l]), d.level) + '</select></label>' : '') +
@@ -280,7 +280,7 @@ APP.jobActiveFilters = function (f) {
   (f.types || []).forEach(v => out.push(['types', v, v]));
   (f.levels || []).forEach(v => out.push(['levels', v, v]));
   if (f.country) out.push(['country', '', APP.countryName(f.country)]);
-  if (f.region && f.region !== 'all') out.push(['region', '', APP.regions[f.region]]);
+  if (f.region && f.region !== 'all') out.push(['region', '', APP.regionName(f.region)]);
   if (f.workMode) out.push(['workMode', '', f.workMode === 'remote' ? 'Remote-friendly' : 'On-site']);
   (f.industries || []).forEach(v => out.push(['industries', v, v]));
   if (f.cert) out.push(['cert', '', { none: 'No certification needed', preferred: 'Certification preferred', required: 'Certification required' }[f.cert]]);

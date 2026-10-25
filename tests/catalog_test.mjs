@@ -10,7 +10,7 @@ alter default privileges in schema public grant all on tables to anon, authentic
 alter default privileges in schema public grant execute on functions to anon, authenticated, public;
 create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]); create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text,owner uuid);
 create function storage.foldername(name text) returns text[] language sql as $$ select string_to_array(name,'/') $$;`);
-for(const f of ['001_schema','002_seed_samples','003_community','004_seed_community','005_admin','006_feedback','007_email','008_catalog']) await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f+'.sql','utf8'));
+for(const f of ['001_schema','002_seed_samples','003_community','004_seed_community','005_admin','006_feedback','007_email','008_catalog','009_lists']) await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f+'.sql','utf8'));
 await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/008_catalog.sql','utf8')); // runs twice
 const U={a:'99999999-9999-9999-9999-999999999999',c:'22222222-2222-2222-2222-222222222222',e:'11111111-1111-1111-1111-111111111111'};
 await db.query(`insert into auth.users(id,email) values ($1,'boss@arnour.test'),($2,'c@x.com'),($3,'e@x.com')`,[U.a,U.c,U.e]);

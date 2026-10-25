@@ -10,7 +10,7 @@ APP.views.landing = function () {
   const stats = [
     [prods, 'SAP products'],
     [mods, 'modules to filter on'],
-    [APP.countries.length, 'countries across 4 regions'],
+    [APP.countries.length, 'countries across ' + Object.keys(APP.regions).length + ' regions'],
     ['0', 'general noise']
   ].map(s => '<div class="stat-tile"><strong>' + APP.h(s[0]) + '</strong><small>' + APP.h(s[1]) + '</small></div>').join('');
 
@@ -254,12 +254,12 @@ APP.views['wiz-c'] = function () {
         '<label class="field"><input name="linkedin" class="input" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile" aria-label="LinkedIn profile"></label></details>') +
       sec('where', 'pin', 'Where you are',
         '<div class="form-grid g3">' +
-        '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '>' + APP.opt(APP.nationalities.map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
+        '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '>' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
         '<label class="field"><span class="label">Country <span class="req-star">*</span></span><select name="country" data-wizard="c" class="input" id="wiz-country"' + inv('country') + '>' + APP.countryOptions(d.country) + '</select>' + E('country') + '</label>' +
         '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
         '</div>') +
       sec('languages', 'msg', 'Languages <span class="req-star">*</span>',
-        '<div class="field field-langs"><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.languages, d.languages) + '</div>' + E('languages') + '</div>') +
+        '<div class="field field-langs"><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.withSelected(APP.languages, d.languages), d.languages) + '</div>' + E('languages') + '</div>') +
       APP.wizNav(1, 6) +
       '</form>';
   } else if (step === 2) {

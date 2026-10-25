@@ -200,7 +200,7 @@ APP.applyTalentFilters = function (list) {
 };
 
 /* ---- Find Talent: faceted search (v2) ---- */
-APP.TF_REGION_LABEL = (r) => (r === 'all' ? 'All' : APP.regions[r]);
+APP.TF_REGION_LABEL = (r) => (r === 'all' ? 'All' : APP.regionName(r));
 
 /* Every active filter as [key, value, label] — drives the dismissible chips and the per-section counters. */
 APP.talentActiveFilters = function (f) {
@@ -536,7 +536,7 @@ APP.jobFormView = function (mode) {
     '<label class="field"><span class="label">SAP certification</span><select name="certification" class="input">' + APP.opt([['', 'Not required'], ['preferred', 'Preferred'], ['required', 'Required']], d.certification) + '</select></label>' +
     '<label class="field"><span class="label">Min experience (yrs)</span><input name="minExp" type="number" min="0" max="40" class="input" value="' + APP.h(d.minExp) + '" placeholder="5"></label>' +
     '</div>' +
-    '<div class="field"><span class="label">Required languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'languages', APP.languages, d.languages) + '</div><p class="field-hint">Professionals who don\'t speak every required language won\'t see this role in their feed.</p></div>' +
+    '<div class="field"><span class="label">Required languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'languages', APP.withSelected(APP.languages, d.languages), d.languages) + '</div><p class="field-hint">Professionals who don\'t speak every required language won\'t see this role in their feed.</p></div>' +
     '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>More ranking preferences <span class="muted">(optional)</span>' + (nMore ? ' <span class="count-pill">' + nMore + ' selected</span>' : '') + '</summary>' +
     '<div class="field"><span class="label">Preferred languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'preferredLangs', APP.languages.filter(l => (d.languages || []).indexOf(l) === -1), d.preferredLangs) + '</div><p class="field-hint">Ranks the role higher for professionals who speak them — never hides it.</p></div>' +
     (leadJ ? '' : '<div class="field"><span class="label">Industries</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div><p class="field-hint">Ranks the role higher for professionals with that background — never hides it.</p></div>') +

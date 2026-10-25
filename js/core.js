@@ -40,9 +40,38 @@ APP.countries = [
 ];
 APP.countriesById = Object.fromEntries(APP.countries.map(c => [c.id, c]));
 
-/* Nationalities mirror the 22-country list (name per country, 'Other' as fallback). */
-APP.nationalities = ['Egypt', 'Jordan', 'Palestine', 'Lebanon', 'Iraq', 'Turkey', 'United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Kuwait', 'Bahrain', 'Oman', 'Morocco', 'Tunisia', 'Algeria', 'India', 'Pakistan', 'United Kingdom', 'Germany', 'United States', 'France', 'Other'];
+/* Nationalities are demonyms ("Egyptian"), 'Other' as fallback. */
+APP.nationalities = ['Egyptian', 'Jordanian', 'Palestinian', 'Lebanese', 'Iraqi', 'Turkish', 'Emirati', 'Saudi', 'Qatari', 'Kuwaiti', 'Bahraini', 'Omani', 'Moroccan', 'Tunisian', 'Algerian', 'Indian', 'Pakistani', 'British', 'German', 'American', 'French', 'Other'];
 APP.languages = ['English', 'Arabic', 'Hindi', 'Urdu', 'French'];
+/* Saved profiles used to hold the country name; the database moves them across, this covers a cached or sample copy. */
+APP.nationalityMigrate = { 'Egypt': 'Egyptian', 'Jordan': 'Jordanian', 'Palestine': 'Palestinian', 'Lebanon': 'Lebanese', 'Iraq': 'Iraqi', 'Turkey': 'Turkish', 'United Arab Emirates': 'Emirati', 'Saudi Arabia': 'Saudi', 'Qatar': 'Qatari', 'Kuwait': 'Kuwaiti', 'Bahrain': 'Bahraini', 'Oman': 'Omani', 'Morocco': 'Moroccan', 'Tunisia': 'Tunisian', 'Algeria': 'Algerian', 'India': 'Indian', 'Pakistan': 'Pakistani', 'United Kingdom': 'British', 'Germany': 'German', 'United States': 'American', 'France': 'French' };
+/* Regions, countries, cities, nationalities and languages now live in the database (Admin > Lists). Called with get_lists() after load and after every
+   admin save. Hidden items leave the pickers but stay known, so what someone already has keeps its name. */
+APP.applyLists = function (l) {
+  if (!l || !Array.isArray(l.countries) || !l.countries.length || !Array.isArray(l.regions)) return false;
+  Object.keys(APP.regions).forEach(k => { delete APP.regions[k]; });
+  APP.regionNamesAll = {};
+  l.regions.forEach(r => { APP.regionNamesAll[r.id] = r.name; if (!r.hidden) APP.regions[r.id] = r.name; });
+  APP.countries.length = 0;
+  Object.keys(APP.countriesById).forEach(k => { delete APP.countriesById[k]; });
+  l.countries.forEach(c => {
+    const o = { id: c.id, name: c.name, region: c.region, hidden: !!c.hidden, cities: (c.cities || []).filter(x => !x.hidden).map(x => x.name), allCities: (c.cities || []).map(x => x.name) };
+    APP.countriesById[c.id] = o;
+    if (!o.hidden) APP.countries.push(o);
+  });
+  APP.nationalities = (l.nationalities || []).filter(x => !x.hidden).map(x => x.name);
+  APP.nationalitiesAll = (l.nationalities || []).map(x => x.name);
+  APP.languages = (l.languages || []).filter(x => !x.hidden).map(x => x.name);
+  APP.languagesAll = (l.languages || []).map(x => x.name);
+  APP.LISTS_V = l.v;
+  return true;
+};
+/* visible choices plus anything already chosen that was hidden later */
+APP.withSelected = function (list, sel) {
+  const s = Array.isArray(sel) ? sel : (sel ? [sel] : []);
+  return list.concat(s.filter(x => x && list.indexOf(x) === -1));
+};
+APP.regionName = (id) => APP.regions[id] || (APP.regionNamesAll || {})[id] || id;
 APP.levels = ['Junior', 'Mid', 'Senior'];
 APP.genders = [['male', 'Male'], ['female', 'Female']];
 APP.genderLabel = (g) => (APP.genders.find(x => x[0] === g) || [0, ''])[1];
@@ -2505,7 +2534,7 @@ APP.opt = function (pairs, sel) {
 };
 
 /* Country is required in every form; the city is optional and only makes sense inside a country. */
-APP.countryOptions = (sel, noBlank) => (noBlank ? '' : '<option value=""' + (sel ? '' : ' selected') + '>Select a country…</option>') + APP.opt(APP.countries.map(c => [c.id, c.name]), sel);
+APP.countryOptions = (sel, noBlank) => (noBlank ? '' : '<option value=""' + (sel ? '' : ' selected') + '>Select a country…</option>') + APP.opt(APP.countries.map(c => [c.id, c.name]).concat(sel && !APP.countries.some(c => c.id === sel) && APP.countriesById[sel] ? [[sel, APP.countriesById[sel].name]] : []), sel);
 APP.cityOptions = function (countryId, sel) {
   const cities = ((APP.countriesById[countryId] || {}).cities || []);
   const keep = sel && cities.indexOf(sel) === -1 ? [sel] : []; /* an older saved city that is not in the list stays selectable */

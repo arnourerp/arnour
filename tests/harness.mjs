@@ -19,6 +19,7 @@ create function storage.foldername(name text) returns text[] language sql as $$ 
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/006_feedback.sql','utf8'));
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/007_email.sql','utf8'));
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/008_catalog.sql','utf8'));
+  await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/009_lists.sql','utf8'));
   const users={}; let tok=0; const log=[];
   const SETOF=['list_consultants','list_jobs','list_companies'];
   const JSONB=['p_data','p_cv','p_call','p_args'];
