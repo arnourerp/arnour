@@ -49,6 +49,7 @@ for (const name of list) {
   results.push({ name, ok, secs: Math.round((Date.now() - t0) / 1000) });
   console.log((ok ? 'PASS ' : 'FAIL ') + name + ' (' + results[results.length - 1].secs + 's)');
   if (!ok) console.log(out.buf.split('\n').slice(-40).join('\n'));
+  if (!ok && process.env.GITHUB_ACTIONS) console.log('::error title=' + name + '::' + out.buf.split('\n').filter((l) => /FAIL|Error|TIMEOUT|PAGEERR/.test(l)).slice(0, 6).join(' ## ').replace(/[\r\n%]/g, ' ').slice(0, 900));
 }
 servers.forEach((s) => s.close()); fs.rmSync(DEMO, { recursive: true, force: true });
 const bad = results.filter((r) => !r.ok);
