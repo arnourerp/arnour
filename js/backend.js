@@ -75,7 +75,10 @@
 
   /* ------------------------------ loading ------------------------------ */
   B.fetchPublic = function () {
-    return Promise.all([B.sb.rpc('list_jobs'), B.sb.rpc('list_companies'), B.fetchCommunity(), B.fetchCatalog(), B.fetchLists()]).then(function (r) {
+    return Promise.all([B.sb.rpc('list_jobs'), B.sb.rpc('list_companies'), B.fetchCommunity(), B.fetchCatalog(), B.fetchLists(), B.fetchBanner()]).then(function (r) {
+      /* the announcement banner for whoever is signed in (null for visitors and when there is none) */
+      var nb = r[5] || null;
+      if ((nb ? nb.id : 0) !== (APP.banner ? APP.banner.id : 0)) { APP.banner = nb; if (APP.render && APP.db && APP.db.session !== undefined) { setTimeout(function () { try { APP.render(); } catch (e) { /* ignore */ } }, 0); } }
       if (r[4] && r[4].v !== APP.LISTS_V && APP.applyLists) { try { APP.applyLists(r[4]); } catch (e) { /* keep what we have */ } }
       /* the catalog (products, modules, specialties) is kept in the database; the built-in copy is the fallback */
       if (r[3] && r[3].v !== APP.CATALOG_V && APP.applyCatalog) { try { APP.applyCatalog(r[3]); } catch (e) { /* keep what we have */ } }
@@ -87,6 +90,13 @@
       var d = r && r.data;
       if (r.error || !d || typeof d !== 'object' || !Array.isArray(d.products)) return null;
       return d;
+    }, function () { return null; });
+  };
+  B.fetchBanner = function () {
+    if (!B.user) return Promise.resolve(null);
+    return B.sb.rpc('my_banner').then(function (r) {
+      var d = r && r.data;
+      return r.error || !d || typeof d !== 'object' || !d.id ? null : d;
     }, function () { return null; });
   };
   B.fetchLists = function () {
@@ -894,7 +904,7 @@
   };
 
   /* ---------- email notifications (settings on the Account page, unsubscribe page) ---------- */
-  var EMAIL_KINDS = { matches: 'new matching roles', invites: 'invitation and introduction', messages: 'new message', applicants: 'new applicant', community: 'community answer', all: 'all Arnour' };
+  var EMAIL_KINDS = { matches: 'new matching roles', invites: 'invitation and introduction', messages: 'new message', applicants: 'new applicant', community: 'community answer', announcements: 'news and announcement', all: 'all Arnour' };
   function emailPrefsHtml(role) {
     var head = '<div class="card-h" style="margin-top:24px">Email notifications</div>';
     if (!role) return '';
@@ -914,6 +924,7 @@
       sw('invites', role === 'consultant' ? 'Invitations, introductions and application updates' : 'Introduction requests', role === 'consultant' ? 'A company invites you to apply, wants to connect, or shortlists you' : 'A professional wants to connect, or accepts your request', p.invites !== false) +
       sw('messages', 'New messages', 'Only if unread after 15 minutes — at most one email per chat per hour', p.messages !== false) +
       sw('community', 'Community answers', 'Someone answers your question, or your answer is accepted', p.community !== false) +
+      sw('announcements', 'News and announcements', 'New features and important notices from Arnour', p.announcements !== false) +
       '<button class="btn btn-outline" type="submit">Save email settings</button></form>';
   }
   APP.views.unsubscribe = function () {
@@ -1146,7 +1157,7 @@
         f.innerHTML = '<p class="center">If an account exists for <strong>' + esc(fe) + '</strong>, a reset link is on its way. Check your inbox and spam folder.</p><a class="btn btn-ghost btn-block" href="#/login">Back to sign in</a>';
       });
     } else if (type === 'live-email') {
-      var pd = { invites: !!f.querySelector('[name=ep_invites]:checked'), messages: !!f.querySelector('[name=ep_messages]:checked'), community: !!f.querySelector('[name=ep_community]:checked') };
+      var pd = { invites: !!f.querySelector('[name=ep_invites]:checked'), messages: !!f.querySelector('[name=ep_messages]:checked'), community: !!f.querySelector('[name=ep_community]:checked'), announcements: !!f.querySelector('[name=ep_announcements]:checked') };
       if (fd.get('ep_matches')) pd.matches = g('ep_matches');
       if (fd.get('ep_applicants')) pd.applicants = g('ep_applicants');
       busy(f, true, 'Saving…');

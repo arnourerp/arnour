@@ -2463,6 +2463,15 @@ APP.tabbarHtml = function () {
   ).join('') + '</nav>';
 };
 
+/* Announcement banner (Admin > Announcements). One at a time; closing it is remembered on this device. */
+APP.annDismissed = function () { try { return localStorage.getItem('arnour_ann_dismissed') || ''; } catch (e) { return APP._annSeen || ''; } };
+APP.bannerHtml = function () {
+  const b = APP.banner;
+  if (!b || !b.id || !APP.db.session || String(APP.annDismissed()) === String(b.id) || String(APP._annSeen || '') === String(b.id)) return '';
+  const link = b.link && /^#\//.test(b.link) ? ' <a class="ann-link" href="' + APP.h(b.link) + '">' + APP.h(b.label || 'Learn more') + ' →</a>' : '';
+  return '<div class="ann-banner" role="status"><div class="ann-text"><strong>' + APP.h(b.title) + '</strong>' + (b.body ? ' <span>' + APP.h(b.body) + '</span>' : '') + link + '</div>' +
+    '<button type="button" class="ann-x" data-action="ann-dismiss" data-id="' + APP.h(b.id) + '" aria-label="Close this announcement">' + APP.icon('x', 16) + '</button></div>';
+};
 APP.navbar = function () {
   const s = APP.db.session;
   const u = APP.currentUser();
@@ -3105,7 +3114,7 @@ APP.render = function () {
   const footer = route.auth || bare ? '' : APP.footerHtml();
   const keepY = navBackY != null ? navBackY : bare && APP._lastRoute === location.hash.split('?')[0] ? window.scrollY : 0;
   document.getElementById('app').innerHTML =
-    chrome + '<main class="main" id="main">' + body + '</main>' + footer;
+    chrome + (bare || chrome.indexOf('class="nav"') < 0 ? '' : APP.bannerHtml()) + '<main class="main" id="main">' + body + '</main>' + footer;
   APP.a11yPass();
   APP._shownHash = location.hash;
   APP.captureEditBase();
@@ -3623,6 +3632,12 @@ APP.onClick = function (el, e) {
       APP.toast('Demo data reset');
       break;
 
+    case 'ann-dismiss': {
+      APP._annSeen = String(el.dataset.id || '');
+      try { localStorage.setItem('arnour_ann_dismissed', APP._annSeen); } catch (e) { /* the banner stays closed for this visit */ }
+      APP.render();
+      break;
+    }
     case 'gs-dismiss': {
       const u = APP.db.session ? APP.currentUser() : null;
       if (u) { u.getStartedDismissed = true; APP.save(); }

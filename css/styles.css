@@ -1866,3 +1866,11 @@ a.sr-title:hover { text-decoration: underline; }
 .adm-main code { font-size: 12px; background: var(--bg-subtle); padding: 1px 5px; border-radius: 4px; }
 .check-row { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; font-size: 14px; }
 .check-row input { margin-top: 3px; }
+
+/* announcement banner (Admin > Announcements) */
+.ann-banner { display: flex; align-items: flex-start; justify-content: center; gap: 12px; background: var(--primary, #0f1729); color: #fff; font-size: 14px; padding: 10px 16px; }
+.ann-banner .ann-text { max-width: 880px; line-height: 1.45; }
+.ann-banner .ann-text span { opacity: .92; }
+.ann-banner .ann-link { color: #fff; text-decoration: underline; white-space: nowrap; font-weight: 600; margin-left: 4px; }
+.ann-banner .ann-x { background: transparent; border: 0; color: #fff; cursor: pointer; padding: 2px; border-radius: 6px; opacity: .85; flex: none; }
+.ann-banner .ann-x:hover { opacity: 1; background: rgba(255,255,255,.15); }

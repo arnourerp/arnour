@@ -93,7 +93,7 @@
   }
 
   /* ---------- views ---------- */
-  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['catalog', 'Catalog'], ['lists', 'Lists'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
+  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['catalog', 'Catalog'], ['lists', 'Lists'], ['announce', 'Announcements'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
 
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0;
@@ -586,6 +586,80 @@
       (sub === 'regions' ? vListsSimple(L, U, 'region') : sub === 'nationalities' ? vListsSimple(L, U, 'nationality') : sub === 'languages' ? vListsSimple(L, U, 'language') : sub === 'history' ? vListsHistory(Lg) : sub === 'export' ? vListsExport(L) : vListsCountries(L, U));
   }
 
+  /* ---------- announcements: banner, bell notification, email ---------- */
+  var ANN0 = { title: '', body: '', link: '', link_label: '', ch_banner: true, ch_bell: true, ch_email: false, banner_days: 7, who: 'all', country: '', role_type: '' };
+  A.ann = { f: Object.assign({}, ANN0), step: 'edit', counts: null, busy: false, confirmW: 0 };
+  function annAudience(a) {
+    var who = a.who === 'pros' ? 'Professionals' : a.who === 'companies' ? 'Companies' : 'Everyone';
+    var c = a.country ? (APP.countriesById[a.country] || {}).name || a.country : '';
+    var r = a.role_type ? (APP.roleTypeById[a.role_type] || {}).name || a.role_type : '';
+    return who + (c ? ' in ' + c : '') + (r ? ' · ' + r : '');
+  }
+  function annPreview(f) {
+    var link = f.link ? ' <span style="text-decoration:underline;font-weight:600;white-space:nowrap">' + h(f.link_label || 'Learn more') + ' →</span>' : '';
+    var out = '<div class="adm-card"><h2 style="margin-top:0">Preview</h2>';
+    if (f.ch_banner) out += '<p class="muted small" style="margin-bottom:4px">Banner</p><div class="ann-banner" style="border-radius:8px"><div class="ann-text"><strong>' + h(f.title || 'Your title') + '</strong>' + (f.body ? ' <span>' + h(f.body) + '</span>' : '') + link + '</div></div>';
+    if (f.ch_bell) out += '<p class="muted small" style="margin:12px 0 4px">Bell notification</p><div class="card" style="padding:10px 12px;margin:0">' + h((f.title || 'Your title') + (f.body ? ': ' + f.body : '')) + '</div>';
+    if (f.ch_email) out += '<p class="muted small" style="margin:12px 0 4px">Email — subject: <strong>' + h(f.title || 'Your title') + '</strong></p><div class="card" style="padding:10px 12px;margin:0"><strong>' + h(f.title || 'Your title') + '</strong><br>' + h(f.body || '') + '</div>';
+    return out + '</div>';
+  }
+  function annForm() {
+    var f = A.ann.f, busy = A.ann.busy;
+    var chk = function (n, label, hint) { return '<label class="check-row"><input type="checkbox" name="' + n + '"' + (f[n] ? ' checked' : '') + '> <span><strong>' + label + '</strong> <span class="muted small">— ' + hint + '</span></span></label>'; };
+    var opts = function (pairs, v) { return pairs.map(function (o) { return '<option value="' + h(o[0]) + '"' + (o[0] === v ? ' selected' : '') + '>' + h(o[1]) + '</option>'; }).join(''); };
+    return '<form class="adm-card" data-form="adm-ann"><h2 style="margin-top:0">New announcement</h2>' +
+      '<label class="field"><span class="label">Title <span class="muted">(80 characters at most)</span></span><input class="input" name="title" maxlength="80" value="' + h(f.title) + '" autocomplete="off" placeholder="e.g. New: AI skills on your profile"></label>' +
+      '<label class="field"><span class="label">Message <span class="muted">(optional, 400 characters at most)</span></span><textarea class="input" name="body" rows="3" maxlength="400" placeholder="One or two sentences on what is new and why it matters.">' + h(f.body) + '</textarea></label>' +
+      '<div class="form-grid"><label class="field"><span class="label">Link <span class="muted">(optional — a page on Arnour)</span></span><input class="input" name="link" value="' + h(f.link) + '" autocomplete="off" placeholder="#/c/profile"></label>' +
+      '<label class="field"><span class="label">Link text</span><input class="input" name="link_label" maxlength="30" value="' + h(f.link_label) + '" autocomplete="off" placeholder="Learn more"></label></div>' +
+      '<div class="field"><span class="label">How should it reach people?</span>' +
+        chk('ch_banner', 'Banner', 'a bar at the top of the site that each person can close') +
+        (f.ch_banner ? '<label class="field" style="margin:4px 0 8px 28px;max-width:220px"><span class="label">Keep the banner up for</span><select class="input" name="banner_days">' + opts([[1, '1 day'], [3, '3 days'], [7, '7 days'], [14, '14 days'], [30, '30 days'], [90, '90 days']].map(function (x) { return [String(x[0]), x[1]]; }), String(f.banner_days)) + '</select></label>' : '') +
+        chk('ch_bell', 'Bell notification', 'appears in the notification list') +
+        chk('ch_email', 'Email', 'sent to everyone in the audience who has not switched announcement emails off') + '</div>' +
+      '<div class="form-grid"><label class="field"><span class="label">Who</span><select class="input" name="who">' + opts([['all', 'Everyone'], ['pros', 'Professionals'], ['companies', 'Companies']], f.who) + '</select></label>' +
+      '<label class="field"><span class="label">Country <span class="muted">(optional)</span></span><select class="input" name="country"><option value="">Any country</option>' + APP.countries.map(function (c) { return '<option value="' + h(c.id) + '"' + (c.id === f.country ? ' selected' : '') + '>' + h(c.name) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field"><span class="label">Role type <span class="muted">(professionals only)</span></span><select class="input" name="role_type"' + (f.who === 'pros' ? '' : ' disabled') + '><option value="">Any role type</option>' + APP.roleTypes.map(function (r) { return '<option value="' + h(r.id) + '"' + (r.id === f.role_type ? ' selected' : '') + '>' + h(r.name) + '</option>'; }).join('') + '</select></label></div>' +
+      '<div class="adm-actions"><button class="btn btn-primary btn-sm" type="submit"' + (busy ? ' disabled' : '') + '>Review &amp; send</button>' + cb('adm-ann-test', 'Send me a test', {}, 'btn-outline') + cb('adm-ann-reset', 'Clear', {}, 'btn-ghost') + '</div>' +
+      '<p class="muted small">“Send me a test” delivers it only to you (bell and email), so you can see exactly what people will get. Nothing is sent to anyone else until you confirm on the next screen.</p></form>';
+  }
+  function annReview() {
+    var f = A.ann.f, c = A.ann.counts || { total: 0, pros: 0, companies: 0, emails: 0 };
+    var lines = [];
+    if (f.ch_banner) lines.push('Banner for ' + f.banner_days + ' day' + (Number(f.banner_days) === 1 ? '' : 's'));
+    if (f.ch_bell) lines.push('Bell notification to ' + pl(c.total, 'person').replace('persons', 'people'));
+    if (f.ch_email) lines.push('Email to ' + pl(c.emails, 'person').replace('persons', 'people') + (c.total - c.emails > 0 ? ' (' + (c.total - c.emails) + ' switched announcement emails off)' : ''));
+    return '<div class="adm-card sus"><h2 style="margin-top:0">Ready to send?</h2><p><strong>' + h(f.title) + '</strong>' + (f.body ? '<br>' + h(f.body) : '') + '</p>' +
+      '<p>Audience: <strong>' + h(annAudience(f)) + '</strong> — ' + pl(c.total, 'person').replace('persons', 'people') + ' (' + pl(c.pros, 'professional') + ', ' + pl(c.companies, 'company').replace('companys', 'companies') + ').</p>' +
+      '<ul>' + lines.map(function (l) { return '<li>' + h(l) + '</li>'; }).join('') + '</ul>' +
+      (c.total === 0 ? '<p class="muted">Nobody matches this audience yet, so nothing would be delivered.</p>' : '<p class="muted small">Once sent it cannot be taken back, except that you can end the banner and stop emails that have not gone out yet.</p>') +
+      '<div class="adm-actions"><button type="button" class="btn btn-danger btn-sm" data-action="adm-ann-send"' + (A.ann.busy || c.total === 0 ? ' disabled' : '') + '>Send now</button>' + cb('adm-ann-back', 'Back to edit', {}, 'btn-ghost') + '</div></div>' + annPreview(f);
+  }
+  function annHistory(L) {
+    if (!L.length) return '<div class="empty">Nothing sent yet.</div>';
+    return L.map(function (a) {
+      var ch = [a.ch_banner ? 'Banner' : '', a.ch_bell ? 'Bell ' + a.bell : '', a.ch_email ? 'Email ' + a.email : ''].filter(Boolean).join(' · ');
+      var act = (a.banner_live || a.email_waiting > 0) && !a.withdrawn
+        ? (A.ann.confirmW === a.id ? cb('adm-ann-withdraw', 'Confirm: end banner and stop waiting emails', { id: a.id, yes: '1' }, 'btn-danger') + cb('adm-ann-withdraw', 'Cancel', { id: a.id }, 'btn-ghost') : cb('adm-ann-withdraw', 'Withdraw', { id: a.id }))
+        : '';
+      return '<div class="adm-card"><div class="adm-row"><strong>' + h(a.title) + '</strong>' + (a.banner_live ? ' <span class="pill">Banner live</span>' : '') + (a.withdrawn ? ' <span class="pill muted-pill">Withdrawn</span>' : '') + '</div>' +
+        (a.body ? '<p style="margin:4px 0">' + h(a.body) + '</p>' : '') +
+        '<p class="muted small">' + h(new Date(a.ts).toLocaleString('en-GB')) + ' · ' + h(annAudience(a)) + ' · ' + pl(a.audience, 'person').replace('persons', 'people') + ' · ' + h(ch) + (a.email_waiting ? ' · ' + a.email_waiting + ' email(s) still waiting' : '') + '</p>' +
+        (act ? '<div class="adm-actions">' + act + '</div>' : '') + '</div>';
+    }).join('');
+  }
+  function vAnnounce() {
+    var w = need('annlist', 'admin_announce_list'); if (w) return w;
+    return '<h1>Announcements</h1><p class="muted">Tell people about something new. Choose a banner on screen, a bell notification, an email, or any mix, and narrow it to the people who should see it.</p>' +
+      (A.ann.step === 'review' ? annReview() : annForm() + annPreview(A.ann.f)) +
+      '<h2 style="margin-top:28px">Sent so far</h2>' + annHistory(A.data.annlist);
+  }
+  function annArgs() {
+    var f = A.ann.f;
+    return { title: f.title, body: f.body, link: f.link, link_label: f.link_label, ch_banner: !!f.ch_banner, ch_bell: !!f.ch_bell, ch_email: !!f.ch_email, banner_days: Number(f.banner_days) || 7, who: f.who, country: f.country, role_type: f.who === 'pros' ? f.role_type : '' };
+  }
+  function annErr(e) { A.ann.busy = false; APP.toast(String((e && e.message) || 'Could not do that').replace(/^.*?(Please|The|A role|Choose|Unknown)/, '$1')); APP.render(); }
+
   function vCatalog() {
     var w = need('catalog', 'get_catalog') || need('catusage', 'admin_catalog_usage') || need('catlog', 'admin_catalog_log', { p_limit: 60 }); if (w) return w;
     var C = A.data.catalog, U = A.data.catusage, L = A.data.catlog, sub = A.cat.sub;
@@ -602,7 +676,7 @@
     var tab = (ctx && ctx.p && ctx.p[0]) || 'overview', rest = ctx && ctx.p && ctx.p[1];
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -683,6 +757,37 @@
           allKeys().forEach(reload); reload('overview'); reload('log');
           if (B.fetchCommunity) B.fetchCommunity().then(function (cm) { if (cm && !B.commBusy) B.applyCommunity(APP.db, cm); APP.render(); }, function () { APP.render(); }); else APP.render();
         }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
+        break;
+      }
+      case 'adm-ann-reset': A.ann.f = Object.assign({}, ANN0); A.ann.step = 'edit'; APP.render(); break;
+      case 'adm-ann-back': A.ann.step = 'edit'; APP.render(); break;
+      case 'adm-ann-test': {
+        if (A.ann.busy) break;
+        A.ann.busy = true;
+        B.rpc('admin_announce_send', { p_data: annArgs(), p_test: true }).then(function (r) {
+          A.ann.busy = false;
+          APP.toast(r && r.hasProfile === false ? 'Test not delivered: your admin account has no profile to receive it' : 'Test sent to you ✓ ' + [r.bell ? 'bell' : '', r.email ? 'email (within about 10 minutes)' : ''].filter(Boolean).join(' and '));
+          APP.render();
+        }, annErr);
+        break;
+      }
+      case 'adm-ann-send': {
+        if (A.ann.busy) break;
+        A.ann.busy = true;
+        B.rpc('admin_announce_send', { p_data: annArgs(), p_test: false }).then(function (r) {
+          A.ann.busy = false; A.ann.step = 'edit'; A.ann.f = Object.assign({}, ANN0); A.ann.counts = null; delete A.data.annlist; reload('log');
+          APP.toast('Sent ✓ ' + [r.banner ? 'banner live' : '', r.bell ? 'bell to ' + r.bell : '', r.email ? 'email to ' + r.email : ''].filter(Boolean).join(' · '));
+          APP.render();
+        }, annErr);
+        break;
+      }
+      case 'adm-ann-withdraw': {
+        var wid = Number(d.id);
+        if (!d.yes) { A.ann.confirmW = A.ann.confirmW === wid ? 0 : wid; APP.render(); break; }
+        B.rpc('admin_announce_withdraw', { p_ann_id: wid }).then(function (r) {
+          A.ann.confirmW = 0; delete A.data.annlist; reload('log');
+          APP.toast('Withdrawn ✓' + (r && r.cancelledEmails ? ' ' + r.cancelledEmails + ' waiting email(s) cancelled' : '')); APP.render();
+        }, annErr);
         break;
       }
       case 'adm-lst-sub': A.lst.sub = d.s; A.lst.ed = null; A.lst.merge = null; APP.render(); break;
@@ -807,6 +912,16 @@
       else if (t.name === 'to') m.to = t.value;
     }
   }
+  function annKeep(e) {
+    var t = e.target, f = t && t.closest ? t.closest('form[data-form="adm-ann"]') : null;
+    if (!f || !t.name) return;
+    var v = A.ann.f;
+    if (t.type === 'checkbox') { v[t.name] = t.checked; if (e.type === 'change' && t.name === 'ch_banner') APP.render(); return; }
+    v[t.name] = t.value;
+    if (e.type === 'change' && t.name === 'who') { if (v.who !== 'pros') v.role_type = ''; APP.render(); }
+  }
+  document.addEventListener('input', annKeep);
+  document.addEventListener('change', annKeep);
   function lstKeep(e) {
     var t = e.target, f = t && t.closest ? t.closest('form[data-form="adm-lst-ed"]') : null;
     if (f && A.lst.ed) {
@@ -824,6 +939,14 @@
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'adm-del') window.__admDel = e.target.value.trim(); });
 
   APP.onSubmit = function (f) {
+    if (f.dataset.form === 'adm-ann') {
+      if (A.ann.busy) return;
+      var ar = annArgs();
+      if (!ar.title.trim()) { APP.toast('Please add a title'); return; }
+      A.ann.busy = true;
+      B.rpc('admin_announce_count', { p_data: ar }).then(function (c) { A.ann.busy = false; A.ann.counts = c; A.ann.step = 'review'; APP.render(); window.scrollTo(0, 0); }, annErr);
+      return;
+    }
     if (f.dataset.form === 'adm-lst-ed') {
       var le = A.lst.ed; if (!le) return;
       var lf = new FormData(f), lname = String(lf.get('name') || '').trim();
