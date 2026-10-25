@@ -3183,6 +3183,25 @@ APP.renderKeep = function (focusSel) {
 };
 
 /* ---------- editing: clear Cancel / Save, and no silent loss of unsaved edits ---------- */
+/* Profile edit: the form is split into sections; this lists them with a done mark each and the overall completeness. */
+APP.profileSections = function (d, rp) {
+  const has = (v) => !!(v && String(v).trim());
+  const lead = APP.isLeadRole(d);
+  const skills = (d.skills || []).filter(k => k.productId && k.moduleId);
+  const spec = (d.specialties || []).length + (Array.isArray(d.otherSkills) ? d.otherSkills.length : (has(d.otherSkills) ? 1 : 0));
+  const list = [
+    { id: 'basics', label: 'Basics', ok: has(d.firstName) && has(d.lastName) && has(d.headline) && !!d.roleType && !!d.country && (d.languages || []).length > 0, hint: 'Name, role, country, languages', req: true },
+    { id: 'experience', label: 'Experience', ok: +d.yearsExp > 0 && has(d.availability), hint: 'Years, availability, industries', req: true },
+    { id: 'skills', label: 'SAP skills', ok: skills.length > 0, hint: skills.length ? skills.length + ' skill' + (skills.length === 1 ? '' : 's') : 'Add your products and modules', req: true },
+    { id: 'specialties', label: 'Specialties', ok: spec > 0, hint: spec ? spec + ' chosen' : (lead ? 'Pick what you are known for' : 'Optional'), req: lead },
+    { id: 'about', label: 'About & CV', ok: has(d.summary), hint: 'Summary, LinkedIn, CV', req: true }
+  ];
+  if (lead) { const a = list.findIndex(x => x.id === 'skills'), b = list.findIndex(x => x.id === 'specialties'); const t = list[a]; list[a] = list[b]; list[b] = t; } /* people who lead start with their specialties */
+  const need = list.filter(x => x.req), done = need.filter(x => x.ok).length;
+  list.pct = need.length ? Math.round(done * 100 / need.length) : 100;
+  return list;
+};
+APP.peJump = function (id) { APP.state.profileSec = id; APP.render(); };
 APP.editBarHtml = function (title, formId) {
   return '<div class="edit-bar"><h2 class="page-title">' + APP.h(title) + '</h2><div class="edit-bar-acts">' +
     '<button type="button" class="btn btn-outline btn-sm" data-action="edit-cancel">Cancel</button>' +
@@ -4285,8 +4304,13 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'psec':
+      APP.state.profileSec = el.dataset.s || 'basics';
+      APP.render();
+      { const m = document.querySelector('.pe-card'); if (m && m.getBoundingClientRect().top < 0) window.scrollTo(0, Math.max(0, m.getBoundingClientRect().top + window.scrollY - 70)); }
+      break;
     case 'profile-edit-on':
-      APP.state.profileEdit = true;
+      APP.state.profileEdit = true; APP.state.profileSec = 'basics';
       APP.profileDraft = APP.clone(APP.currentUser());
       APP.render();
       break;
@@ -4593,15 +4617,15 @@ APP.onSubmit = function (f) {
       d.headline = g('headline'); d.nationality = g('nationality');
       d.linkedin = g('linkedin'); /* optional — plain assignment so it can be cleared */
       d.country = g('country'); d.city = d.country ? g('city') : '';
-      if (!d.country) { APP.toast('Please select your country'); return; }
+      if (!d.country) { APP.toast('Please select your country'); APP.peJump('basics'); return; }
       d.yearsExp = +g('yearsExp') || user.yearsExp;
       d.gender = g('gender') || user.gender || '';
       if (!d.gender) delete d.gender;
       APP.rtSet(d, APP.rtList(APP.profileDraft ? d : user));
       d.level = APP.roleProfile(d).lvl ? (g('level') || user.level) : (d.roleType === 'junior' ? 'Junior' : (g('level') || APP.levelFromYears(d.yearsExp)));
       if (f.querySelector('[name="programs"]')) { d.programs = Math.max(0, +g('programs') || 0); }
-      if (!d.roleType) { APP.toast('Please choose your role type'); APP.flagRoleType(); return; }
-      if (APP.profileDraft && !(APP.profileDraft.languages || user.languages || []).length) { APP.toast('Please choose at least one language you speak'); return; }
+      if (!d.roleType) { APP.toast('Please choose your role type'); APP.peJump('basics'); APP.flagRoleType(); return; }
+      if (APP.profileDraft && !(APP.profileDraft.languages || user.languages || []).length) { APP.toast('Please choose at least one language you speak'); APP.peJump('basics'); return; }
       d.availability = g('availability') || user.availability;
       if (APP.SHOW_RATES) {
         d.currency = g('currency') || user.currency;
@@ -4610,7 +4634,7 @@ APP.onSubmit = function (f) {
       }
       d.summary = g('summary') || user.summary;
       if (APP.profileDraft) { d.skills = (APP.isLeadRole(d) ? APP.normalizeLandscape(APP.profileDraft.skills) : (APP.profileDraft.skills || [])).filter(k => k.productId && k.moduleId); d.industries = APP.profileDraft.industries || []; }
-      if (APP.isLeadRole(d) && !(d.skills || []).length) { APP.toast('Pick at least one SAP product you work with'); return; }
+      if (APP.isLeadRole(d) && !(d.skills || []).length) { APP.toast('Pick at least one SAP product you work with'); APP.peJump('skills'); return; }
       d.workPrefs = (APP.profileDraft && Array.isArray(APP.profileDraft.workPrefs) ? APP.profileDraft.workPrefs : user.workPrefs) || [];
       d.specialties = (APP.profileDraft && Array.isArray(APP.profileDraft.specialties) ? APP.profileDraft.specialties : user.specialties) || [];
       d.otherSkills = APP.tagList(g('otherSkills') || ((APP.profileDraft || user).otherSkills || ''));

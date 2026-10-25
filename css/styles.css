@@ -1874,3 +1874,56 @@ a.sr-title:hover { text-decoration: underline; }
 .ann-banner .ann-link { color: #fff; text-decoration: underline; white-space: nowrap; font-weight: 600; margin-left: 4px; }
 .ann-banner .ann-x { background: transparent; border: 0; color: #fff; cursor: pointer; padding: 2px; border-radius: 6px; opacity: .85; flex: none; }
 .ann-banner .ann-x:hover { opacity: 1; background: rgba(255,255,255,.15); }
+
+/* profile edit: sections with a side menu */
+.narrow.pe-wide { max-width: 940px; }
+.pe-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start; }
+.pe-nav { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 4px; }
+.pe-pct { padding: 4px 4px 12px; }
+.pe-pct-t { font-size: 13px; margin-bottom: 6px; }
+.pe-bar { height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.pe-bar span { display: block; height: 100%; background: var(--blue); border-radius: 6px; }
+.pe-tab { display: flex; align-items: flex-start; gap: 10px; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 9px 10px; cursor: pointer; font: inherit; color: inherit; }
+.pe-tab:hover { background: var(--blue-soft); }
+.pe-tab.on { background: var(--blue-soft); border-color: var(--line); font-weight: 600; }
+.pe-tab small { display: block; font-weight: 400; font-size: 12px; color: var(--muted, #64748b); margin-top: 1px; }
+.pe-mark { flex: none; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; line-height: 20px; text-align: center; font-weight: 700; }
+.pe-mark.ok { background: #dcfce7; color: #166534; }
+.pe-mark.todo { background: #fef3c7; color: #92400e; }
+.pe-h { margin: 0 0 14px; font-size: 18px; }
+.pe-step { display: flex; justify-content: space-between; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
+.edit-bar { position: sticky; top: 62px; z-index: 5; }
+@media (max-width: 760px) {
+  .pe-layout { grid-template-columns: 1fr; gap: 12px; }
+  .pe-nav { position: static; flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+  .pe-pct { display: none; }
+  .pe-tab { flex: none; padding: 7px 10px; border-color: var(--line); }
+  .pe-tab small { display: none; }
+}
+
+/* admin: sidebar with grouped sections (a menu button on phones) */
+.adm-body { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
+.adm-body .adm-tabs { display: block; position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 14px 10px 24px; border-bottom: 0; border-right: 1px solid var(--border-subtle); min-height: calc(100vh - 57px); }
+.adm-group { margin-bottom: 14px; }
+.adm-group-t { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); padding: 6px 10px; }
+.adm-group-t em { font-style: normal; background: var(--danger); color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 11px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+.adm-body .adm-tab { display: block; padding: 8px 10px; border-radius: 8px; border-bottom: 0; border-left: 3px solid transparent; font-size: 14px; }
+.adm-body .adm-tab:hover { background: var(--bg-subtle); }
+.adm-body .adm-tab.on { background: var(--bg-subtle); border-left-color: var(--accent-blue); }
+.adm-body .adm-main { width: 100%; margin: 0; max-width: 1020px; padding: 24px 28px 64px; }
+.adm-menu-btn { display: none; }
+@media (max-width: 860px) {
+  .adm-body { display: block; }
+  .adm-menu-btn { display: inline-flex; }
+  .adm-body .adm-tabs { display: none; position: static; min-height: 0; max-height: none; border-right: 0; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
+  .adm-menu-open .adm-body .adm-tabs { display: block; }
+  .adm-body .adm-main { padding: 18px 16px 56px; }
+}
+
+@media (max-width: 860px) {
+  .adm-top { padding: 10px 12px; gap: 8px; }
+  .adm-top strong { display: none; }
+  .adm-menu-btn { max-width: 56vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adm-top .btn-ghost { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
+}
+@media (max-width: 600px) { .edit-bar { position: static; } }

@@ -43,7 +43,7 @@ t('usage shown for a used product',/Used by 1 professional/.test(await A.textCon
 // add a product + module
 await A.click('[data-action=adm-cat-add][data-kind=product]');
 await A.fill('form[data-form=adm-cat-ed] [name=name]','SAP Demo Suite'); await A.fill('form[data-form=adm-cat-ed] [name=short]','Demo Suite');
-await A.click('form[data-form=adm-cat-ed] button[type=submit]'); await A.waitForTimeout(600);
+await A.click('form[data-form=adm-cat-ed] button[type=submit]'); await A.waitForSelector('article:has(code:text-is("sapdemosuite"))',{timeout:15000}); await A.waitForTimeout(300);
 t('product saved in the database',(await sql(`select id from catalog_products where name='SAP Demo Suite'`)).length===1);
 t('product shows in the app pickers right away',await A.evaluate(()=>CATALOG.products.some(p=>p.id==='sapdemosuite')&&APP.productOptions('').includes('SAP Demo Suite')));
 await A.click('article:has(code:text-is("sapdemosuite")) [data-action=adm-cat-add][data-kind=module]');

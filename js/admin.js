@@ -93,15 +93,31 @@
   }
 
   /* ---------- views ---------- */
-  var TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['people', 'People'], ['roles', 'Roles'], ['import', 'Import jobs'], ['catalog', 'Catalog'], ['lists', 'Lists'], ['announce', 'Announcements'], ['feedback', 'Feedback'], ['health', 'Health'], ['community', 'Community'], ['settings', 'Settings & log']];
+  /* sidebar groups: [group title, [[tab id, label, one-line hint], ...]] */
+  var GROUPS = [
+    ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['health', 'Health', 'Errors and email delivery']]],
+    ['People & roles', [['people', 'People', 'Professionals and companies'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
+    ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages']]],
+    ['Communicate', [['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
+    ['Settings', [['settings', 'Site settings', 'Sample content on or off'], ['log', 'Activity log', 'Everything admins did']]]
+  ];
+  var TABS = []; GROUPS.forEach(function (g) { g[1].forEach(function (t) { TABS.push(t); }); });
 
   function shell(tab, inner) {
-    var open = A.data.overview ? A.data.overview.openReports : 0;
-    return '<div class="adm"><header class="adm-top"><a class="brand-logo" href="#/" aria-label="Arnour home">A</a><strong>Arnour admin</strong><span class="grow"></span>' +
-      '<a class="btn btn-ghost btn-sm" href="#/">← Back to site</a></header>' +
-      '<nav class="adm-tabs" aria-label="Admin sections">' + TABS.map(function (t) {
-        return '<a class="adm-tab' + (t[0] === tab ? ' on' : '') + '" href="#/admin/' + t[0] + '">' + t[1] + (t[0] === 'reports' && open ? ' <em>' + open + '</em>' : '') + (t[0] === 'feedback' && A.data.health && A.data.health.openFeedback ? ' <em>' + A.data.health.openFeedback + '</em>' : '') + '</a>';
-      }).join('') + '</nav><main class="adm-main">' + inner + '</main></div>';
+    var open = A.data.overview ? A.data.overview.openReports : 0, fb = A.data.health && A.data.health.openFeedback ? A.data.health.openFeedback : 0;
+    var menuOpen = !!A.menuOpen; A.menuOpen = false; /* the phone menu closes on the next page or refresh */
+    var cur = TABS.filter(function (t) { return t[0] === tab; })[0];
+    var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : 0; return n ? ' <em>' + n + '</em>' : ''; };
+    var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : 0; }); return n; };
+    return '<div class="adm' + (menuOpen ? ' adm-menu-open' : '') + '"><header class="adm-top"><a class="brand-logo" href="#/admin" aria-label="Arnour admin">A</a><strong>Arnour admin</strong>' +
+      '<button type="button" class="btn btn-outline btn-sm adm-menu-btn" data-action="adm-menu" aria-expanded="' + menuOpen + '">☰ ' + h(cur ? cur[1] : 'Menu') + '</button><span class="grow"></span>' +
+      '<a class="btn btn-ghost btn-sm" href="#/home">← View the site</a></header>' +
+      '<div class="adm-body"><nav class="adm-tabs" aria-label="Admin sections">' + GROUPS.map(function (g) {
+        var gb = groupBadge(g);
+        return '<div class="adm-group"><div class="adm-group-t">' + h(g[0]) + (gb ? ' <em>' + gb + '</em>' : '') + '</div>' + g[1].map(function (t) {
+          return '<a class="adm-tab' + (t[0] === tab ? ' on' : '') + '" href="#/admin/' + t[0] + '" title="' + h(t[2]) + '">' + h(t[1]) + badge(t[0]) + '</a>';
+        }).join('') + '</div>';
+      }).join('') + '</nav><main class="adm-main">' + inner + '</main></div></div>';
   }
   function need(key, fn, args) {
     if (A.data[key] !== undefined) return null;
@@ -327,16 +343,20 @@
   }
 
   function vSettings() {
-    var w = need('settings', 'admin_settings') || need('log', 'admin_log_list', { p_limit: 100 }); if (w) return w;
-    var s = A.data.settings, log = A.data.log;
-    return '<h1>Settings & activity log</h1><article class="adm-card"><div class="adm-row"><strong>Sample content</strong> <span class="pill ' + (s.hideSamples ? 'muted-pill' : '') + '">' + (s.hideSamples ? 'Hidden' : 'Showing') + '</span></div>' +
+    var w = need('settings', 'admin_settings'); if (w) return w;
+    var s = A.data.settings;
+    return '<h1>Site settings</h1><article class="adm-card"><div class="adm-row"><strong>Sample content</strong> <span class="pill ' + (s.hideSamples ? 'muted-pill' : '') + '">' + (s.hideSamples ? 'Hidden' : 'Showing') + '</span></div>' +
       '<p class="muted small">Sample professionals, companies, roles and community posts are labelled “Sample”. Hide them all once you have enough real members.</p>' +
       '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-samples" data-on="' + (s.hideSamples ? '0' : '1') + '">' + (s.hideSamples ? 'Show sample content' : 'Hide sample content') + '</button></div></article>' +
-      '<h2>Activity log</h2>' + (log.length ? '<div class="adm-log">' + log.map(function (l) {
+      '<p class="muted small">The activity log of everything admins did is under <a class="link" href="#/admin/log">Settings → Activity log</a>.</p>';
+  }
+  function vLog() {
+    var w = need('log', 'admin_log_list', { p_limit: 100 }); if (w) return w;
+    var log = A.data.log;
+    return '<h1>Activity log</h1><p class="muted">The last 100 things admins did on the site.</p>' + (log.length ? '<div class="adm-log">' + log.map(function (l) {
         return '<p><span class="muted small">' + h(new Date(l.ts).toLocaleString('en-GB')) + '</span> <strong>' + h(l.action) + '</strong> ' + h(l.target || '') + (l.detail ? ' <span class="muted">— ' + h(l.detail) + '</span>' : '') + '</p>';
       }).join('') + '</div>' : '<div class="empty">No actions yet.</div>');
   }
-
 
   /* ---------- catalog: products, modules, practice areas, specialties ---------- */
   var CORE_P = { s4onprem: 1, ecc: 1, s4public: 1 };
@@ -676,7 +696,7 @@
     var tab = (ctx && ctx.p && ctx.p[0]) || 'overview', rest = ctx && ctx.p && ctx.p[1];
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -790,6 +810,7 @@
         }, annErr);
         break;
       }
+      case 'adm-menu': A.menuOpen = true; APP.render(); break;
       case 'adm-lst-sub': A.lst.sub = d.s; A.lst.ed = null; A.lst.merge = null; APP.render(); break;
       case 'adm-lst-toggle': A.lst.open[d.id] = !A.lst.open[d.id]; APP.render(); break;
       case 'adm-lst-cancel': A.lst.ed = null; A.lst.merge = null; APP.render(); break;

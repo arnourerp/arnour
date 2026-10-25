@@ -192,7 +192,8 @@
       return Promise.all([B.fetchPublic(), B.user ? rpc('am_i_admin').catch(function () { return false; }) : false]).then(function (xs) {
         pub = xs[0]; B.isAdmin = xs[1] === true;
         if (!B.user) return null;
-        B.profile = prof || null;
+        /* the admin is not a user of the marketplace: any profile this account once had is ignored (and hidden from everyone else on the server) */
+        B.profile = (B.isAdmin ? null : prof) || null;
         return B.profile ? B.fetchPrivate() : null;
       }).then(function (p) {
         priv = p;

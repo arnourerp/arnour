@@ -191,44 +191,63 @@ APP.views['c-profile'] = function () {
     const before = APP.rtList(c), now = APP.rtList(d);
     const addedRoles = now.filter(x => before.indexOf(x) === -1);
     const addedNote = addedRoles.length ? '<p class="role-added">' + APP.icon('spark', 14) + ' Added <b>' + addedRoles.map(APP.roleTypeLabel).map(APP.h).join(', ') + '</b> — the fields this role needs are now in the sections below.</p>' : '';
+    const sec = APP.profileSections(d, rp);
+    const cur = (sec.find(x => x.id === APP.state.profileSec) || sec[0]).id;
+    const pane = (id, html) => '<section class="pe-pane" data-pane="' + id + '"' + (cur === id ? '' : ' hidden') + '>' + html + '</section>';
+    const specF = '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('profile', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>';
+    const progF = rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"></label>' : '';
+    const skillsF = '<div class="field"><span class="label">SAP skills</span><div class="skill-rows">' + APP.skillCardsHtml('profile', d.skills || [], rp.skills) + '</div></div>';
+    const indF = rp.ind ? '<div class="field"><span class="label">Industries' + (rp.ind === 'optional' ? ' <span class="muted">(optional)</span>' : '') + '</span><div class="chip-wrap">' + APP.chipGroup('profile', 'industries', APP.industries, d.industries || []) + '</div></div>' : '';
+    const PH = {
+      basics: '<h3 class="pe-h">Basics</h3>' +
+        '<div class="form-grid">' +
+        '<label class="field"><span class="label">First name</span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '"></label>' +
+        '<label class="field"><span class="label">Last name</span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '"></label>' +
+        '</div>' +
+        '<label class="field"><span class="label">Gender</span><select name="gender" class="input">' + APP.opt([['', 'Select…']].concat(APP.genders), d.gender || '') + '</select></label>' +
+        '<label class="field"><span class="label">Your Title/Headline</span><input name="headline" class="input" value="' + APP.h(d.headline) + '"></label>' +
+        '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + addedNote + '</div>' +
+        '<div class="form-grid">' +
+        '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input">' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select></label>' +
+        '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
+        '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
+        '</div>' +
+        '<div class="field"><span class="label">Languages <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('profile', 'languages', APP.withSelected(APP.languages, d.languages), d.languages || []) + '</div></div>',
+      experience: '<h3 class="pe-h">Experience &amp; availability</h3>' +
+        '<div class="form-grid">' +
+        '<label class="field"><span class="label">Years of experience</span><input name="yearsExp" type="number" min="1" max="40" class="input" value="' + APP.h(d.yearsExp) + '"></label>' +
+        (rp.lvl ? '<label class="field"><span class="label">Level</span><select name="level" class="input">' + APP.opt(APP.levels.map(l => [l, l]), d.level) + '</select></label>' : '') +
+        '<label class="field"><span class="label">Availability</span><select name="availability" class="input">' + APP.opt(APP.availability.map(x => [x, x]), d.availability) + '</select></label>' +
+        '</div>' + progF + indF +
+        '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('profile', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div></div>' +
+        (APP.SHOW_RATES ? '<div class="form-grid"><div class="field"><span class="label">Your rate</span>' + APP.rateInputHtml(d, true) + '</div></div>' : ''),
+      skills: '<h3 class="pe-h">SAP skills</h3>' + skillsF,
+      specialties: '<h3 class="pe-h">Specialties</h3>' + specF +
+        '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"></label>',
+      about: '<h3 class="pe-h">About &amp; CV</h3>' +
+        '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
+        '<div class="field"><span class="label">Summary</span><textarea name="summary" class="input" rows="4">' + APP.h(d.summary) + '</textarea></div>' +
+        '<div class="field"><span class="label">CV</span><div class="cv-box">' +
+        (d.cv ? '<span class="cv-item">' + APP.icon('file', 16) + ' ' + APP.h(d.cv.name) + ' <em class="muted">' + APP.h(d.cv.size) + '</em></span>' : '') +
+        '<label class="cv-drop small-drop">' + APP.icon('file', 16) + '<span>' + (d.cv ? 'Replace CV' : 'Upload CV') + '</span><input type="file" accept=".pdf,.doc,.docx" data-profile-cv hidden></label></div></div>'
+    };
     body =
       APP.editBarHtml('Editing your profile', 'f-profile-edit') +
-      '<div class="card">' +
+      '<div class="card pe-card">' +
       '<form data-form="profile-edit" id="f-profile-edit">' +
-      '<div class="form-grid">' +
-      '<label class="field"><span class="label">First name</span><input name="firstName" class="input" value="' + APP.h(d.firstName) + '"></label>' +
-      '<label class="field"><span class="label">Last name</span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '"></label>' +
-      '</div>' +
-      '<label class="field"><span class="label">Gender</span><select name="gender" class="input">' + APP.opt([['', 'Select…']].concat(APP.genders), d.gender || '') + '</select></label>' +
-      '<label class="field"><span class="label">Your Title/Headline</span><input name="headline" class="input" value="' + APP.h(d.headline) + '"></label>' +
-      '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
-      '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + addedNote + '</div>' +
-      '<div class="form-grid">' +
-      '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input">' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select></label>' +
-      '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
-      '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
-      '</div>' +
-      '<div class="field"><span class="label">Languages <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('profile', 'languages', APP.withSelected(APP.languages, d.languages), d.languages || []) + '</div></div>' +
-      '<div class="form-grid">' +
-      '<label class="field"><span class="label">Years of experience</span><input name="yearsExp" type="number" min="1" max="40" class="input" value="' + APP.h(d.yearsExp) + '"></label>' +
-      (rp.lvl ? '<label class="field"><span class="label">Level</span><select name="level" class="input">' + APP.opt(APP.levels.map(l => [l, l]), d.level) + '</select></label>' : '') +
-      '<label class="field"><span class="label">Availability</span><select name="availability" class="input">' + APP.opt(APP.availability.map(x => [x, x]), d.availability) + '</select></label>' +
-      '</div>' +
-      (APP.isLeadRole(d) ? ('<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('profile', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>') + ((rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"></label>' : '')) + ('<div class="field"><span class="label">SAP skills</span>' + '<div class="skill-rows">' + APP.skillCardsHtml('profile', d.skills || [], rp.skills) + '</div></div>') + ((rp.ind ? '<div class="field"><span class="label">Industries' + (rp.ind === 'optional' ? ' <span class="muted">(optional)</span>' : '') + '</span><div class="chip-wrap">' + APP.chipGroup('profile', 'industries', APP.industries, d.industries || []) + '</div></div>' : '')) : ('<div class="field"><span class="label">SAP skills</span>' + '<div class="skill-rows">' + APP.skillCardsHtml('profile', d.skills || [], rp.skills) + '</div></div>') + ((rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"></label>' : '')) + ((rp.ind ? '<div class="field"><span class="label">Industries' + (rp.ind === 'optional' ? ' <span class="muted">(optional)</span>' : '') + '</span><div class="chip-wrap">' + APP.chipGroup('profile', 'industries', APP.industries, d.industries || []) + '</div></div>' : '')) + ('<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('profile', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>')) +
-      '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('profile', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div></div>' +
-      '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>' +
-      (APP.SHOW_RATES ? '<div class="form-grid"><div class="field"><span class="label">Your rate</span>' + APP.rateInputHtml(d, true) + '</div></div>' : '') +
-      '<div class="field"><span class="label">Summary</span><textarea name="summary" class="input" rows="3">' + APP.h(d.summary) + '</textarea></div>' +
-      '<div class="field"><span class="label">CV</span><div class="cv-box">' +
-      (d.cv
-        ? '<span class="cv-item">' + APP.icon('file', 16) + ' ' + APP.h(d.cv.name) + ' <em class="muted">' + APP.h(d.cv.size) + '</em></span>'
-        : '') +
-      '<label class="cv-drop small-drop">' + APP.icon('file', 16) + '<span>' + (d.cv ? 'Replace CV' : 'Upload CV') + '</span><input type="file" accept=".pdf,.doc,.docx" data-profile-cv hidden></label></div></div>' +
+      '<div class="pe-layout"><nav class="pe-nav" aria-label="Profile sections">' +
+      '<div class="pe-pct"><div class="pe-pct-t"><b>' + sec.pct + '%</b> complete</div><div class="pe-bar"><span style="width:' + sec.pct + '%"></span></div></div>' +
+      sec.map(x => '<button type="button" class="pe-tab' + (x.id === cur ? ' on' : '') + '" data-action="psec" data-s="' + x.id + '"><span class="pe-mark ' + (x.ok ? 'ok' : 'todo') + '" aria-hidden="true">' + (x.ok ? '✓' : '!') + '</span><span class="pe-tab-t">' + APP.h(x.label) + '<small>' + APP.h(x.hint) + '</small></span></button>').join('') +
+      '</nav><div class="pe-main">' +
+      sec.map(x => pane(x.id, PH[x.id])).join('') +
+      '<div class="pe-step">' + (sec.findIndex(x => x.id === cur) > 0 ? '<button type="button" class="btn btn-ghost btn-sm" data-action="psec" data-s="' + sec[sec.findIndex(x => x.id === cur) - 1].id + '">← Back</button>' : '<span></span>') +
+        (sec.findIndex(x => x.id === cur) < sec.length - 1 ? '<button type="button" class="btn btn-outline btn-sm" data-action="psec" data-s="' + sec[sec.findIndex(x => x.id === cur) + 1].id + '">Next: ' + APP.h(sec[sec.findIndex(x => x.id === cur) + 1].label) + ' →</button>' : '') + '</div>' +
+      '</div></div>' +
       APP.editFootHtml() +
       '</form></div>';
   }
 
-  return '<div class="narrow">' +
+  return '<div class="narrow' + (editing ? ' pe-wide' : '') + '">' +
     '<div class="crumb"><a class="link" href="#/c/dashboard">← Dashboard</a>' + (editing ? '<span class="pill">Editing</span>' : '') + '</div>' +
     body +
     '</div>';

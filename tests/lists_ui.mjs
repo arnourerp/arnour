@@ -35,7 +35,7 @@ const V=await page(null);
 t('visitor loads the database lists',await V.evaluate(()=>APP.LISTS_V===0&&APP.countries.length===22&&APP.nationalities[0]==='Egyptian'&&APP.languages.length===5));
 const A=await page('adm');
 await go(A,'#/admin/lists'); await A.waitForSelector('.adm-main h1');
-t('Lists tab exists',await A.locator('a.adm-tab:has-text("Lists")').count()===1);
+t('Lists tab exists',await A.locator('a.adm-tab:has-text("Countries")').count()===1);
 t('countries listed',/Countries & cities \(22\)/.test(await A.textContent('.adm-main'))&&/Languages \(5\)/.test(await A.textContent('.adm-main')),await A.textContent('.adm-tabs'));
 t('usage shown for UAE',/Used by 2 professionals/.test(await A.textContent('.adm-card:has(code:text-is("ae"))')),await A.textContent('.adm-card:has(code:text-is("ae"))'));
 
