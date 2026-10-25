@@ -261,7 +261,11 @@
         else if (r.moduleId !== '*' && !p.modules.some(function (m) { return m.id === r.moduleId; })) w.push('Unknown module “' + r.moduleId + '” in ' + p.name);
       });
       if (String(j.description || '').length > 8000) w.push('Description is over 8,000 characters and will be cut');
-      out.push({ job: j, warn: w });
+      /* non-blocking notes: weak skill mapping the admin should look at before importing */
+      var nt = [];
+      if (req.length && req.every(function (r) { return r && r.moduleId === '*'; }) && ['functional', 'technical'].indexOf(j.roleType) !== -1) nt.push('Skills are “any module” only. If the posting names modules, list them (use alternatives) instead.');
+      if (/recruit|agency|staffing/i.test(String(j.extEmployer || '')) && !/recruiter|agency/i.test(String(j.extSource || ''))) nt.push('Looks like a recruiter or agency: the source label should say so.');
+      out.push({ job: j, warn: w, note: nt });
     });
     return { rows: out };
   }
@@ -277,7 +281,7 @@
         var j = r.job;
         return '<article class="adm-card"><div class="adm-row"><strong>' + h(j.title || '(no title)') + '</strong> ' + (r.warn.length ? '<span class="pill muted-pill">Fix</span>' : '<span class="pill">OK</span>') + '</div>' +
           '<p class="muted small">' + h(j.extEmployer || '') + ' · ' + h(j.extSource || '') + ' · ' + h((APP.countriesById[j.country] || {}).name || j.country || '') + (j.city ? ', ' + h(j.city) : '') + ' · ' + (Array.isArray(j.requires) ? j.requires.length : 0) + ' skill(s)</p>' +
-          (r.warn.length ? '<ul class="small">' + r.warn.map(function (w) { return '<li>' + h(w) + '</li>'; }).join('') + '</ul>' : '') + '</article>';
+          (r.warn.length ? '<ul class="small">' + r.warn.map(function (w) { return '<li>' + h(w) + '</li>'; }).join('') + '</ul>' : '') + (r.note && r.note.length ? '<ul class="small muted">' + r.note.map(function (w) { return '<li>Note: ' + h(w) + '</li>'; }).join('') + '</ul>' : '') + '</article>';
       }).join('');
     }
     if (I.result) {

@@ -41,6 +41,12 @@ t('good row -> import button',await p.locator('[data-action=adm-imp-run]').count
 await p.click('[data-action=adm-imp-run]'); await p.waitForTimeout(400);
 t('import RPC called and result shown',await p.evaluate(()=>window.__calls.some(c=>c[0]==='admin_import_external_jobs'&&c[1].p_jobs.length===1))&&/Imported 1/.test(await p.locator('.adm-main').innerText()));
 
+// weak-mapping notes (non-blocking)
+good.requires=[{productId:pid.id,moduleId:'*'}];
+await p.fill('#imp-text',JSON.stringify([good])); await p.click('[data-action=adm-imp-check]');
+t('wildcard-only functional role gets a note but can still import',/any module/.test(await p.locator('.adm-main').innerText())&&await p.locator('[data-action=adm-imp-run]').count()===1,await p.locator('.adm-main').innerText());
+good.requires=[{productId:pid.id,moduleId:pid.mod}];
+
 // forgiving paste: raw line breaks inside a value, code fences, truncated text
 const raw='```json\n[{"title":"T","extEmployer":"A","applyUrl":"https://a.com/x","country":"ae","roleType":"technical","employmentType":"Full-time","requires":[{"productId":"%P%","moduleId":"%M%"}],"description":"Line one\n- bullet\n\nLine two"}]\n```';
 await p.fill('#imp-text',raw.replace('%P%',pid.id).replace('%M%',pid.mod)); await p.click('[data-action=adm-imp-check]');
