@@ -1,0 +1,24 @@
+/* static landing pages (about, sap-consultants, sap-jobs) */
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#0F172A;background:#fff;line-height:1.6}
+a{color:#2563EB}
+.lp-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 24px;background:#0F172A}
+.lp-brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:20px;text-decoration:none}
+.lp-brand img{border-radius:8px}
+.lp-nav{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.lp-nav a{color:#CBD5E1;text-decoration:none;font-size:15px}
+.lp-nav a:hover{color:#fff}
+.lp-nav a.lp-btn{color:#fff}
+.lp-main{max-width:860px;margin:0 auto;padding:40px 24px 24px}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.2;margin:0 0 12px}
+h2{font-size:22px;margin:32px 0 8px}
+.lp-lead{font-size:18px;color:#334155;margin:0 0 20px}
+.lp-cta{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.lp-btn{display:inline-block;background:#2563EB;color:#fff;text-decoration:none;font-weight:600;padding:11px 20px;border-radius:10px}
+.lp-btn:hover{background:#1D4ED8}
+.lp-btn-alt{background:#fff;color:#2563EB;border:1px solid #2563EB}
+.lp-btn-alt:hover{background:#EFF6FF}
+ul,ol{padding-left:22px}li{margin:6px 0}
+.lp-final{margin-top:40px;padding:24px;background:#F1F5F9;border-radius:14px}
+.lp-final h2{margin-top:0}
+.lp-foot{max-width:860px;margin:0 auto;padding:24px;color:#64748B;font-size:14px}

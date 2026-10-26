@@ -30,7 +30,7 @@ const PORT_LIVE = 8123, PORT_DEMO = 8124;
 const servers = [await serve(ROOT, PORT_LIVE), await serve(DEMO, PORT_DEMO)];
 
 const SQL = ['access_test', 'sqltest', 'sqltest2', 'sqltest3', 'notif_test', 'gender_test', 'applyurl_test', 'exttest', 'fbtest', 'rates_api_test', 'anon_notif_test', 'msgtest', 'emailtest', 'match_model', 'pipeline_test', 'catalog_test', 'lists_test', 'announce_test', 'admin_hidden_test'];
-const UI = ['access_ui', 'e2e', 'e2e2', 'e2e3', 'e2e4', 'nav4', 'roles_test', 'rates_off', 'extapply', 'coedit', 'skills_block', 'exttest_ui', 'longtext', 'fbui', 'fbmenu_live', 'poll_test', 'longwrap', 'polish_test', 'captcha_test', 'anon_preview', 'lead_wizard', 'job_lead', 'job_status', 'msg_ui', 'edit_cancel', 'attn_test', 'peer_profile', 'people_test', 'email_ui', 'nav_back', 'samples_toggle', 'session_lost', 'oauth_test', 'search_test', 'pipeline_ui', 'catalog_ui', 'lists_ui', 'announce_ui', 'profile_ui', 'admin_ux'];
+const UI = ['seo_test', 'access_ui', 'e2e', 'e2e2', 'e2e3', 'e2e4', 'nav4', 'roles_test', 'rates_off', 'extapply', 'coedit', 'skills_block', 'exttest_ui', 'longtext', 'fbui', 'fbmenu_live', 'poll_test', 'longwrap', 'polish_test', 'captcha_test', 'anon_preview', 'lead_wizard', 'job_lead', 'job_status', 'msg_ui', 'edit_cancel', 'attn_test', 'peer_profile', 'people_test', 'email_ui', 'nav_back', 'samples_toggle', 'session_lost', 'oauth_test', 'search_test', 'pipeline_ui', 'catalog_ui', 'lists_ui', 'announce_ui', 'profile_ui', 'admin_ux'];
 const only = process.argv.slice(2);
 const list = (only.length ? only : SQL.concat(UI));
 const env = Object.assign({}, process.env, { ARNOUR_ROOT: ROOT, ARNOUR_DEMO: DEMO, ARNOUR_TESTS: TESTS, PORT_LIVE: String(PORT_LIVE), PORT_DEMO: String(PORT_DEMO) });

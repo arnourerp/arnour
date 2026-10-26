@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /supabase/
+Disallow: /tests/
+
+Sitemap: https://arnour.com/sitemap.xml

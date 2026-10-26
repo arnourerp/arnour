@@ -41,19 +41,19 @@ t('products listed with counts',/Skills \(147\)/.test(await A.textContent('.adm-
 t('usage shown for a used product',/Used by 1 professional/.test(await A.textContent('article:has(code:text-is("ecc"))')));
 
 // add a product + module
-await A.click('[data-action=adm-cat-add][data-kind=product]');
+await A.click('[data-action=adm-cat-add][data-kind=product]'); await A.waitForSelector('form[data-form=adm-cat-ed] [name=name]'); await A.waitForTimeout(400);
 await A.fill('form[data-form=adm-cat-ed] [name=name]','SAP Demo Suite'); await A.fill('form[data-form=adm-cat-ed] [name=short]','Demo Suite');
 await A.click('form[data-form=adm-cat-ed] button[type=submit]'); await A.waitForSelector('article:has(code:text-is("sapdemosuite"))',{timeout:15000}); await A.waitForTimeout(300);
 t('product saved in the database',(await sql(`select id from catalog_products where name='SAP Demo Suite'`)).length===1);
 t('product shows in the app pickers right away',await A.evaluate(()=>CATALOG.products.some(p=>p.id==='sapdemosuite')&&APP.productOptions('').includes('SAP Demo Suite')));
-await A.click('article:has(code:text-is("sapdemosuite")) [data-action=adm-cat-add][data-kind=module]');
+await A.click('article:has(code:text-is("sapdemosuite")) [data-action=adm-cat-add][data-kind=module]'); await A.waitForSelector('form[data-form=adm-cat-ed] [name=name]'); await A.waitForTimeout(400);
 await A.fill('form[data-form=adm-cat-ed] [name=name]','Demo Module A'); await A.click('form[data-form=adm-cat-ed] button[type=submit]'); await A.waitForTimeout(600);
-await A.click('article:has(code:text-is("sapdemosuite")) [data-action=adm-cat-add][data-kind=module]');
+await A.click('article:has(code:text-is("sapdemosuite")) [data-action=adm-cat-add][data-kind=module]'); await A.waitForSelector('form[data-form=adm-cat-ed] [name=name]'); await A.waitForTimeout(400);
 await A.fill('form[data-form=adm-cat-ed] [name=name]','Demo Module B'); await A.click('form[data-form=adm-cat-ed] button[type=submit]'); await A.waitForTimeout(600);
 t('modules saved',(await sql(`select id from catalog_modules where product_id='sapdemosuite' order by pos`)).map(r=>r.id).join()==='demomodulea,demomoduleb');
 t('module list in the app',await A.evaluate(()=>APP.moduleOptions('sapdemosuite','').includes('Demo Module A')));
 // empty name
-await A.click('article:has(code:text-is("sapdemosuite")) [data-action=adm-cat-add][data-kind=module]');
+await A.click('article:has(code:text-is("sapdemosuite")) [data-action=adm-cat-add][data-kind=module]'); await A.waitForSelector('form[data-form=adm-cat-ed] [name=name]'); await A.waitForTimeout(400);
 await A.click('form[data-form=adm-cat-ed] button[type=submit]'); await A.waitForTimeout(200);
 t('empty name is refused',/Please give it a name/.test(await A.evaluate(()=>document.body.innerText)),null);
 await A.click('[data-action=adm-cat-cancel]');
@@ -92,10 +92,12 @@ t('old module hidden',(await sql(`select hidden, merged_into from catalog_module
 // specialties
 await A.click('[data-action=adm-cat-sub][data-s=specs]'); await A.waitForTimeout(300);
 t('specialties listed with suggested roles',/Suggested first for/.test(await A.textContent('.adm-main'))&&await A.locator('code:text-is("rise")').count()===1);
-await A.click('article:has(code:text-is("ai")) [data-action=adm-cat-add][data-kind=spec]');
+await A.click('article:has(code:text-is("ai")) [data-action=adm-cat-add][data-kind=spec]'); await A.waitForSelector('form[data-form=adm-cat-ed] [name=name]'); await A.waitForTimeout(400);
 await A.fill('form[data-form=adm-cat-ed] [name=name]','Demo Specialty'); await A.fill('form[data-form=adm-cat-ed] [name=grp]','AI Development');
 await A.check('form[data-form=adm-cat-ed] input[name=role][value=technical]');
-await A.click('form[data-form=adm-cat-ed] button[type=submit]'); await A.waitForTimeout(700);
+await A.click('form[data-form=adm-cat-ed] button[type=submit]');
+for(let i=0;i<40;i++){ await A.waitForTimeout(250); if((await sql(`select 1 from catalog_role_spec where spec_id='demo-specialty'`)).length) break; }
+await A.waitForTimeout(300);
 t('specialty saved with its roles',(await sql(`select 1 from catalog_role_spec where spec_id='demo-specialty' and role_type='technical'`)).length===1);
 t('app offers it',await A.evaluate(()=>!!APP.SPECIAL_IDX['demo-specialty']&&APP.specialtiesForRoles(['technical']).includes('demo-specialty')));
 // history + undo
