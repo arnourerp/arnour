@@ -13,6 +13,7 @@ const org = g && g.find(x => x['@type'] === 'Organization'), web = g && g.find(x
 t('JSON-LD parses with Organization and WebSite', !!(org && web));
 t('JSON-LD brand fields', !!org && org.name === 'Arnour' && org.url === SITE && org.alternateName.length === 2 && /SAP consultants/.test(org.description) && /^https:\/\/arnour\.com\/assets\//.test(org.logo));
 t('JSON-LD has no placeholder social links', !org || !org.sameAs || org.sameAs.every(u => /^https:\/\/(www\.)?(linkedin|x|twitter|facebook)\.com\//.test(u)));
+t('JSON-LD sameAs has the three official profiles', !!org && ['linkedin.com/company/arnour','x.com/xarnour','facebook.com/arnourpage'].every(x => (org.sameAs || []).some(u => u.includes(x))));
 t('index: crawlable fallback inside #app with SAP products and role types', /<div id="app"><div class="seo-fallback"/.test(idx) && /SuccessFactors/.test(idx) && /Ariba/.test(idx) && /Solution &amp; Enterprise Architect/.test(idx));
 const sm = rd('sitemap.xml'); const locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 t('sitemap lists home + 3 landing pages, no hash routes', locs.length === 4 && locs.every(u => u.startsWith(SITE + '/') && !u.includes('#')), locs);
