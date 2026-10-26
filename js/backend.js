@@ -581,10 +581,11 @@
     /* only return to a page this person's role can open */
     if (B.profile && ((/^#\/c\//.test(back) && B.profile.role !== 'consultant') || (/^#\/e\//.test(back) && B.profile.role !== 'employer'))) back = '';
     if (/^#\/(login|register|forgot|reset|check-email|onboard)/.test(back)) back = '';
+    if (/^#\/admin/.test(back) && !B.isAdmin) back = '';
     if (!B.profile && !B.suspended) { var dr = B.restoreWizardDraft(); if (dr) { APP.toast('Welcome back — your answers are still here'); APP.go(dr === 'employer' ? '#/onboard-e' : '#/onboard'); return; } }
     if (B.suspended) APP.go('#/suspended');
     else if (B.profile) { B.clearWizardDraft(); APP.go(back || (B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard')); }
-    else if (B.isAdmin) APP.go('#/admin');
+    else if (B.isAdmin) APP.go(/^#\/admin/.test(back) ? back : '#/admin');
     else APP.go(B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard');
   };
   B.metaRole = function () {
@@ -795,7 +796,7 @@
     if (B.recovery) return v === 'reset' ? null : '#/reset';
     if (B.suspended) return (v === 'suspended' || v === 'terms' || v === 'privacy') ? null : '#/suspended';
     if (v === 'suspended') return '#/';
-    if (v === 'admin' && !B.isAdmin) return B.user ? '#/' : '#/login';
+    /* admin pages: decided by APP.canAccessRoute (one central gate) */
     if (B.user && !B.profile) {
       if (B.isAdmin && v === 'landing' && !/^#\/home/.test(location.hash)) return '#/admin';
       var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset', 'unsubscribe', 'start'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);

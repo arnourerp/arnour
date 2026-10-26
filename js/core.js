@@ -2934,6 +2934,65 @@ APP.parseRoute = function () {
   return { view: 'notfound', auth: null, p: [] };
 };
 
+/* ---------------------------- access control ----------------------------
+   Who may open which page. 'public' pages need nothing; 'any' needs a signed-in person; the rest need that exact role.
+   This is the user-facing gate. The database enforces the same rules again on every call (row rules + admin checks),
+   so hiding a page here never replaces those. */
+APP.ROUTE_ROLE = { admin: 'admin', account: 'any', start: 'any' };
+APP.routeRole = function (route) { return APP.ROUTE_ROLE[route.view] || route.auth || 'public'; };
+APP.isAdminSession = function () { return !!(APP.backend && APP.backend.isAdmin); }; /* the flag is set only after the database confirms it, and cleared on sign-out */
+APP.homeFor = function (s) { return s && s.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'; };
+/* null = allowed, otherwise { to, msg, remember } */
+APP.canAccessRoute = function (route) {
+  const need = APP.routeRole(route);
+  if (need === 'public') return null;
+  const s = APP.db.session, signedIn = !!(s || (APP.backend && APP.backend.user) || APP.isAdminSession());
+  if (!signedIn) return { to: '#/login', remember: true, msg: 'Please sign in to continue.' };
+  if (need === 'admin') return APP.isAdminSession() ? null : { to: s ? APP.homeFor(s) : '#/', msg: 'That page is for administrators.' };
+  if (need === 'any' || !s) return null; /* signed in without a finished profile: the sign-up flow decides */
+  if (s.role !== need) return { to: APP.homeFor(s), msg: need === 'employer' ? 'That page is for companies. Here is your dashboard.' : 'That page is for professionals. Here is your dashboard.' };
+  if (route.view === 'e-job-edit' || route.view === 'e-job-detail') {
+    const j = APP.db.jobs && APP.db.jobs[route.p[0]];
+    if (j && j.companyId !== s.companyId) return { to: '#/e/jobs', msg: 'That role belongs to another company.' };
+  }
+  return null;
+};
+/* action guards: the first line of every privileged click / form handler (see APP.guardAction) */
+APP.requireRole = function (roles) {
+  roles = [].concat(roles);
+  const s = APP.db.session, role = APP.isAdminSession() ? 'admin' : (s ? s.role : null);
+  if (role && roles.indexOf(role) !== -1) return true;
+  APP.toast(role ? 'You do not have permission to do that.' : 'Please sign in to continue.');
+  return false;
+};
+APP.requireOwner = function (kind, id) {
+  const s = APP.db.session;
+  if (!s) { APP.toast('Please sign in to continue.'); return false; }
+  if (kind === 'job') {
+    const j = APP.db.jobs && APP.db.jobs[id];
+    if (!j) return true; /* not loaded here: the handler stops, and the database decides */
+    if (j.companyId === s.companyId) return true;
+  } else return true;
+  APP.toast('That belongs to another account.');
+  return false;
+};
+APP.ACTION_RULES = {
+  employer: ['job-post', 'close-job', 'reopen-job', 'invite', 'app-stage', 'company-edit', 'co-edit-on', 'co-edit-off'],
+  consultant: ['apply', 'withdraw', 'attach-cv', 'send-cv', 'clear-cv', 'cv-clear', 'cert-toggle', 'profile-edit'],
+  ownJob: { 'close-job': 'id', 'reopen-job': 'id', 'invite': 'jid', 'app-stage': 'jid' }
+};
+APP.guardAction = function (name, d) {
+  if (!name) return true;
+  d = d || {};
+  if (name.indexOf('adm-') === 0) return APP.requireRole('admin');
+  const R = APP.ACTION_RULES, s = APP.db.session;
+  const only = R.employer.indexOf(name) !== -1 ? 'employer' : R.consultant.indexOf(name) !== -1 ? 'consultant' : '';
+  /* a signed-out visitor falls through: those handlers send them to sign in. Someone signed in as the wrong role is stopped here. */
+  if (only && (s || APP.isAdminSession()) && !APP.requireRole(only)) return false;
+  if (R.ownJob[name] && s && !APP.requireOwner('job', d[R.ownJob[name]])) return false;
+  return true;
+};
+
 APP.go = function (path) {
   const target = path.startsWith('#') ? path : '#' + path;
   if (location.hash === target) APP.render();
@@ -3064,16 +3123,13 @@ APP.render = function () {
     if (ls) { redirect(home(ls)); return; }
     if (APP.LIVE && APP.backend && APP.backend.user && APP.backend.isAdmin) { redirect('#/admin'); return; }
   }
-  if (route.auth) {
-    const s = APP.db.session;
-    if (!s) {
-      APP.state.afterAuth = location.hash; /* come back here after signing in */
-      redirect('#/login');
-      return;
-    }
-    if (s.role !== route.auth) {
-      redirect(home(s));
-      setTimeout(() => APP.toast(route.auth === 'employer' ? 'That page is for companies. Here is your dashboard.' : 'That page is for professionals. Here is your dashboard.'), 300);
+  /* one central gate: nothing below this line runs (no view is built) unless this person may open the page */
+  {
+    const acc = APP.canAccessRoute(route);
+    if (acc) {
+      if (acc.remember) APP.state.afterAuth = location.hash; /* come back here after signing in */
+      redirect(acc.to);
+      setTimeout(() => APP.toast(acc.msg), 300);
       return;
     }
   }
