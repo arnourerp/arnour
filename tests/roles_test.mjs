@@ -103,10 +103,41 @@ const m=await ev(()=>{ const c={roleType:'support',roleTypes:['support'],skills:
   const full={roleType:'functional',roleTypes:['functional'],skills:[{productId:'s4onprem',moduleId:'fi',projects:0}],languages:['English'],yearsExp:5,level:'Mid',availability:'Immediate',country:'ae'};
   const job={roleType:'functional',requires:[{productId:'s4onprem',moduleId:'fi',minProjects:3}],remote:true};
   const j2=Object.assign({},job,{roleType:'support'});
-  return {support:APP.reqMatch(c,job.requires[0]).credit, functional:APP.reqMatch(full,job.requires[0]).credit,tracked:[APP.countsTracked(c),APP.countsTracked(full)]}; });
-t('min-projects ignored for a Support profile, enforced for Functional',m.support===45&&m.functional===25,m);
+  return {support:APP.reqFit(c,job.requires[0],'support').credit, functional:APP.reqFit(full,job.requires[0],'functional').credit,tracked:[APP.countsTracked(c),APP.countsTracked(full)]}; });
+t('min-projects ignored for a Support profile, enforced for Functional',m.support===1&&Math.abs(m.functional-0.55)<1e-9,m);
 t('product-level job form for Basis / Junior',await ev(()=>APP.rtProductLevel('basis')&&APP.rtProductLevel('junior')&&!APP.rtProductLevel('support')));
 t('job form hides min-projects for a Delivery role',await ev(()=>{ APP.jobNewDraft={roleType:'delivery',requires:[{productId:'s4onprem',moduleId:'*',minProjects:0,orPrev:false}]}; return APP.jobReqRowsHtml(APP.jobNewDraft.requires).indexOf('data-req-min')===-1; }));
 t('job form keeps min-projects for a Functional role',await ev(()=>{ APP.jobNewDraft={roleType:'functional',requires:[{productId:'s4onprem',moduleId:'fi',minProjects:0,orPrev:false}]}; return APP.jobReqRowsHtml(APP.jobNewDraft.requires).indexOf('data-req-min')!==-1; }));
+// Match v19 edge cases
+const E1=await ev(()=>{
+  const S=(productId,moduleId,projects)=>({productId,moduleId,projects});
+  const base={yearsExp:8,level:'Senior',country:'ae',city:'Dubai',languages:['English']};
+  const basisJob={roleType:'basis',requires:[{productId:'s4onprem',moduleId:'basis'},{productId:'s4onprem',moduleId:'hanadba'}],minExp:7,level:'Senior',country:'ae',city:'Dubai'};
+  const basisC=Object.assign({roleTypes:['basis'],skills:[S('s4onprem','*',0)]},base);
+  const fj={roleType:'functional',requires:[{productId:'s4onprem',moduleId:'fi'}],languages:['English','Arabic'],certification:'required',country:'ae',city:'Dubai'};
+  const noLang=Object.assign({roleTypes:['functional'],skills:[S('s4onprem','fi',3)]},base,{languages:[]});
+  const partLang=Object.assign({},noLang,{languages:['English']});
+  const unset=Object.assign({},noLang,{roleTypes:[],languages:['English','Arabic']});
+  const adj=Object.assign({},noLang,{roleTypes:['support'],languages:['English','Arabic']});
+  const mods=['fi','co','mm','sd','ewm','pm','ps','qm'];
+  const anyJob={roleType:'functional',requires:mods.map((m,i)=>({productId:'s4onprem',moduleId:m,orPrev:i>0})),minExp:5,level:'Mid',country:'ae',city:'Dubai'};
+  const one=Object.assign({roleTypes:['functional'],skills:[S('s4onprem','mm',4)],languages:['English'],yearsExp:6,level:'Mid',country:'ae',city:'Dubai'});
+  const two=Object.assign({},one,{skills:[S('s4onprem','mm',4),S('s4onprem','sd',3)]});
+  const short=Object.assign({},anyJob,{requires:anyJob.requires.slice(0,3)});
+  const bd=APP.matchDetail(basisC,basisJob);
+  return {basisGaps:bd.gaps.join('|'), basisScore:bd.score,
+    noLang:APP.matchDetail(noLang,fj).gaps.join('|'), langOrder:APP.matchDetail(noLang,fj).otherFit<=APP.matchDetail(partLang,fj).otherFit,
+    unsetBelowAdj:APP.roleFit(unset,'functional').f<APP.roleFit(adj,'functional').f, unset:APP.roleFit(unset,'functional').f,
+    certReq:APP.matchDetail(adj,fj).gaps.some(g=>g==='Missing required module certification'),
+    certPref:APP.matchDetail(adj,Object.assign({},fj,{certification:'preferred'})).gaps.some(g=>g==='Preferred certification not held'),
+    one:APP.matchDetail(one,anyJob).coreFit, two:APP.matchDetail(two,anyJob).coreFit, oneShort:APP.matchDetail(one,short).coreFit,
+    fam:[APP.MODULE_FAMILY.bw,APP.MODULE_FAMILY.datasphere,APP.MODULE_FAMILY.ibp,APP.MODULE_FAMILY.integration,APP.MODULE_FAMILY.fiorui5]};
+});
+t('wildcard Basis match leaves no "undefined+" gap text',E1.basisGaps.indexOf('undefined')===-1&&E1.basisScore===85,E1);
+t('blank required languages never beat a partial list; gap names the language',E1.langOrder&&E1.noLang.indexOf('Missing required language: English / Arabic')!==-1,E1);
+t('unset role type scores below an adjacent role',E1.unsetBelowAdj&&E1.unset===0.6,E1);
+t('certification gap text differs for required vs preferred',E1.certReq&&E1.certPref,E1);
+t('broad any-of list: one module 90%, two modules 100%, short lists unchanged',E1.one===90&&E1.two===100&&E1.oneShort===100,E1);
+t('module families cover BTP / Data / IBP and the typo is gone',E1.fam[0]&&E1.fam[1]&&E1.fam[2]&&E1.fam[3]&&E1.fam[4]===undefined,E1);
 t('no page errors',errs.length===0,errs);
 console.log(fails?('FAILS '+fails):'ALL PASSED'); await b.close();

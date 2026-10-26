@@ -1162,45 +1162,14 @@ APP.reqChipsHtml = function (job, style) {
     '<span class="chip req' + (g.length > 1 ? ' req-or' : '') + '">' + g.map(one).join(' <b class="or-sep">or</b> ') + '</span>'
   ).join('');
 };
-/* ---- Skill matching (v16) ----
-   Credit per requirement row: 45 exact (module + project count), 25 right module but fewer projects than asked,
-   up to 36 for a transferable skill (same module in ECC / S/4HANA Private / S/4HANA Public), 5 for the same product but a
-   different module, 0 otherwise. */
+/* ---- Skill matching: see Match v19 below. Core SAP products (a module learned in one can transfer to another). ---- */
 APP.CORE_PRODUCTS = { s4onprem: 1, ecc: 1, s4public: 1 };
-APP.equivWeight = function (a, b) {
-  if (a === b) return 1;
-  return { 's4onprem|s4public': 0.9, 'ecc|s4onprem': 0.8, 'ecc|s4public': 0.8 }[[a, b].sort().join('|')] || 0;
-};
 /* The Public Cloud "FICO" module covers what FI and CO do in the other two cores. */
 APP.equivModules = function (m) {
   if (m === 'fico') return ['fico', 'fi', 'co'];
   if (m === 'fi' || m === 'co') return [m, 'fico'];
   return [m];
 };
-APP.reqMatch = function (c, r) {
-  const sk = c.skills || [];
-  const tracked = APP.countsTracked(c);
-  const meets = (k) => !r.minProjects || !tracked || (Number(k.projects) || 0) >= r.minProjects;
-  const hit = sk.filter(k => k.productId === r.productId && (r.moduleId === '*' || k.moduleId === r.moduleId));
-  if (hit.length) {
-    const best = Math.max.apply(null, hit.map(k => Number(k.projects) || 0));
-    const ok = hit.some(meets);
-    return { credit: ok ? 45 : 25, kind: ok ? 'exact' : 'projects', have: best, via: null };
-  }
-  if (r.moduleId !== '*' && APP.CORE_PRODUCTS[r.productId]) {
-    const mods = APP.equivModules(r.moduleId);
-    let bestC = 0, via = null;
-    for (const k of sk) {
-      if (!APP.CORE_PRODUCTS[k.productId] || k.productId === r.productId || mods.indexOf(k.moduleId) === -1) continue;
-      const w = APP.equivWeight(r.productId, k.productId);
-      const cr = Math.round((meets(k) ? 45 : 25) * w);
-      if (cr > bestC) { bestC = cr; via = k; }
-    }
-    if (bestC) return { credit: bestC, kind: 'transfer', have: Number(via.projects) || 0, via: via };
-  }
-  return sk.some(k => k.productId === r.productId) ? { credit: 5, kind: 'product', have: 0, via: null } : { credit: 0, kind: 'none', have: 0, via: null };
-};
-APP.reqCredit = function (c, r) { return APP.reqMatch(c, r).credit; };
 APP.reqLabel = function (r) {
   if (r.moduleId === '*') return APP.productShort(r.productId);
   const mod = CAT_INDEX.mods[r.productId + ':' + r.moduleId] || {};
@@ -1320,9 +1289,20 @@ APP.XFER = {
   s4public: { ecc: 0.65, s4onprem: 0.80, s4public: 1 }
 };
 APP.MODULE_FAMILY = {
+  /* S/4HANA / ECC */
   fi: 'fin', co: 'fin', cfin: 'fin', groupreporting: 'fin', trm: 'fin', fico: 'fin', fscm: 'fin', grants: 'fin',
   sd: 'log', mm: 'log', pp: 'log', qm: 'log', pm: 'log', ewm: 'log', tm: 'log', cs: 'log', ps: 'log', scm: 'log', cbc: 'log', ehs: 'log', gts: 'log',
-  abap: 'tech', fiorui5: 'tech', basis: 'tech', hanadba: 'tech', securitygrc: 'tech', solman: 'tech', po: 'tech', bobods: 'tech', fioriui5: 'tech'
+  abap: 'tech', basis: 'tech', hanadba: 'tech', securitygrc: 'tech', solman: 'tech', po: 'tech', bobods: 'tech', fioriui5: 'tech',
+  /* BTP */
+  integration: 'btp-int', eventmesh: 'btp-int',
+  buildapps: 'btp-build', buildpa: 'btp-build', basfiori: 'btp-build', cap: 'btp-build', abapcloud: 'btp-build', workzone: 'btp-build',
+  btpadmin: 'btp-plat', identity: 'btp-plat', hanacloud: 'btp-plat',
+  /* Data & Analytics */
+  bistories: 'da-analytics', planning: 'da-analytics',
+  datasphere: 'da-dwh', bw: 'da-dwh', bods: 'da-dwh',
+  mdg: 'da-gov', datamigration: 'da-gov', archiving: 'da-gov',
+  /* Supply Chain Cloud */
+  ibp: 'scm-plan', dmc: 'scm-exec', apm: 'scm-exec', oms: 'scm-exec'
 };
 /* strict: skills read module by module (wrong module = 0).  floor: credit for a module held with 0 projects when the job asks for a minimum.
    slope: how steeply credit falls when years are below the minimum.  swing: the most context can move the score.
@@ -1351,7 +1331,7 @@ APP.roleEvidence = function (c, rt) {
 /* Role type fit: the professional is scored as the role type the job asks for. Holding it (in any position) = 100%. */
 APP.roleFit = function (c, rt) {
   const mine = APP.rtList(c), nm = APP.roleTypeLabel(rt);
-  if (!mine.length) return { f: 0.75, note: 'Role type not set on the profile' };
+  if (!mine.length) return { f: 0.6, note: 'Role type not set on the profile' };
   if (mine.indexOf(rt) !== -1) return { f: 1, note: nm + ' — scored as this role type' };
   const adj = mine.some(m => (APP.RT_ADJACENT[m] || []).indexOf(rt) !== -1 || (APP.RT_ADJACENT[rt] || []).indexOf(m) !== -1) ||
     (rt === 'technical' && mine.indexOf('functional') !== -1 && APP.roleEvidence(c, 'technical')) ||
@@ -1361,7 +1341,7 @@ APP.roleFit = function (c, rt) {
 };
 
 /* Credit 0–1 of one requirement row for one professional, read the way the job's role type reads skills.
-   kind: direct (full) · depth (right product+module, fewer projects than asked) · transfer (same module, other SAP generation) · adjacent (product-level roles only) · none */
+   kind: direct (full) · depth (right product+module, fewer projects than asked) · wildcard (product-only profile for a module job, Basis) · transfer (same module, other SAP generation) · adjacent (product-level roles only) · none */
 APP.reqFit = function (c, r, rt) {
   const pf = APP.MATCH_PROFILE[rt] || APP.MATCH_PROFILE.functional;
   return pf.strict ? APP.reqFitModule(c, r, rt, pf) : APP.reqFitProduct(c, r);
@@ -1378,11 +1358,11 @@ APP.reqFitModule = function (c, r, rt, pf) {
     const cr = (a.credit + b.credit) / 2;
     if (cr > 0) return { credit: cr, kind: (a.kind === 'direct' && b.kind === 'direct') ? 'direct' : (a.kind === 'transfer' || b.kind === 'transfer') ? 'transfer' : 'depth', have: Math.max(a.have, b.have), via: a.via || b.via };
   }
-  let d = 0, dk = null, t = 0, tk = null;
+  let d = 0, dk = null, dw = false, t = 0, tk = null;
   for (const k of sk) {
     if (k.productId !== r.productId) continue;
-    if (r.moduleId === '*' || k.moduleId === r.moduleId) { const v = depth(proj(k)); if (v > d) { d = v; dk = k; } }
-    else if (k.moduleId === '*' && (APP.ROLE_PROFILE[rt] || {}).skills === 'products' && APP.rtList(c).indexOf(rt) !== -1) { if (0.85 > d) { d = 0.85; dk = k; } } /* Basis profiles record the product only */
+    if (r.moduleId === '*' || k.moduleId === r.moduleId) { const v = depth(proj(k)); if (v > d) { d = v; dk = k; dw = false; } }
+    else if (k.moduleId === '*' && (APP.ROLE_PROFILE[rt] || {}).skills === 'products' && APP.rtList(c).indexOf(rt) !== -1) { if (0.85 > d) { d = 0.85; dk = k; dw = true; } } /* Basis profiles record the product only */
   }
   if (CORE[r.productId]) {
     const mods = r.moduleId === '*' ? null : APP.equivModules(r.moduleId);
@@ -1396,7 +1376,7 @@ APP.reqFitModule = function (c, r, rt, pf) {
   }
   let credit = Math.max(d, t);
   if (d > 0 && t > 0) credit = Math.min(1, credit + 0.2 * Math.min(d, t)); /* direct and cross-generation evidence reinforce each other */
-  const kind = d >= t && d > 0 ? (d >= 0.999 ? 'direct' : 'depth') : t > 0 ? 'transfer' : 'none';
+  const kind = d >= t && d > 0 ? (d >= 0.999 ? 'direct' : dw ? 'wildcard' : 'depth') : t > 0 ? 'transfer' : 'none';
   return { credit: credit, kind: kind, have: dk ? (Number(dk.projects) || 0) : (tk ? (Number(tk.projects) || 0) : 0), via: kind === 'transfer' ? tk : null };
 };
 /* Product-level roles (Architect, Delivery Manager, Junior) */
@@ -1445,9 +1425,14 @@ APP.matchDetail = function (c, job) {
     for (const g of groups) {
       const ms = g.map(r => ({ r: r, m: APP.reqFit(c, r, rt) }));
       const best = ms.reduce((x, y) => (y.m.credit > x.m.credit ? y : x));
-      acc += best.m.credit;
+      let gc = best.m.credit;
+      if (g.length >= 4) { /* broad any-of list: one module reads as a partial fit, two or more as full */
+        const hits = ms.filter(x => x.m.credit >= 0.5).length;
+        if (hits < 2) gc = Math.min(gc, 0.9);
+      }
+      acc += gc;
       if (best.m.credit < 0.3) { missing.push(g.map(APP.reqLabel).join(' / ')); gaps.push('Missing: ' + g.map(APP.reqLabel).join(' / ')); }
-      else if (best.m.kind === 'depth') gaps.push(APP.reqLabel(best.r) + ': ' + best.m.have + ' of ' + best.r.minProjects + '+ projects');
+      else if (best.m.kind === 'depth' && best.r.minProjects) gaps.push(APP.reqLabel(best.r) + ': ' + best.m.have + ' of ' + best.r.minProjects + '+ projects');
     }
     core = acc / groups.length;
     parts.push({ stage: 'core', label: pf.strict ? 'Required skills' : 'SAP product experience', pct: pct(core), note: missing.length ? 'Missing ' + missing.join(', ') : (core >= 0.99 ? 'All required skills covered' : 'Partly covered') });
@@ -1486,7 +1471,11 @@ APP.matchDetail = function (c, job) {
     add('spec', 'Specialties', APP.overlapFit(job.preferredSpecialties, mine, 12, id => mine.indexOf(id) !== -1 || mine.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id)));
   }
   const langs = c.languages || [], lr = [];
-  if (job.languages && job.languages.length) lr.push(langs.length ? (job.languages.every(l => langs.indexOf(l) !== -1) ? 1 : 0) : 0.3);
+  if (job.languages && job.languages.length) {
+    const miss = job.languages.filter(l => langs.indexOf(l) === -1);
+    lr.push(miss.length ? 0 : 1);
+    if (miss.length) gaps.push('Missing required language: ' + miss.join(' / '));
+  }
   if (job.preferredLangs && job.preferredLangs.length) {
     const ok = job.preferredLangs.some(l => langs.indexOf(l) !== -1);
     lr.push(ok ? 1 : 0);
@@ -1496,7 +1485,7 @@ APP.matchDetail = function (c, job) {
   if (job.certification) {
     const ok = APP.consultantCertInJob(c, job);
     add('cert', 'Certification', ok ? 1 : (job.certification === 'required' ? 0 : 0.3));
-    if (!ok) gaps.push('Not certified in the required modules');
+    if (!ok) gaps.push(job.certification === 'required' ? 'Missing required module certification' : 'Preferred certification not held');
   }
   if (job.remote) add('loc', 'Location', 1, 'Remote-friendly');
   else {
@@ -1511,15 +1500,6 @@ APP.matchDetail = function (c, job) {
   const other = cw ? ctx.reduce((a, x) => a + x.f * x.w, 0) / cw : 1;
   const ctxFactor = 1 - pf.swing * (1 - other);
   ctx.sort((a, b) => b.w - a.w).forEach(x => parts.push({ stage: 'other', label: x.label, pct: pct(x.f), note: x.note, weight: x.w }));
-
-  /* Rate fit (info only, no score) */
-  if (APP.SHOW_RATES && job.rateMax && c.dailyRate && (c.currency || 'USD') === (job.currency || 'USD')) {
-    const jp = job.ratePeriod || 'day', cp = c.ratePeriod || 'day';
-    const inJobPeriod = Math.round(c.dailyRate / APP.PERIOD_DAYS[cp] * APP.PERIOD_DAYS[jp]);
-    if (inJobPeriod > job.rateMax * 1.001) {
-      gaps.push((cp === jp ? 'Rate ' + c.dailyRate.toLocaleString() + APP.periodSuffix(cp) : 'Rate ≈ ' + inJobPeriod.toLocaleString() + APP.periodSuffix(jp)) + ' is above the ' + job.rateMax.toLocaleString() + APP.periodSuffix(jp) + ' budget');
-    }
-  }
 
   const raw = core * rf.f * ready * ctxFactor * 100;
   const score = Math.max(0, Math.min(100, Math.round(raw)));
