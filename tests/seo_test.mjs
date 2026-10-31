@@ -15,6 +15,8 @@ t('JSON-LD brand fields', !!org && org.name === 'Arnour' && org.url === SITE && 
 t('JSON-LD has no placeholder social links', !org || !org.sameAs || org.sameAs.every(u => /^https:\/\/(www\.)?(linkedin|x|twitter|facebook)\.com\//.test(u)));
 t('JSON-LD sameAs has the three official profiles', !!org && ['linkedin.com/company/arnour','x.com/xarnour','facebook.com/arnourpage'].every(x => (org.sameAs || []).some(u => u.includes(x))));
 t('index: crawlable fallback inside #app with SAP products and role types', /<div id="app"><div class="seo-fallback"/.test(idx) && /SuccessFactors/.test(idx) && /Ariba/.test(idx) && /Solution &amp; Enterprise Architect/.test(idx));
+t('index: first-paint splash outside #app, search-engine text hidden from people but kept, and shown again without JavaScript', /<body>\s*<div id="boot-splash" class="live-splash">[^]*?Loading Arnour/.test(idx) && /#app>\.seo-fallback\{position:absolute!important/.test(idx) && /<noscript><style>#app>\.seo-fallback\{position:static!important/.test(idx) && /#boot-splash\{display:none!important/.test(idx));
+t('backend: app start removes the first-paint splash', /getElementById\('boot-splash'\)[\s\S]{0,80}\.remove\(\)/.test(rd('js/backend.js')));
 const sm = rd('sitemap.xml'); const locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 t('sitemap lists home + 3 landing pages, no hash routes', locs.length === 4 && locs.every(u => u.startsWith(SITE + '/') && !u.includes('#')), locs);
 const rb = rd('robots.txt');

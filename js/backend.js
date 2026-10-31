@@ -1220,6 +1220,7 @@
   /* ------------------------------ start ------------------------------ */
   APP.start = function () {
     var root = document.getElementById('app');
+    var bootSplash = document.getElementById('boot-splash'); if (bootSplash) bootSplash.remove(); /* the page's own first-paint splash: the same screen is drawn inside the app next */
     root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><p class="muted">Loading Arnour…</p></div>';
     APP.db = B.emptyDb();
     B.boot().then(function () {
