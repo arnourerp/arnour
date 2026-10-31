@@ -1218,11 +1218,34 @@
   };
 
   /* ------------------------------ start ------------------------------ */
+  /* A first-time visitor opening the home page sees it at once; the numbers that come from the database fill in when the data arrives.
+     Anyone with a saved sign-in, a link from an email or a sign-in provider, or any other page keeps the logo screen, because those need their data first. */
+  B.canShowHomeEarly = function () {
+    var q = location.search || '', h = location.hash || '';
+    if (/[?&](code|token_hash|error|error_description|error_code|type)=/.test(q) || /[?&#](code|token_hash|error|error_description|error_code|access_token|refresh_token|type)=/.test(h)) return false;
+    try {
+      if (localStorage.getItem('arnour-oauth-pending')) return false;
+      for (var i = 0; i < localStorage.length; i++) { if (/^sb-.*-auth-token/.test(localStorage.key(i) || '')) return false; }
+    } catch (e) { /* storage blocked: no saved sign-in can exist */ }
+    return APP.parseRoute().view === 'landing';
+  };
+
   APP.start = function () {
     var root = document.getElementById('app');
-    var bootSplash = document.getElementById('boot-splash'); if (bootSplash) bootSplash.remove(); /* the page's own first-paint splash: the same screen is drawn inside the app next */
-    root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><p class="muted">Loading Arnour…</p></div>';
+    var splash = '<div class="live-splash"><span class="brand-logo lg">A</span><p class="muted">Loading Arnour…</p></div>';
     APP.db = B.emptyDb();
+    var early = false, bootDone = false, leftHome = false, bound = false;
+    try { early = B.canShowHomeEarly(); } catch (e) { early = false; }
+    var onEarlyHash = function () { if (!bootDone) { leftHome = true; root.innerHTML = splash; } }; /* went to another page before the data is here: show the logo screen until it is */
+    if (early) {
+      try {
+        B.earlyHome = true;
+        APP.bindGlobal(); bound = true;
+        window.addEventListener('hashchange', onEarlyHash);
+        APP.render();
+      } catch (e) { early = false; B.earlyHome = false; window.removeEventListener('hashchange', onEarlyHash); root.innerHTML = splash; }
+    } else root.innerHTML = splash;
+    var finish = function () { bootDone = true; B.earlyHome = false; window.removeEventListener('hashchange', onEarlyHash); };
     B.boot().then(function () {
       if (B.justConfirmed && B.user && !B.profile && B.isAdmin) location.hash = '#/admin';
       else if (B.justConfirmed && B.user && !B.profile) { /* freshly confirmed: go straight to the profile steps (or pick a side first, after Google / LinkedIn from the sign-in page) */
@@ -1231,12 +1254,16 @@
       }
       else if (B.justConfirmed && B.profile && /^#?\/?(login|register)?$/.test(location.hash)) { try { localStorage.removeItem('arnour-oauth-role'); } catch (e) { /* ignore */ } location.hash = B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'; }
     }, function () {
+      finish();
       root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><h2>We could not reach Arnour right now</h2><p class="muted">Check your connection and try again.</p><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
       throw new Error('boot failed');
     }).then(function () {
+      var keepY = early && !leftHome ? window.scrollY : null; /* the early home page may have been scrolled while the data loaded */
+      finish();
       window.addEventListener('hashchange', function () { if (APP.editNavGuard()) return; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
-      APP.bindGlobal();
+      if (!bound) APP.bindGlobal();
       APP.render();
+      if (keepY) window.scrollTo(0, keepY);
       B.startPolling();
     }, function () { /* splash already shows the error */ });
   };

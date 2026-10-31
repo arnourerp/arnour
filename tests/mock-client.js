@@ -1,7 +1,7 @@
 (function(){
   const call=(op)=>window.__sb(JSON.stringify(op)).then(JSON.parse);
   function createClient(url,key,opts){
-    const store={get(){try{return JSON.parse(localStorage.getItem('mock-session'))}catch(e){return null}},set(s){if(s)localStorage.setItem('mock-session',JSON.stringify(s));else localStorage.removeItem('mock-session')}};
+    const store={get(){try{return JSON.parse(localStorage.getItem('mock-session'))}catch(e){return null}},set(s){if(s){localStorage.setItem('mock-session',JSON.stringify(s));localStorage.setItem('sb-mock-auth-token','1')}else{localStorage.removeItem('mock-session');localStorage.removeItem('sb-mock-auth-token')}}};
     const listeners=[]; const uid=()=>{const s=store.get();return s?s.user.id:null};
     function builder(table){
       const q={table,action:'select',filters:[],order:null,limit:null,values:null,single:false};

@@ -72,6 +72,8 @@ APP.views.landing = function () {
     '<div class="card mr-card"><h3>' + APP.icon('building', 18) + ' For companies</h3><p class="muted">Open a role without telling the market who is hiring or why. Post it as confidential, receive matched interest, and reveal your name only to the people you accept.</p></div>' +
     '</div>' +
     '<p class="mr-note">A reveal cannot be undone, so it only ever happens when you accept. Free to use, and you can switch it on or off any time in your profile.</p></section>';
+  /* on a first visit the page is drawn before the data arrives: leave out the numbers that come from the database until then */
+  const dataReady = !(APP.backend && APP.backend.earlyHome);
   const liveRoles = Object.values(APP.db.jobs).filter(j => j.status === 'open').length;
   const livePros = Object.keys(APP.db.consultants || {}).length;
   return (APP.LIVE ? '' : '<div class="proto-banner" role="note">Prototype for customer validation: every company, profile and role is sample data.</div>') +
@@ -83,8 +85,8 @@ APP.views.landing = function () {
     '<a class="hero-card" href="#/onboard-e"><strong>I\'m hiring</strong><span>Post a precise role in about 3 minutes. Your company stays confidential until you accept an introduction.</span><span class="btn btn-light btn-lg">Post a role →</span></a>' +
     '<a class="hero-card" href="#/onboard"><strong>I\'m an SAP professional</strong><span>Tag your products and modules and get roles ranked by fit, while you stay discreet.</span><span class="btn btn-outline-light btn-lg">Create my profile →</span></a>' +
     '</div>' +
-    '<a class="hero-jobs-link" href="#/jobs">Browse ' + liveRoles + ' open roles first →</a>' +
-    '<p class="hero-proof">' + liveRoles + ' open roles · ' + livePros + ' professionals · ' + prods + ' SAP products · ' + mods + ' modules</p>' +
+    '<a class="hero-jobs-link" href="#/jobs">Browse ' + (dataReady ? liveRoles + ' open roles' : 'open roles') + ' first →</a>' +
+    '<p class="hero-proof">' + (dataReady ? liveRoles + ' open roles · ' + livePros + ' professionals · ' : '') + prods + ' SAP products · ' + mods + ' modules</p>' +
     '</div></section>' +
 
     reveal +

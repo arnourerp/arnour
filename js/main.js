@@ -25,4 +25,5 @@
     } catch (e) { }
   });
 })();
-document.addEventListener('DOMContentLoaded', () => APP.start());
+/* the page's own first-paint splash (index.html) goes as the app takes over, in the live and the demo copy alike */
+document.addEventListener('DOMContentLoaded', () => { const bs = document.getElementById('boot-splash'); if (bs) bs.remove(); APP.start(); });
