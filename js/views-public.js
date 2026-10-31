@@ -254,7 +254,7 @@ APP.views['wiz-c'] = function () {
         '<label class="field"><input name="linkedin" class="input" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile" aria-label="LinkedIn profile"></label></details>') +
       sec('where', 'pin', 'Where you are',
         '<div class="form-grid g3">' +
-        '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '>' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
+        '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '><option value=""' + (d.nationality ? '' : ' selected') + '>Select your nationality…</option>' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
         '<label class="field"><span class="label">Country <span class="req-star">*</span></span><select name="country" data-wizard="c" class="input" id="wiz-country"' + inv('country') + '>' + APP.countryOptions(d.country) + '</select>' + E('country') + '</label>' +
         '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
         '</div>') +
@@ -350,8 +350,34 @@ APP.views['wiz-c'] = function () {
     '<div class="wiz-progress">' + progress + '</div>' +
     '<h1 class="wiz-title">' + APP.wizStepTitle(step, d) + '</h1>' +
     '<p class="muted small wiz-time">Step ' + (vis.indexOf(step) + 1) + ' of ' + vis.length + ' · about ' + Math.max(1, Math.ceil((vis.length - vis.indexOf(step)) * 0.4)) + ' min left · you can edit everything later</p>' +
+    (step === 1 ? APP.cvSlotHtml() : '') + APP.cvBannerHtml(step) +
     body +
     '</div></div>';
+};
+
+/* "Start from your CV": the code (js/cv-import.js) is fetched only when the wizard opens on the live site.
+   Until it has loaded, and whenever the feature is switched off, nothing shows. */
+APP.cvSlotHtml = function () {
+  if (!APP.LIVE || !APP.wizC) return '';
+  if (!APP.cvImpLoaded) {
+    if (!APP.cvImpLoading) {
+      APP.cvImpLoading = true;
+      const s = document.createElement('script');
+      s.src = '/js/cv-import.js';
+      s.onload = () => { APP.cvImpLoaded = true; APP.cvImpInit(); };
+      s.onerror = () => { /* the wizard works without it */ };
+      document.head.appendChild(s);
+    }
+    return '<div id="cv-slot"></div>';
+  }
+  return '<div id="cv-slot">' + APP.cvCardHtml() + '</div>';
+};
+/* after a CV was read: a reminder on every later step that the answers still need checking */
+APP.cvBannerHtml = function (step) {
+  const i = APP.wizC && APP.wizC.cvImp;
+  if (!i || !i.done || step === 1) return '';
+  return '<p class="live-note cv-banner">' + APP.icon('check', 14) + ' Filled in from your CV. ' + (step === 6 ? 'Please check everything before you create your profile.' : 'Please check it.') + '</p>' +
+    (step === 3 && i.found && i.found.estimated ? '<p class="muted small cv-est">Project counts are our best estimate from the projects your CV lists, and “SAP-certified” is only ticked where your CV says so. Please correct anything that looks wrong.</p>' : '');
 };
 
 APP.wizNav = function (step, total, last) {
