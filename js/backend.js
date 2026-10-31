@@ -645,15 +645,23 @@
     var boxes = [].slice.call(document.querySelectorAll('[data-ts]:not([data-ts-on])'));
     if (!boxes.length) return;
     boxes.forEach(function (el) { el.setAttribute('data-ts-on', '1'); });
-    B.tsToken = null;
+    B.tsToken = null; B.tsError = null;
     loadTs().then(function (ts) {
       B.tsFailed = false;
       boxes.forEach(function (el) {
         if (!document.body.contains(el)) return;
         try {
-          B.tsWidgets.push(ts.render(el, { sitekey: CFG.turnstileSiteKey, action: 'auth',
-            callback: function (t) { B.tsToken = t; var er = document.getElementById('live-err'); if (er && /security check/i.test(er.textContent)) er.textContent = ''; },
-            'expired-callback': function () { B.tsToken = null; }, 'error-callback': function () { B.tsToken = null; } }));
+          var wid, retried = false;
+          wid = ts.render(el, { sitekey: CFG.turnstileSiteKey, action: 'auth',
+            callback: function (t) { B.tsToken = t; B.tsError = null; var er = document.getElementById('live-err'); if (er && /security check/i.test(er.textContent)) er.textContent = ''; },
+            'expired-callback': function () { B.tsToken = null; },
+            /* the check failed on this device: try once more by itself, then tell the person what to do (see captchaMissing) */
+            'error-callback': function (code) {
+              B.tsToken = null; B.tsError = String(code || 'error');
+              if (!retried) { retried = true; setTimeout(function () { try { ts.reset(wid); } catch (e) { /* ignore */ } }, 1000); }
+              return true;
+            } });
+          B.tsWidgets.push(wid);
         } catch (e) { /* ignore */ }
       });
     }, function () { B.tsFailed = true; });
@@ -666,6 +674,7 @@
   /* returns an error message when the check is needed but not done yet */
   B.captchaMissing = function () {
     if (!B.captchaOn() || B.tsToken) return '';
+    if (B.tsError) return 'The security check did not pass on this device. Reload the page and try again. If it keeps failing, turn off any VPN or iCloud Private Relay, or try another browser or network.';
     return B.tsFailed ? 'The security check could not load. Please turn off any ad blocker or try another browser.' : 'Please wait a moment for the security check to finish, then try again.';
   };
   if (window.MutationObserver) new MutationObserver(function () { if (document.querySelector('[data-ts]:not([data-ts-on])')) B.mountCaptcha(); }).observe(document.documentElement, { childList: true, subtree: true });
@@ -1254,8 +1263,16 @@
       }
       else if (B.justConfirmed && B.profile && /^#?\/?(login|register)?$/.test(location.hash)) { try { localStorage.removeItem('arnour-oauth-role'); } catch (e) { /* ignore */ } location.hash = B.profile.role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'; }
     }, function () {
-      finish();
-      root.innerHTML = '<div class="live-splash"><span class="brand-logo lg">A</span><h2>We could not reach Arnour right now</h2><p class="muted">Check your connection and try again.</p><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
+      var errHtml = '<div class="live-splash"><span class="brand-logo lg">A</span><h2>We could not reach Arnour right now</h2><p class="muted">Check your connection and try again. On a work network or VPN, part of the site may be blocked: try another network.</p><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
+      if (early && !leftHome && root.querySelector('.hero')) {
+        /* the home page needs no data: keep it on screen with a notice; any other page shows the error screen */
+        bootDone = true; window.removeEventListener('hashchange', onEarlyHash);
+        var bar = document.createElement('div');
+        bar.className = 'boot-fail'; bar.setAttribute('role', 'alert');
+        bar.innerHTML = '<span>Part of Arnour could not load. Check your connection, or try another network.</span><button type="button" class="btn btn-light btn-sm" onclick="location.reload()">Try again</button>';
+        document.body.appendChild(bar);
+        window.addEventListener('hashchange', function () { bar.remove(); root.innerHTML = errHtml; window.scrollTo(0, 0); });
+      } else { finish(); root.innerHTML = errHtml; }
       throw new Error('boot failed');
     }).then(function () {
       var keepY = early && !leftHome ? window.scrollY : null; /* the early home page may have been scrolled while the data loaded */

@@ -1519,6 +1519,8 @@ button.conv-item:focus-visible { outline: 2px solid var(--ring); outline-offset:
 
 /* ---------- live mode: sign-in, splash, notices ---------- */
 .live-splash { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 24px; }
+.boot-fail { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100% - 32px); padding: 10px 12px 10px 16px; background: #0F172A; color: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(15, 23, 42, .25); font-size: 14px; line-height: 1.4; }
+.boot-fail .btn { flex: none; }
 .live-note { background: var(--accent-blue-soft); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin: 0 0 12px; }
 .live-note.warn { background: #FFFBEB; border-color: #FDE68A; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--blue); font: inherit; text-decoration: underline; cursor: pointer; }

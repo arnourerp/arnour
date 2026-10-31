@@ -55,5 +55,25 @@ await c.evaluate(()=>{ window.__tsHold=false; }); await go(c,'#/forgot'); await 
 await c.fill('input[name=email]','bot@test.com'); await c.click('form[data-form=live-forgot] button[type=submit]'); await c.waitForTimeout(400);
 const fr=await c.evaluate(()=>window.__auth.find(x=>x[0]==='resetPasswordForEmail'));
 t('password reset sends the token',fr&&/^tok-/.test(fr[1][1].captchaToken),fr);
+// the check fails on this device: one automatic retry, then a clear message (no endless retries)
+async function flaky(failures){
+  const f=await newPage('flaky'+failures);
+  await f.addInitScript((n)=>{ window.ARNOUR_FORCE_CAPTCHA=true; window.__resets=0; window.__fail=n;
+    const fire=(o)=>setTimeout(()=>{ if(window.__fail-->0) o['error-callback']('300030'); else o.callback('tok-ok'); },30);
+    window.turnstile={ render(el,o){ window.__o=o; fire(o); return 7; }, reset(id){ window.__resets++; fire(window.__o); } }; },failures);
+  await f.goto(BASE); await f.waitForSelector('.hero');
+  await f.evaluate(()=>{ const a=APP.backend.sb.auth; window.__auth=[]; const g=a.signInWithPassword.bind(a); a.signInWithPassword=function(x){ window.__auth.push(x); return g(x); }; });
+  await go(f,'#/login'); await f.waitForTimeout(1600);
+  return f;
+}
+const f1=await flaky(1);
+t('a failed check retries once by itself and then passes',await f1.evaluate(()=>window.__resets===1&&APP.backend.tsToken==='tok-ok'&&!APP.backend.tsError),await f1.evaluate(()=>[window.__resets,APP.backend.tsToken,APP.backend.tsError]));
+const f2=await flaky(99);
+t('a check that keeps failing is retried only once',await f2.evaluate(()=>window.__resets===1&&!APP.backend.tsToken&&APP.backend.tsError==='300030'),await f2.evaluate(()=>[window.__resets,APP.backend.tsToken,APP.backend.tsError]));
+await f2.fill('input[name=email]','bot@test.com'); await f2.fill('input[name=password]','longenough1');
+await f2.click('form[data-form=live-login] button[type=submit]'); await f2.waitForTimeout(200);
+const msg=await f2.textContent('#live-err');
+t('the person is told the check failed and what to try (not "wait a moment")',/did not pass on this device/.test(msg)&&/VPN|Private Relay/.test(msg)&&!/wait a moment/i.test(msg),msg);
+t('no sign-in is sent without a passed check',await f2.evaluate(()=>window.__auth.length===0));
 t('no page errors',errors.length===0,errors);
 console.log(fails?'FAILS '+fails:'ALL PASSED'); await browser.close();

@@ -74,5 +74,32 @@ const state=(p)=>p.evaluate(()=>({splash:!!document.querySelector('#app .live-sp
   t('opening a page other than the home page keeps the logo screen',s.splash&&!s.hero&&!s.ready,s);
   await p.context().close();
 }
+/* 6. the data cannot load (a blocked network): the home page stays with a notice; other pages show the error screen */
+async function openFailing(){
+  const ctx=await browser.newContext({viewport:{width:390,height:800}});
+  const p=await ctx.newPage();
+  await p.exposeFunction('__sb',async()=>{ await new Promise(r=>setTimeout(r,600)); throw new Error('net::ERR_CERT_AUTHORITY_INVALID'); });
+  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/fonts.googleapis.com/**',r=>r.abort());
+  return p;
+}
+{
+  const p=await openFailing();
+  await p.goto(ORIGIN+'/',{waitUntil:'domcontentloaded'}); await p.waitForTimeout(2500);
+  const s=await p.evaluate(()=>{ const b=document.querySelector('.boot-fail'); const r=b&&b.getBoundingClientRect(); return {hero:!!document.querySelector('#app .hero h1'),err:/could not reach Arnour/.test(document.getElementById('app').innerText),bar:b?b.innerText:'',btn:!!(b&&b.querySelector('button')),fits:!!r&&r.left>=0&&r.right<=innerWidth&&r.top>=0}; });
+  t('data fails on a first visit: the home page stays on screen',s.hero&&!s.err,s);
+  t('data fails: a notice with a Try again button shows, and fits a phone screen',/could not load/.test(s.bar)&&s.btn&&s.fits,s);
+  await p.evaluate(()=>{location.hash='#/jobs'}); await p.waitForTimeout(300);
+  const s2=await p.evaluate(()=>({err:/could not reach Arnour/.test(document.getElementById('app').innerText),net:/another network/.test(document.getElementById('app').innerText),bar:!!document.querySelector('.boot-fail')}));
+  t('data fails: opening another page shows the error screen (with the network hint) and removes the notice',s2.err&&s2.net&&!s2.bar,s2);
+  await p.context().close();
+}
+{
+  const p=await openFailing();
+  await p.goto(ORIGIN+'/#/jobs',{waitUntil:'domcontentloaded'}); await p.waitForTimeout(2500);
+  const s=await p.evaluate(()=>({err:/could not reach Arnour/.test(document.getElementById('app').innerText),bar:!!document.querySelector('.boot-fail')}));
+  t('data fails on any other page: the error screen shows as before',s.err&&!s.bar,s);
+  await p.context().close();
+}
 await browser.close();
 console.log(fails?'FAILS '+fails:'ALL PASSED'); process.exit(fails?1:0);
