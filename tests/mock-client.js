@@ -20,7 +20,7 @@
       async signOut(){store.set(null);listeners.forEach(f=>f('SIGNED_OUT',null));return {error:null}},
       async resend(){await call({t:'resend'});return {error:null}},
       async resetPasswordForEmail(email){await call({t:'reset',email});return {data:{},error:null}},
-      async updateUser({password}){const r=await call({t:'setpw',uid:uid(),password});return {data:{},error:r.error||null}},
+      async updateUser({password,data}){if(!password){window.__updateUserData=data||null;return {data:{},error:null}}const r=await call({t:'setpw',uid:uid(),password});return {data:{},error:r.error||null}},
       async verifyOtp({token_hash,type}){const r=await call({t:'verify',token_hash,type});if(r.error)return {data:{},error:r.error};store.set(r.session);return {data:{session:r.session},error:null}},
       async exchangeCodeForSession(code){const p=localStorage.getItem('mock-oauth');if(!p||code!=='mock-oauth')return {data:{},error:{message:'code verifier not found'}};localStorage.removeItem('mock-oauth');const r=await call({t:'oauth',provider:JSON.parse(p).provider,email:window.__oauthEmail||'oauth@test.com',meta:window.__oauthMeta||{}});store.set(r.session);return {data:{session:r.session},error:null}},
       async signInWithOAuth({provider,options}){window.__oauthCall={provider,options};if(window.__oauthCancel){location.href=options.redirectTo+'?error=access_denied&error_description=user_cancelled';return {data:{},error:null}}localStorage.setItem('mock-oauth',JSON.stringify({provider}));location.href=options.redirectTo+'?code=mock-oauth';return {data:{url:'x'},error:null}},

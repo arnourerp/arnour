@@ -328,7 +328,7 @@
       (errs.length ? '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-clear-errors">Clear all</button></div><table class="adm-table"><thead><tr><th>Error</th><th>Times</th><th>Last seen</th><th>Where</th></tr></thead><tbody>' +
         errs.map(function (e) { return '<tr><td>' + h(e.message) + '<div class="fb-meta">' + h(e.src) + '</div></td><td>' + e.n + '</td><td>' + whenT(e.last_ts) + '</td><td>' + h(e.page) + '<div class="fb-meta">' + h(shortUa(e.ua)) + '</div></td></tr>'; }).join('') + '</tbody></table>'
         : '<div class="empty">No errors recorded. 🎉</div>') +
-      '<h2>Usage (last 7 days)</h2><p class="muted small">Counts of page views by section (v:…), external-apply clicks and applications. No cookies, no personal data.</p>' +
+      '<h2>Usage (last 7 days)</h2><p class="muted small">Counts of page views by section (v:…), external-apply clicks and applications, new visitors from a link or campaign (lnd:facebook…) and completed profiles by source (conv:c: consultants, conv:e: companies). No cookies, no personal data.</p>' +
       (nl.length ? '<table class="adm-table"><thead><tr><th></th>' + dl.map(function (d) { return '<th>' + h(d.slice(5)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
         nl.map(function (n) { return '<tr><td>' + h(n) + '</td>' + dl.map(function (d) { return '<td>' + (names[n][d] || '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>'
         : '<div class="empty">No data yet.</div>');

@@ -677,8 +677,14 @@
       return B.hydrate(r.data.session);
     });
   };
+  /* what is saved on a new account: the role, plus the link or campaign that first brought the visitor (see js/attribution.js) */
+  B.signUpData = function (role) {
+    var d = { role: role === 'e' ? 'employer' : 'consultant' };
+    try { var ft = window.ArnourFT && ArnourFT.forAccount(); if (ft) d.ft = ft; } catch (e) { /* ignore */ }
+    return d;
+  };
   B.signUp = function (email, password, role) {
-    return B.sb.auth.signUp({ email: email, password: password, options: { emailRedirectTo: location.origin + '/', data: { role: role === 'e' ? 'employer' : 'consultant' }, captchaToken: B.captchaToken() } }).then(function (r) {
+    return B.sb.auth.signUp({ email: email, password: password, options: { emailRedirectTo: location.origin + '/', data: B.signUpData(role), captchaToken: B.captchaToken() } }).then(function (r) {
       B.captchaReset();
       if (r.error) throw r.error;
       return r.data;
@@ -768,6 +774,16 @@
     });
   };
 
+  /* a profile was completed: count it against the source that brought the person, and save the source on accounts that did not get it at sign-up (Google / LinkedIn sign-in) */
+  B.noteProfileDone = function (role) {
+    try {
+      var ft = window.ArnourFT && ArnourFT.forAccount(), src = ft ? (ft.b || 'other') : 'direct';
+      if (APP.trackEvent) APP.trackEvent('conv:' + (role === 'consultant' ? 'c' : 'e') + ':' + src);
+      var um = (B.user && B.user.user_metadata) || {};
+      if (ft && !um.ft && B.sb.auth.updateUser) B.sb.auth.updateUser({ data: { ft: ft } }).then(null, function () { /* attribution is optional */ });
+    } catch (e) { /* never block the profile */ }
+  };
+
   B.finishWizard = function (role, obj) {
     var btn = document.querySelector('form button[type="submit"]'); if (btn) { btn.disabled = true; btn.textContent = 'Creating your profile…'; }
     var fail = function (e) {
@@ -780,6 +796,7 @@
       if (!s) throw { status: 401, message: 'not signed in' };
       return rpc('claim_profile', { p_role: role, p_data: clean(obj) });
     }).then(function () {
+      B.noteProfileDone(role);
       B.clearWizardDraft();
       return B.sb.auth.getSession();
     }).then(function (r) { return B.hydrate(r.data.session); }).then(function () {
@@ -990,7 +1007,7 @@
       '<h3>How it is used</h3><p>To run the marketplace: match roles and professionals, deliver messages and notifications, and keep the site secure. We do not sell your data.</p>' +
       '<h3>Where it is stored</h3><p>Data is stored with our hosting and database providers (Supabase and Netlify). Emails are sent from noreply@arnour.com.</p>' +
       '<h3>Your rights</h3><p>You can edit your profile at any time and delete your account from the Account page, which removes your profile, messages and applications. To ask for a copy of your data or raise a concern, write to <a href="mailto:contact@arnour.com">contact@arnour.com</a>.</p>' +
-      '<h3>Cookies</h3><p>We use browser storage only to keep you signed in. We do not use advertising cookies.</p>'+
+      '<h3>Cookies and browser storage</h3><p>We use browser storage to keep you signed in and, for new visitors, to remember which link or campaign brought them here (for example a post in a Facebook group), so we know which sharing works. That note stays in your browser for up to 90 days and, if you create an account, is saved with it. We do not use advertising cookies or third-party tracking.</p>'+
       '<h3>Problem reports and error logs</h3><p>If you send us a problem report we keep it with the page, browser and your account email so we can fix the issue and reply. For visitors who are not signed in we keep a scrambled form of the network address only, to stop spam. We also record technical errors from the site (the message and page, never what you typed) and anonymous page-view counts, with no cookies and no personal data.</p>');
   };
 

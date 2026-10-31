@@ -95,7 +95,7 @@ export function buildPage(shell, o) {
   h = h.replace(/(<meta property="og:url" content=")[^"]*(")/, (m, a, b) => a + esc(o.canonical) + b);
   /* base href makes the relative js/ and css/ links work from /job/<id>; the script puts the app on its normal #/ route without a redirect */
   const m = String(o.path || '').match(/^\/(job|company)\/([A-Za-z0-9_-]{1,40})\/?$/);
-  const entry = m ? '<script>(function(){try{history.replaceState(null,"","/"+location.search+"#/' + m[1] + '/' + m[2] + '")}catch(e){}})()</script>' : '';
+  const entry = m ? '<script>(function(){try{history.replaceState(null,"","/"+location.search+"#/' + m[1] + '/' + m[2] + '");window.__arnourEntry="/' + m[1] + '/' + m[2] + '"}catch(e){}})()</script>' : '';
   h = h.replace('<head>', () => '<head><base href="/">' + entry);
   const extra = (o.robots ? '<meta name="robots" content="' + esc(o.robots) + '" />' : '') + (o.ld || []).map((x) => '<script type="application/ld+json">' + ldJson(x) + '</script>').join('');
   h = h.replace('</head>', () => extra + '</head>');

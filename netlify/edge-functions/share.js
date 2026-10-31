@@ -12,7 +12,7 @@ export default async (request, context) => {
   const m = url.pathname.match(/^\/share\/(job|q|a|p|c)\/([A-Za-z0-9_-]{1,40})\/?$/);
   if (!m) return Response.redirect(url.origin + '/', 302);
   const kind = m[1], id = m[2];
-  const target = url.origin + '/#/' + { job: 'job/', q: 'community/q/', a: 'community/a/', p: 'talent/', c: 'company/' }[kind] + id;
+  const target = url.origin + '/' + url.search + '#/' + { job: 'job/', q: 'community/q/', a: 'community/a/', p: 'talent/', c: 'company/' }[kind] + id;
   let title = 'Arnour — The SAP Talent Network';
   let desc = 'The talent network built for the SAP ecosystem.';
   try {

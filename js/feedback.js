@@ -47,6 +47,9 @@
     track('v:' + seg);
   }
   window.addEventListener('hashchange', trackRoute); trackRoute();
+  /* anonymous counts per source (facebook, linkedin, …): new visitors from a tagged link, and completed profiles (see js/attribution.js) */
+  APP.trackEvent = function (name) { if (/^[a-z0-9_:-]{1,40}$/.test(String(name))) quiet('track_usage', { p_name: String(name) }); };
+  try { if (window.ArnourFT && ArnourFT.takeLandingCount()) APP.trackEvent('lnd:' + ArnourFT.bucket()); } catch (e) { /* ignore */ }
   var oExt = APP.openExternalApply; if (oExt) APP.openExternalApply = function () { track('ext_apply'); lastSeen = ''; return oExt.apply(this, arguments); };
   var oApply = APP.applyToJob; if (oApply) APP.applyToJob = function () { track('apply'); lastSeen = ''; return oApply.apply(this, arguments); };
 
