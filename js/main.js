@@ -13,4 +13,16 @@
     return submit.apply(this, arguments);
   };
 })();
+/* a clean entry page (/job/<id>) sets its own title, canonical and robots tags; once the person moves to another page, put the general ones back */
+(function () {
+  const home = { title: 'Arnour — SAP Talent & Consulting Network (MENA & Global)', canonical: 'https://arnour.com/' };
+  window.addEventListener('hashchange', function () {
+    try {
+      if (/^#\/(job|company)\//.test(location.hash)) return;
+      const c = document.querySelector('link[rel="canonical"]');
+      if (c && c.getAttribute('href') !== home.canonical) c.setAttribute('href', home.canonical);
+      if (/^Hiring: /.test(document.title)) document.title = home.title;
+    } catch (e) { }
+  });
+})();
 document.addEventListener('DOMContentLoaded', () => APP.start());

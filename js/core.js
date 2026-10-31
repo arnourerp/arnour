@@ -2263,7 +2263,9 @@ APP.shareUrl = function (hash) {
   /* live site: roles and community posts are shared through /share/… so social sites can show a real preview */
   if (APP.LIVE) {
     const sm = hash.replace(/^#?\/?/, '').match(/^(job|community\/q|community\/a|talent|company)\/([A-Za-z0-9_-]+)$/);
-    if (sm) return (location.origin || '') + '/share/' + { job: 'job', 'community/q': 'q', 'community/a': 'a', talent: 'p', company: 'c' }[sm[1]] + '/' + sm[2];
+    /* roles and companies have clean entry URLs (/job/<id>, /company/<id>); the rest still go through /share/… */
+    if (sm && (sm[1] === 'job' || sm[1] === 'company')) return (location.origin || '') + '/' + sm[1] + '/' + sm[2];
+    if (sm) return (location.origin || '') + '/share/' + { 'community/q': 'q', 'community/a': 'a', talent: 'p' }[sm[1]] + '/' + sm[2];
   }
   let base = (location.origin || '') + (location.pathname || '');
   if (/index\.html$/i.test(base)) base = base.replace(/index\.html.*$/i, '');
