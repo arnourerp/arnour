@@ -277,6 +277,7 @@ APP.applyJobFilters = function (c, jobs) {
   else if (f.cert) out = out.filter(j => j.certification === f.cert);
   if (f.lang) out = out.filter(j => (j.languages || []).includes(f.lang) || (j.preferredLangs || []).includes(f.lang));
   if (f.posted) out = out.filter(j => Date.now() - (j.postedTs || 0) <= Number(f.posted) * 864e5);
+  if (f.direct) out = out.filter(j => { const t = APP.jobPosterType(j); return t !== 'partner' && t !== 'recruiter'; }); /* direct employers only: hides partners and recruiters */
   if (f.q) {
     const q = f.q.toLowerCase();
     out = out.filter(j => {
@@ -304,12 +305,13 @@ APP.jobActiveFilters = function (f) {
   (f.industries || []).forEach(v => out.push(['industries', v, v]));
   if (f.cert) out.push(['cert', '', { none: 'No certification needed', preferred: 'Certification preferred', required: 'Certification required' }[f.cert]]);
   if (f.lang) out.push(['lang', '', f.lang]);
+  if (f.direct) out.push(['direct', '', 'Direct employers only']);
   if (f.posted) out.push(['posted', '', { 1: 'Last 24 hours', 7: 'Last 7 days', 30: 'Last 30 days' }[f.posted]]);
   return out;
 };
 APP.JF_SECTION_KEYS = {
   jrole: ['roleType'], jskills: ['product', 'module'], jtype: ['types'], jlevel: ['levels'],
-  jloc: ['country', 'region', 'workMode'], jind: ['industries'], jreq: ['cert', 'lang'], jposted: ['posted']
+  jloc: ['country', 'region', 'workMode'], jind: ['industries'], jreq: ['cert', 'lang'], jposted: ['posted'], jemp: ['direct']
 };
 APP.jfCount = function (active, section) { const k = APP.JF_SECTION_KEYS[section]; return active.filter(a => k.indexOf(a[0]) !== -1).length; };
 
@@ -338,6 +340,7 @@ APP.jobFilterPanelHtml = function (f, active, nShown) {
     APP.tfSection('jloc', 'Location & work style', cnt('jloc'), false, locBody) +
     APP.tfSection('jind', 'Industry', cnt('jind'), false, chips('industries', APP.industries)) +
     APP.tfSection('jreq', 'Certification & language', cnt('jreq'), false, reqBody) +
+    APP.tfSection('jemp', 'Who is hiring', cnt('jemp'), false, '<div class="field">' + chips('direct', [{ id: 'yes', name: 'Direct employers only' }], true) + '<p class="field-hint">Hides roles posted by SI/Partners and recruiters.</p></div>') +
     APP.tfSection('jposted', 'Date posted', cnt('jposted'), false, postedBody) +
     '<button type="button" class="btn btn-primary btn-block tf-show" data-action="tf-toggle">Show ' + nShown + ' role' + (nShown === 1 ? '' : 's') + '</button>' +
     '</form>';

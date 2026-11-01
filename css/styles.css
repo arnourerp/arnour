@@ -1950,3 +1950,17 @@ a.sr-title:hover { text-decoration: underline; }
 .drawer-body .jd-sec { padding: 0; border-top: 0; }
 .drawer-body .jd-sec h2 { margin: var(--space-5) 0 var(--space-2); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: var(--fw-semibold); }
 .drawer-body .jd-sec h3 { margin: var(--space-3) 0 var(--space-2); }
+
+/* company type: who is hiring (badge, choice buttons, one-time question) */
+.pill.co-type { font-size: 11px; font-weight: 600; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
+.pill.co-type-customer { background: #ECFDF5; color: #047857; border-color: #A7F3D0; }
+.pill.co-type-partner { background: var(--blue-soft); color: #1D4ED8; border-color: #BFDBFE; }
+.pill.co-type-recruiter { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+.jd-poster { margin: 0 0 6px; }
+.jd-poster .pill.co-type { margin-left: 0; }
+.co-type-field { display: grid; gap: 8px; }
+.co-type-opt { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line, #E5E7EB); border-radius: 10px; cursor: pointer; }
+.co-type-opt:has(input:checked) { border-color: var(--blue, #2563EB); background: var(--blue-soft); }
+.co-type-opt input { margin-top: 4px; }
+.co-type-opt span { display: grid; gap: 2px; }
+.co-type-prompt { margin-bottom: 16px; border-style: dashed; background: var(--blue-soft); }

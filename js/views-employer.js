@@ -60,7 +60,7 @@ APP.views['e-dash'] = function () {
         APP.recentCommunityItems(null, 2).map(pulseItem).join('')) +
     '</div>';
 
-  return '<div>' + APP.getStartedHtml('employer') +
+  return '<div>' + APP.coTypePromptHtml() + APP.getStartedHtml('employer') +
     '<div class="page-head"><h2>' + APP.h(co.name) + '</h2><p class="muted">Here\'s what\'s moving in your talent pipeline.</p>' +
     '<button class="btn btn-primary" data-action="go" data-href="#/e/jobs/new">' + APP.icon('plus', 15) + ' Post a job</button></div>' +
     '<div class="stat-row">' + stats + '</div>' +
@@ -95,7 +95,7 @@ APP.views['e-company'] = function () {
       '<div class="card co-banner-card">' +
       '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + '</span></div>' +
       '<div class="co-banner-body">' +
-      '<div class="co-id"><h2>' + APP.h(co.name) + '</h2>' +
+      '<div class="co-id"><h2>' + APP.h(co.name) + ' ' + APP.coTypeBadgeHtml(co) + '</h2>' +
       '<p class="muted">' + APP.h(co.industry) + ' · ' + APP.h(co.size) + ' · ' + APP.icon('pin', 13) + ' ' + APP.h(APP.locText(co)) + (co.website ? ' · ' + APP.h(co.website) : '') + '</p></div>' +
       (co.contactName ? '<div class="co-contact muted small">' + APP.icon('users', 13) + ' ' + APP.h(co.contactName) + (co.contactTitle ? ' · ' + APP.h(co.contactTitle) : '') + '</div>' : '') +
       '<button class="btn btn-outline btn-sm" data-action="co-edit-on">Edit profile</button>' +
@@ -125,6 +125,7 @@ APP.views['e-company'] = function () {
       '<div class="card">' +
       '<form data-form="company-edit" id="f-company-edit">' +
       '<label class="field"><span class="label">Company name</span><input name="name" class="input" value="' + APP.h(d.name) + '"></label>' +
+      APP.coTypeFieldHtml(d.companyType) +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Industry</span><select name="industry" class="input">' + APP.opt(APP.industries.map(i => [i, i]), d.industry) + '</select></label>' +
       '<label class="field"><span class="label">Size</span><select name="size" class="input">' + APP.opt(APP.companySizes.map(s => [s, s]), d.size) + '</select></label>' +
@@ -594,7 +595,7 @@ APP.jobFormView = function (mode) {
     '<span class="muted small wiz-count">Step ' + step + ' of 3</span>' +
     (step < 3 ? '<button type="submit" class="btn btn-primary">Continue →</button>' : '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Publish role</button>') + '</div>';
 
-  return '<div class="narrow job-form job-wizard">' + crumb +
+  return '<div class="narrow job-form job-wizard">' + crumb + APP.coTypePromptHtml() +
     APP.editBarHtml('Post a new role', null) +
     '<p class="muted">' + APP.h(co.name) + ' is hiring — three quick steps. Only the title, country and one SAP skill are required.</p>' +
     stepper + (step === 1 ? APP.jdSlotHtml('post') : '') + APP.jdBannerHtml(step) + '<form data-form="job-post" novalidate>' + steps + bar + '</form></div>';

@@ -400,7 +400,7 @@ APP.wizNav = function (step, total, last) {
 
 APP.wizEDefaults = function () {
   return {
-    name: '', industry: 'Information Technology (IT)', size: '51-200', country: '', city: '',
+    name: '', companyType: '', industry: 'Information Technology (IT)', size: '51-200', country: '', city: '',
     website: '', about: '', contactName: '', contactTitle: '', sapSystems: []
   };
 };
@@ -419,6 +419,7 @@ APP.views['wiz-e'] = function () {
   if (step === 1) {
     body = '<form data-form="wiz-e" data-step="1">' +
       '<label class="field"><span class="label">Company name *</span><input name="name" class="input" value="' + APP.h(d.name) + '" placeholder="Crescent Bank"></label>' +
+      APP.coTypeFieldHtml(d.companyType) +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Industry</span><select name="industry" class="input">' + APP.opt(APP.industries.map(i => [i, i]), d.industry) + '</select></label>' +
       '<label class="field"><span class="label">Company size</span><select name="size" class="input">' + APP.opt(APP.companySizes.map(s => [s, s]), d.size) + '</select></label>' +
@@ -706,6 +707,7 @@ APP.views['job-detail'] = function (ctx) {
     APP.crumbHtml(APP.db.session && APP.db.session.role === 'consultant' ? '#/c/jobs' : '#/jobs', 'All open roles') +
     '<header class="jd-head card">' +
     (isExt ? '<span class="jd-co">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'sm') + '<span>' + E(job.extEmployer || '') + '</span><span class="pill ext-badge">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</span></span>' : co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm') + '<span>' + E(co.name) + '</span></a>') : '') +
+    (APP.jobPosterType(job) ? '<p class="jd-poster">' + APP.coTypeBadgeOf(APP.jobPosterType(job)) + ' <span class="muted small">' + APP.h(APP.coTypeById[APP.jobPosterType(job)].hint) + '</span></p>' : '') +
     '<h1 class="jd-title">' + E(job.title) + APP.samplePill(job) + (!open ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h1>' +
     (APP.LIVE && job.sample ? '<p class="sample-note">Sample role, for illustration. Applications to sample roles are not sent to a real company.</p>' : '') +
     (APP.modTools ? APP.modTools('job', job.id, !!(job.mine || (APP.db.session && job.companyId === APP.db.session.companyId)), true) : '') +
@@ -809,7 +811,7 @@ APP.views['company-public'] = function (ctx) {
     '<div class="card co-banner-card">' +
     '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + '</span></div>' +
     '<div class="co-banner-body">' +
-    '<div class="co-id"><h2>' + APP.h(co.name) + APP.samplePill(co) + '</h2>' +
+    '<div class="co-id"><h2>' + APP.h(co.name) + APP.samplePill(co) + ' ' + APP.coTypeBadgeHtml(co) + '</h2>' +
     '<p class="muted">' + APP.h(co.industry) + ' · ' + APP.h(co.size) + ' · ' + APP.icon('pin', 13) + ' ' + APP.h(APP.locText(co)) + (co.website ? ' · ' + APP.h(co.website) : '') + '</p></div>' +
     (co.contactName ? '<div class="co-contact muted small">' + APP.icon('users', 13) + ' ' + APP.h(co.contactName) + (co.contactTitle ? ' · ' + APP.h(co.contactTitle) : '') + '</div>' : '') +
     (APP.modTools ? APP.modTools('company', co.id, !!(APP.db.session && APP.db.session.companyId === co.id), true) : '') +

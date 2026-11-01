@@ -445,6 +445,43 @@ APP.flagRoleType = function () {
   l.scrollIntoView({ block: 'center', behavior: 'smooth' });
 };
 APP.jobTypes = ['Full-time', 'Contract', 'Freelance'];
+
+/* ---- company type: who is hiring (shown as a badge, and used by the "Direct employers only" filter) ---- */
+APP.companyTypes = [
+  { id: 'customer', label: 'SAP Customer', desc: 'A company using SAP (our own project)', hint: 'Hiring for its own SAP project' },
+  { id: 'partner', label: 'SI/Partner', desc: 'A partner / consultancy', hint: 'An SAP partner or consultancy, hiring for client projects' },
+  { id: 'recruiter', label: 'Recruiter', desc: 'A recruiter / staffing agency', hint: 'A recruiter or staffing agency, hiring for other companies' }
+];
+APP.coTypeById = Object.fromEntries(APP.companyTypes.map(t => [t.id, t]));
+/* the type of whoever posted a role: a company's own choice, or for imported roles what the import says about the source */
+APP.jobPosterType = function (job) {
+  if (!job) return '';
+  if (job.external) return /recruit|agency|staffing/i.test(String(job.extSource || '')) ? 'recruiter' : '';
+  const co = APP.company(job.companyId);
+  return co && APP.coTypeById[co.companyType] ? co.companyType : '';
+};
+APP.coTypeBadgeOf = function (id) {
+  const t = APP.coTypeById[id]; if (!t) return '';
+  return '<span class="pill co-type co-type-' + t.id + '" title="' + APP.h(t.hint) + '">' + APP.h(t.label) + '</span>';
+};
+APP.coTypeBadgeHtml = function (co) { return co ? APP.coTypeBadgeOf(co.companyType) : ''; };
+/* the three choices as big radio buttons (used when a company signs up, edits its profile, or is asked once) */
+APP.coTypeFieldHtml = function (value) {
+  return '<div class="field co-type-field" role="radiogroup" aria-label="What best describes you?"><span class="label">What best describes you? *</span>' +
+    APP.companyTypes.map(t =>
+      '<label class="co-type-opt"><input type="radio" name="companyType" value="' + t.id + '"' + (value === t.id ? ' checked' : '') + '><span><b>' + APP.h(t.label) + '</b><small class="muted">' + APP.h(t.desc) + '</small></span></label>'
+    ).join('') + '</div>';
+};
+/* existing companies that have not chosen yet are asked once (it never blocks anything) */
+APP.coTypePromptHtml = function () {
+  const s = APP.db.session; if (!s || s.role !== 'employer') return '';
+  const co = APP.company(s.companyId);
+  if (!co || APP.coTypeById[co.companyType]) return '';
+  return '<form class="card co-type-prompt" data-form="co-type"><div class="card-h">' + APP.icon('building', 16) + ' One quick question</div>' +
+    '<p class="muted small">Professionals like to know who they are dealing with. Tell us which describes you best. It shows as a small label on your company page and roles.</p>' +
+    APP.coTypeFieldHtml('') +
+    '<button type="submit" class="btn btn-primary btn-sm">Save</button></form>';
+};
 APP.industries = ['Agriculture & Food Production', 'Automotive', 'Banking & Financial Services', 'Construction & Real Estate', 'Consulting & Professional Services', 'Defense & Military', 'Education', 'Healthcare & Pharma', 'Information Technology (IT)', 'Logistics & Supply Chain', 'Manufacturing & Industrial', 'Oil, Gas & Energy', 'Public Sector / Government', 'Retail & Consumer Goods (FMCG)', 'Telecommunications', 'Tourism & Hospitality', 'Utilities (Power & Water)'];
 APP.companySizes = ['1-50', '51-200', '201-500', '501-1000', '1001-5000', '5000+'];
 APP.durations = ['3 months', '6 months', '9 months', '12 months', '18 months', '24+ months', 'Permanent'];
@@ -1633,7 +1670,7 @@ APP.TF_DEFAULTS = function () {
 };
 
 APP.JF_DEFAULTS = function () {
-  return { types: [], region: 'all', sort: 'match', q: '', product: '', module: '', country: '', roleType: '', levels: [], workMode: '', industries: [], cert: '', lang: '', posted: '' };
+  return { types: [], region: 'all', sort: 'match', q: '', product: '', module: '', country: '', roleType: '', levels: [], workMode: '', industries: [], cert: '', lang: '', posted: '', direct: '' };
 };
 
 APP.state = {
@@ -1788,7 +1825,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
     '<div class="card-top">' +
     (isExt ? APP.avatarHtml(coName || 'Jobs', 'lg') : (co ? APP.avatarHtml(co.name, 'lg') : '')) +
     '<div class="card-id">' +
-    '<p class="card-sub">' + (coHref ? '<a class="co-link" href="' + APP.h(coHref) + '">' + APP.h(coName) + '</a>' : APP.h(coName)) + '</p>' +
+    '<p class="card-sub">' + (coHref ? '<a class="co-link" href="' + APP.h(coHref) + '">' + APP.h(coName) + '</a>' : APP.h(coName)) + APP.coTypeBadgeOf(APP.jobPosterType(job)) + '</p>' +
     '<h3 class="card-title">' + (link ? '<a href="' + APP.h(link) + '">' : '') + APP.h(job.title) + (link ? '</a>' : '') + APP.samplePill(job) +
     (job.status !== 'open' ? ' <span class="pill muted-pill">Closed</span>' : '') +
     (isExt ? ' <span class="pill ext-badge" title="Listed by Arnour. You apply on the employer\'s own site.">External listing</span>' : '') +
@@ -4633,6 +4670,8 @@ APP.onSubmit = function (f) {
       if (step === 1) {
         d.name = g('name'); d.industry = g('industry'); d.size = g('size');
         d.country = g('country'); d.city = d.country ? g('city') : ''; d.website = g('website');
+        d.companyType = g('companyType');
+        if (d.name && d.country && !APP.coTypeById[d.companyType]) { APP.toast('Please tell us what best describes you'); return; }
         if (!d.name || !d.country) { APP.toast(!d.name ? 'Please enter your company name' : 'Please select the headquarters country'); return; }
       } else if (step === 2) {
         if (f.querySelector('[name="about"]')) d.about = g('about'); /* About lives on step 1 — never clobber it here */
@@ -4702,6 +4741,7 @@ APP.onSubmit = function (f) {
       d.name = g('name'); d.industry = g('industry'); d.size = g('size');
       d.country = g('country'); d.city = d.country ? g('city') : '';
       if (!d.country) { APP.toast('Please select the headquarters country'); return; }
+      d.companyType = g('companyType') || co.companyType || ''; /* companies that have not chosen yet are asked on their dashboard, not blocked here */
       d.website = g('website'); d.about = g('about');
       d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
       if (APP.profileDraft) d.sapSystems = APP.profileDraft.sapSystems;
@@ -4711,6 +4751,18 @@ APP.onSubmit = function (f) {
       APP.save();
       APP.render();
       APP.toast('Company profile updated ✓');
+      break;
+    }
+
+    case 'co-type': {
+      const co = APP.db.session && APP.db.session.role === 'employer' ? APP.company(APP.db.session.companyId) : null;
+      if (!co) return;
+      const ty = g('companyType');
+      if (!APP.coTypeById[ty]) { APP.toast('Please choose the one that describes you best'); return; }
+      co.companyType = ty;
+      APP.save();
+      APP.render();
+      APP.toast('Thank you ✓');
       break;
     }
 
