@@ -4,6 +4,9 @@
 
 /* ------------------------------ landing ------------------------------ */
 
+/* "Companies on Arnour" on the home page: hidden until there are enough real employers to show (set to true to bring it back) */
+APP.SHOW_HOME_COMPANIES = false;
+
 APP.views.landing = function () {
   const prods = CATALOG.products.length;
   const mods = CAT_INDEX.totalModules;
@@ -98,7 +101,7 @@ APP.views.landing = function () {
     '<div class="card how-card"><div class="how-title">' + APP.icon('building', 18) + ' For companies & recruiters</div>' + eSteps + '</div>' +
     '</div></section>' +
 
-    (companies ? '<section class="section hide-m"><div class="section-head center"><h2>' + (APP.LIVE ? 'Companies on Arnour' : 'Companies in this prototype') + '</h2><p class="muted">' + (APP.LIVE ? 'Examples are marked Sample. Real employers appear here as they join.' : 'Sample data. Real employers appear here once they join.') + '</p></div>' +
+    (APP.SHOW_HOME_COMPANIES && companies ? '<section class="section hide-m"><div class="section-head center"><h2>' + (APP.LIVE ? 'Companies on Arnour' : 'Companies in this prototype') + '</h2><p class="muted">' + (APP.LIVE ? 'Examples are marked Sample. Real employers appear here as they join.' : 'Sample data. Real employers appear here once they join.') + '</p></div>' +
     '<div class="logo-row">' + companies + '</div></section>' : '') +
 
     '<section class="section alt"><div class="section-head"><h2>Fresh from the community</h2><p class="muted">Open questions from SAP people — in their own words, with real answers.</p></div>' +
