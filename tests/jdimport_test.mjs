@@ -1,0 +1,52 @@
+/* Job-description import (release33): limits per person and per day, employers and the admin only, nothing readable */
+import {makeBackend} from './harness.mjs'; import fs from 'fs';
+const be=await makeBackend(); const db=be.db;
+await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/016_jd_import.sql','utf8'));
+let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,300):'');} else console.log('ok  ',n); };
+const U={emp:'aaaaaaaa-0000-0000-0000-000000000001',emp2:'bbbbbbbb-0000-0000-0000-000000000002',con:'cccccccc-0000-0000-0000-000000000003',sus:'dddddddd-0000-0000-0000-000000000004',adm:'eeeeeeee-0000-0000-0000-000000000005',nobody:'ffffffff-0000-0000-0000-000000000006'};
+for(const [k,id] of Object.entries(U)) await db.query(`insert into auth.users(id,email) values ($1,$2)`,[id,k+'@arnour.test']);
+async function as(uid,sql,args){ await db.exec(`reset role; select set_config('request.jwt.claim.sub','${uid||''}',false); set role ${uid?'authenticated':'anon'};`); try{ const r=await db.query(sql,args||[]); await db.exec('reset role'); return {rows:r.rows}; }catch(e){ await db.exec('reset role'); return {err:e.message}; } }
+await as(U.emp,`select claim_profile('employer','{"name":"Co"}'::jsonb)`);
+await as(U.emp2,`select claim_profile('employer','{"name":"Co2"}'::jsonb)`);
+await as(U.con,`select claim_profile('consultant','{"firstName":"A","lastName":"B"}'::jsonb)`);
+await as(U.sus,`select claim_profile('employer','{"name":"Sus"}'::jsonb)`);
+await db.query(`update profiles set suspended=true where user_id=$1`,[U.sus]);
+await db.query(`insert into admin_emails(email) values ('adm@arnour.test')`);
+
+t('a visitor cannot start a read',!!(await as(null,`select jd_import_begin('post')`)).err);
+t('a visitor cannot finish one',!!(await as(null,`select jd_import_done(gen_random_uuid(),'ok')`)).err);
+t('a company can start a read',!(await as(U.emp,`select jd_import_begin('post')`)).err);
+t('a professional cannot',/employers only/.test((await as(U.con,`select jd_import_begin('post')`)).err||''));
+t('a person with no profile cannot',/employers only/.test((await as(U.nobody,`select jd_import_begin('post')`)).err||''));
+t('a suspended company cannot',/suspended/.test((await as(U.sus,`select jd_import_begin('post')`)).err||''));
+t('a company cannot use the admin kind',/not allowed/.test((await as(U.emp,`select jd_import_begin('admin')`)).err||''));
+t('an unknown kind is refused',/bad kind/.test((await as(U.emp,`select jd_import_begin('x')`)).err||''));
+t('the admin can start an admin read',!(await as(U.adm,`select jd_import_begin('admin')`)).err);
+for(let i=0;i<28;i++) await as(U.emp,`select jd_import_begin('post')`);
+t('the 30th read of the day works (1 + 28 so far = 29, then one more)',!(await as(U.emp,`select jd_import_begin('post')`)).err&&(await db.query(`select count(*)::int n from jd_imports where user_id=$1`,[U.emp])).rows[0].n===30);
+t('the 31st read is refused',/daily limit/.test((await as(U.emp,`select jd_import_begin('post')`)).err||''));
+t('another company is not affected',!(await as(U.emp2,`select jd_import_begin('post')`)).err);
+t('the admin has no per-person limit',(await (async()=>{ for(let i=0;i<35;i++){ const r=await as(U.adm,`select jd_import_begin('admin')`); if(r.err) return r.err; } return 'ok'; })())==='ok');
+/* failed reads are given back */
+const id1=(await db.query(`select id from jd_imports where user_id=$1 limit 1`,[U.emp])).rows[0].id;
+t('a company can mark its own read failed',!(await as(U.emp,`select jd_import_done($1,'failed')`,[id1])).err);
+t('…and then gets that read back',!(await as(U.emp,`select jd_import_begin('post')`)).err);
+t('someone else cannot change it',(await as(U.emp2,`select jd_import_done($1,'ok')`,[id1])).err===undefined&&(await db.query(`select status from jd_imports where id=$1`,[id1])).rows[0].status==='failed');
+const id2=(await as(U.emp2,`select jd_import_begin('post') id`)).rows[0].id;
+await as(U.emp2,`select jd_import_done($1,'ok','{"skills":3,"specialties":1}'::jsonb)`,[id2]);
+const r2=(await db.query(`select status,found from jd_imports where id=$1`,[id2])).rows[0];
+t('a finished read keeps only the counts',r2.status==='ok'&&r2.found.skills===3,r2);
+await as(U.emp2,`select jd_import_done($1,'ok','{"x":"${'y'.repeat(600)}"}'::jsonb)`,[id2]);
+t('a finished read cannot be changed again',(await db.query(`select found from jd_imports where id=$1`,[id2])).rows[0].found.skills===3);
+t('a bad status is refused',!!(await as(U.emp2,`select jd_import_done($1,'weird')`,[id2])).err);
+const id3=(await as(U.emp2,`select jd_import_begin('post') id`)).rows[0].id;
+await as(U.emp2,`select jd_import_done($1,'ok',$2::jsonb)`,[id3,JSON.stringify({x:'y'.repeat(600)})]);
+t('…stored as nothing',(await db.query(`select found from jd_imports where id=$1`,[id3])).rows[0].found===null);
+t('the table cannot be read directly',!!(await as(U.emp,`select * from public.jd_imports`)).err);
+t('the table cannot be written directly',!!(await as(U.emp,`insert into public.jd_imports(user_id) values (gen_random_uuid())`)).err);
+await db.query(`update jd_imports set created_at=now()-interval '25 hours' where user_id=$1`,[U.emp]);
+t('after 24 hours the limit resets',!(await as(U.emp,`select jd_import_begin('post')`)).err);
+await db.query(`insert into jd_imports(user_id,status) select gen_random_uuid(),'ok' from generate_series(1,400)`);
+t('the site-wide daily stop works',/busy/.test((await as(U.emp2,`select jd_import_begin('post')`)).err||''));
+t('…and also stops the admin',/busy/.test((await as(U.adm,`select jd_import_begin('admin')`)).err||''));
+console.log(fails?'FAILED '+fails:'ALL OK'); process.exit(fails?1:0);

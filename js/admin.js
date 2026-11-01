@@ -269,9 +269,25 @@
     });
     return { rows: out };
   }
+  /* used by js/jd-import.js: appends one role read from a pasted posting to the list, then runs the usual check */
+  APP.adminImpAdd = function (row) {
+    var ta = document.getElementById('imp-text'), cur = String(ta ? ta.value : A.imp.text).trim(), list = [];
+    if (cur) {
+      var c0 = checkImport(cur);
+      if (c0.error) return { ok: false, msg: 'The list below has a problem, so nothing was added. Fix it or clear it first. ' + c0.error };
+      list = JSON.parse(c0.rows ? JSON.stringify(c0.rows.map(function (r) { return r.job; })) : '[]');
+    }
+    if (list.length >= 50) return { ok: false, msg: 'The list already has 50 roles. Import them first.' };
+    list.push(row);
+    A.imp.text = JSON.stringify(list, null, 2); A.imp.result = null; A.imp.error = '';
+    var c = checkImport(A.imp.text); A.imp.rows = c.rows || null;
+    APP.render();
+    return { ok: true };
+  };
   function vImport() {
     var I = A.imp, bad = I.rows ? I.rows.filter(function (r) { return r.warn.length; }).length : 0;
-    var html = '<h1>Import jobs</h1><p class="muted">Paste the JSON produced by the “arnour-external-jobs” skill. Roles appear under <strong>Jobs on Arnour</strong>, labelled “External listing”, and expire after 60 days. Close or delete any of them anytime from the Roles tab.</p>' +
+    var html = '<h1>Import jobs</h1><p class="muted">Paste a posting below to have it read into the list, or paste the JSON produced by the “arnour-external-jobs” skill. Roles appear under <strong>Jobs on Arnour</strong>, labelled “External listing”, and expire after 60 days. Close or delete any of them anytime from the Roles tab.</p>' +
+      (APP.jdSlotHtml ? APP.jdSlotHtml('admin') : '') +
       '<label class="field"><span class="label">Roles (JSON)</span><textarea id="imp-text" class="input" rows="10" spellcheck="false" placeholder="[ { &quot;title&quot;: &quot;…&quot;, … } ]">' + h(I.text) + '</textarea></label>' +
       '<div class="adm-actions"><label class="btn btn-ghost btn-sm" for="imp-file" style="cursor:pointer">Open a .json file…</label><input id="imp-file" type="file" accept=".json,.txt,application/json,text/plain" style="display:none"><button class="btn btn-outline btn-sm" data-action="adm-imp-check">Check</button>' +
       (I.rows && !bad ? '<button class="btn btn-primary btn-sm" data-action="adm-imp-run"' + (I.busy ? ' disabled' : '') + '>Import ' + I.rows.length + ' role' + (I.rows.length === 1 ? '' : 's') + '</button>' : '') + '</div>';

@@ -597,8 +597,28 @@ APP.jobFormView = function (mode) {
   return '<div class="narrow job-form job-wizard">' + crumb +
     APP.editBarHtml('Post a new role', null) +
     '<p class="muted">' + APP.h(co.name) + ' is hiring — three quick steps. Only the title, country and one SAP skill are required.</p>' +
-    stepper + '<form data-form="job-post" novalidate>' + steps + bar + '</form></div>';
+    stepper + (step === 1 ? APP.jdSlotHtml('post') : '') + APP.jdBannerHtml(step) + '<form data-form="job-post" novalidate>' + steps + bar + '</form></div>';
 };
+
+/* "Start from a job description": the code (js/jd-import.js) is fetched only when Post a role (or Admin → Import jobs) opens on the live site.
+   Until it has loaded, and whenever the feature is switched off, nothing shows. */
+APP.jdSlotHtml = function (kind) {
+  if (!APP.LIVE) return '';
+  const id = kind === 'admin' ? 'jd-slot-admin' : 'jd-slot';
+  if (!APP.jdImpLoaded) {
+    if (!APP.jdImpLoading) {
+      APP.jdImpLoading = true;
+      const s = document.createElement('script');
+      s.src = '/js/jd-import.js';
+      s.onload = () => { APP.jdImpLoaded = true; APP.jdImpInit(); };
+      s.onerror = () => { /* the form works without it */ };
+      document.head.appendChild(s);
+    }
+    return '<div id="' + id + '"></div>';
+  }
+  return '<div id="' + id + '">' + APP.jdCardHtml(kind) + '</div>';
+};
+APP.jdBannerHtml = function () { return ''; }; /* replaced by js/jd-import.js once it has loaded */
 
 APP.views['e-job-new'] = function () { return APP.jobFormView('new'); };
 
