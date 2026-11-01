@@ -81,18 +81,25 @@ await as('employer','co-gulfsys'); await go('#/e/partner-requests'); await p.cli
 await as('employer','co-rayan'); await go('#/partner/cx:co-gulfsys');
 t('a declined request is shown plainly, with no name',await p.evaluate(()=>/did not accept your last request/.test(document.getElementById('app').innerText)&&!/GulfSys/.test(document.getElementById('app').innerText)));
 
-/* ---- the capabilities editor on the partner's own company page ---- */
+/* ---- the capabilities editor on the partner's own company page (tabbed like the professional profile edit) ---- */
+const tab=async(id)=>{ await p.click('.pe-tab[data-s='+id+']'); await p.waitForTimeout(250); };
 await as('employer','co-orbit'); await go('#/e/company');
 t('the partner sees its capabilities and that it is listed with its name',await p.evaluate(()=>/What the team delivers/.test(document.getElementById('app').innerText)&&/Listed on Find partners with your name/.test(document.getElementById('app').innerText)));
+t('a partner page does not show "SAP systems in use"',await p.evaluate(()=>!/SAP systems in use/.test(document.getElementById('app').innerText)));
 await p.click('[data-action=co-edit-on]'); await p.waitForTimeout(400);
-t('the editor opens with the current products and the hide switch off',await p.evaluate(()=>{ const e=document.querySelector('[data-pt-edit]'); return e&&!e.hidden&&e.querySelectorAll('.prod-card').length>=2&&!e.querySelector('[data-pt-hide]').checked; }));
-await p.fill('[data-pt-best]','We deliver finance programmes on S/4HANA.');
-await p.click('[data-pt-edit] [data-action=chip][data-group=languages][data-value=French]'); await p.waitForTimeout(300);
-t('chips toggle without losing the typed text',await p.evaluate(()=>APP.profileDraft.partner.languages.includes('French')&&document.querySelector('[data-pt-best]').value==='We deliver finance programmes on S/4HANA.'));
+t('the editor has short tabs: Company, About, Team skills, Reach, Contact — and no SAP systems',await p.evaluate(()=>{ const x=[...document.querySelectorAll('.pe-tab')].map(e=>e.textContent.replace(/\s+/g,' ').trim()); return x.length===5&&/Team skills/.test(x[2])&&/Reach/.test(x[3])&&!x.some(y=>/SAP systems/.test(y))&&!!document.querySelector('.pe-pct'); }));
+t('only the first tab is open at the start',await p.evaluate(()=>[...document.querySelectorAll('.pe-pane')].filter(e=>!e.hidden).map(e=>e.dataset.pane).join()==='basics'));
+await tab('skills');
+t('Team skills shows the current products',await p.evaluate(()=>{ const e=document.querySelector('.pe-pane[data-pane=skills]'); return !e.hidden&&e.querySelectorAll('.prod-card').length>=2; }));
 { const before=await p.evaluate(()=>APP.profileDraft.partner.skills.filter(k=>k.certified).length);
-  await p.click('[data-pt-edit] [data-action=cert-toggle]'); await p.waitForTimeout(300);
+  await p.click('.pe-pane[data-pane=skills] [data-action=cert-toggle]'); await p.waitForTimeout(300);
   t('a partner can tick a certified module (no permission error)',await p.evaluate((b)=>APP.profileDraft.partner.skills.filter(k=>k.certified).length!==b&&!/permission/i.test(document.body.innerText),before)); }
-await p.click('[data-pt-edit] [data-action=chip][data-group=teamSize][data-value="200+"]'); await p.waitForTimeout(300);
+await tab('reach');
+t('the hide switch starts off',await p.evaluate(()=>!document.querySelector('[data-pt-hide]').checked));
+await p.fill('[data-pt-best]','We deliver finance programmes on S/4HANA.');
+await p.click('.pe-pane[data-pane=reach] [data-action=chip][data-group=languages][data-value=French]'); await p.waitForTimeout(300);
+t('chips toggle without losing the typed text',await p.evaluate(()=>APP.profileDraft.partner.languages.includes('French')&&document.querySelector('[data-pt-best]').value==='We deliver finance programmes on S/4HANA.'));
+await p.click('.pe-pane[data-pane=reach] [data-action=chip][data-group=teamSize][data-value="200+"]'); await p.waitForTimeout(300);
 await p.check('[data-pt-hide]');
 await p.evaluate(()=>document.querySelector('form[data-form=company-edit]').requestSubmit()); await p.waitForTimeout(500);
 t('saving keeps the new values',await p.evaluate(()=>{ const c=APP.company('co-orbit').partner; return c.bestAt==='We deliver finance programmes on S/4HANA.'&&c.languages.includes('French')&&c.teamSize==='200+'&&c.hideName===true; }));
@@ -100,14 +107,45 @@ t('…and the page now says the name is hidden',await p.evaluate(()=>/Your name 
 await as(null); await go('#/partners');
 t('after saving, the hidden partner is no longer shown by name',!(await cards()).includes('Orbit SAP Partners'));
 
-/* ---- choosing another company type drops the capabilities ---- */
+/* ---- choosing another company type drops the capabilities and changes the tabs ---- */
 await as('employer','co-orbit'); await go('#/e/company'); await p.click('[data-action=co-edit-on]'); await p.waitForTimeout(300);
-await p.check('input[name=companyType][value=customer]'); await p.waitForTimeout(200);
-t('the editor hides itself for another type',await p.evaluate(()=>document.querySelector('[data-pt-edit]').hidden===true));
+await p.check('input[name=companyType][value=customer]'); await p.waitForTimeout(400);
+t('the tabs change with the type: SAP systems appears, Team skills goes',await p.evaluate(()=>{ const x=[...document.querySelectorAll('.pe-tab')].map(e=>e.textContent); return x.some(y=>/SAP systems/.test(y))&&!x.some(y=>/Team skills/.test(y)); }));
+t('the type change kept the page on the Company tab with the choice',await p.evaluate(()=>document.querySelector('input[name=companyType]:checked').value==='customer'));
 await p.evaluate(()=>document.querySelector('form[data-form=company-edit]').requestSubmit()); await p.waitForTimeout(400);
 t('the capabilities are dropped',await p.evaluate(()=>APP.company('co-orbit').companyType==='customer'&&APP.company('co-orbit').partner===undefined));
 await as(null); await go('#/partners');
 t('a company that is no longer a partner is not listed',!(await cards()).includes('Orbit SAP Partners')&&(await cards()).length===2);
+
+/* ---- a customer keeps the SAP systems tab and the card ---- */
+await as('employer','co-royal'); await go('#/e/company');
+t('a customer still sees SAP systems in use',await p.evaluate(()=>/SAP systems in use/.test(document.getElementById('app').innerText)));
+await p.click('[data-action=co-edit-on]'); await p.waitForTimeout(300);
+t('a customer has no partner tabs',await p.evaluate(()=>[...document.querySelectorAll('.pe-tab')].map(e=>e.textContent).some(y=>/SAP systems/.test(y))&&!document.querySelector('[data-pt-best]')));
+await p.click('[data-action=edit-cancel]'); await p.waitForTimeout(300);
+
+/* ---- sign-up as a partner: step 2 is the team skills ---- */
+await as(null); await go('#/onboard-e'); await p.waitForSelector('form[data-form=wiz-e]');
+await p.fill('input[name=name]','Delta SAP'); await p.selectOption('select[name=country]','ae');
+await p.check('input[name=companyType][value=partner]'); await p.waitForTimeout(200);
+t('the step names change as soon as SI/Partner is chosen',await p.evaluate(()=>[...document.querySelectorAll('.wiz-progress small')].map(e=>e.textContent).join('|')==='Company|Team skills|Finish'));
+await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(400);
+t('step 2 asks for the team skills, not for SAP systems',await p.evaluate(()=>/Team skills/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('.prod-card, .skill-rows, [data-action=prod-add]')&&!/SAP systems your company runs/.test(document.getElementById('app').innerText)));
+t('the extra details are tucked away and the contact fields stay',await p.evaluate(()=>!!document.querySelector('details.pt-more:not([open])')&&!!document.querySelector('input[name=contactName]')));
+await p.fill('input[name=contactName]','Dana'); await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(300);
+t('it will not go on without a product and module',await p.evaluate(()=>APP.wizE.step===2));
+await p.evaluate(()=>{ const pr=CATALOG.products.find(x=>x.modules.length); APP.wizE.data.partner.skills.push({productId:pr.id,moduleId:pr.modules[0].id,projects:3,certified:false}); APP.render(); }); await p.waitForTimeout(300);
+await p.fill('input[name=contactName]','Dana'); await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(300);
+t('with a skill it moves to the review, which names the team skills',await p.evaluate(()=>APP.wizE.step===3&&/Team skills: 1 module across 1 product/.test(document.getElementById('app').innerText)));
+await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForFunction(()=>location.hash==='#/e/dashboard',null,{timeout:5000});
+t('the new partner was created with its capabilities and is listed',await p.evaluate(()=>{ const c=APP.company(APP.db.session.companyId); return c.companyType==='partner'&&c.partner.skills.length===1&&(c.sapSystems||[]).length===0; }));
+await as(null); await go('#/partners');
+t('…and shows on Find partners',(await cards()).includes('Delta SAP'));
+/* a customer who turned to partner and back does not keep capabilities */
+await as(null); await go('#/onboard-e'); await p.waitForSelector('form[data-form=wiz-e]');
+await p.fill('input[name=name]','Switchy'); await p.selectOption('select[name=country]','ae');
+await p.check('input[name=companyType][value=partner]'); await p.waitForTimeout(150); await p.check('input[name=companyType][value=customer]'); await p.waitForTimeout(150);
+t('switching back restores the SAP footprint name',await p.evaluate(()=>[...document.querySelectorAll('.wiz-progress small')].map(e=>e.textContent).join('|')==='Company|SAP footprint|Finish'));
 
 /* ---- a new partner with nothing filled in is told how to be listed ---- */
 await p.evaluate(()=>{ APP.db.companies['co-new']={id:'co-new',name:'Fresh SI',companyType:'partner',country:'ae'}; }); await as('employer','co-new'); await go('#/e/company');

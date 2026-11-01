@@ -1700,7 +1700,7 @@ APP.getScope = function (scope) {
     case 'wizC': return APP.wizC ? APP.wizC.data : null;
     case 'wizE': return APP.wizE ? APP.wizE.data : null;
     case 'profile': return APP.profileDraft;
-    case 'partnerCaps': return APP.profileDraft && APP.profileDraft.partner ? APP.profileDraft.partner : null; /* an SI/Partner's capabilities (js/partners.js) */
+    case 'partnerCaps': { const hd = APP.ptHost ? APP.ptHost() : APP.profileDraft; return hd && hd.partner ? hd.partner : null; } /* an SI/Partner's capabilities (js/partners.js) */
     case 'jobNew': return APP.jobNewDraft;
     default: return null;
   }
@@ -4435,7 +4435,7 @@ APP.onClick = function (el, e) {
       break;
 
     case 'co-edit-on':
-      APP.state.coEdit = true;
+      APP.state.coEdit = true; APP.state.profileSec = 'basics';
       APP.profileDraft = APP.clone(APP.currentUser());
       APP.render();
       break;
@@ -4695,10 +4695,12 @@ APP.onSubmit = function (f) {
       } else if (step === 2) {
         if (f.querySelector('[name="about"]')) d.about = g('about'); /* About lives on step 1 — never clobber it here */
         d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
+        if (d.companyType === 'partner' && APP.ptSkillCount && !APP.ptSkillCount(APP.ptEnsure(d))) { APP.toast('Add at least one SAP product and module your team delivers'); return; }
         if (!d.contactName) { APP.toast('Add a contact name so professionals know who they\'re talking to'); return; }
       } else if (step === 3) {
         d.sapSystems = d.sapSystems || [];
         const co = Object.assign({}, d);
+        if (co.companyType !== 'partner') delete co.partner; /* capabilities belong to SI/Partners only */
         co.id = 'co' + Date.now();
         if (APP.LIVE) { APP.backend.finishWizard('employer', co); return; }
         APP.db.companies[co.id] = co;

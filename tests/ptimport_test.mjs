@@ -1,0 +1,46 @@
+/* Partner-presentation import (release36): limits per person and per day, companies and people still signing up only, nothing readable */
+import {makeBackend} from './harness.mjs'; import fs from 'fs';
+const be=await makeBackend(); const db=be.db;
+await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/019_partner_import.sql','utf8'));
+let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,300):'');} else console.log('ok  ',n); };
+const U={emp:'aaaaaaaa-0000-0000-0000-000000000001',emp2:'bbbbbbbb-0000-0000-0000-000000000002',con:'cccccccc-0000-0000-0000-000000000003',sus:'dddddddd-0000-0000-0000-000000000004',adm:'eeeeeeee-0000-0000-0000-000000000005',nobody:'ffffffff-0000-0000-0000-000000000006'};
+for(const [k,id] of Object.entries(U)) await db.query(`insert into auth.users(id,email) values ($1,$2)`,[id,k+'@arnour.test']);
+async function as(uid,sql,args){ await db.exec(`reset role; select set_config('request.jwt.claim.sub','${uid||''}',false); set role ${uid?'authenticated':'anon'};`); try{ const r=await db.query(sql,args||[]); await db.exec('reset role'); return {rows:r.rows}; }catch(e){ await db.exec('reset role'); return {err:e.message}; } }
+await as(U.emp,`select claim_profile('employer','{"name":"Co"}'::jsonb)`);
+await as(U.emp2,`select claim_profile('employer','{"name":"Co2"}'::jsonb)`);
+await as(U.con,`select claim_profile('consultant','{"firstName":"A","lastName":"B"}'::jsonb)`);
+await as(U.sus,`select claim_profile('employer','{"name":"Sus"}'::jsonb)`);
+await db.query(`update profiles set suspended=true where user_id=$1`,[U.sus]);
+await db.query(`insert into admin_emails(email) values ('adm@arnour.test')`);
+
+t('a visitor cannot start a read',!!(await as(null,`select pt_import_begin()`)).err);
+t('a visitor cannot finish one',!!(await as(null,`select pt_import_done(gen_random_uuid(),'ok')`)).err);
+t('a company can start a read',!(await as(U.emp,`select pt_import_begin()`)).err);
+t('a person still signing up (no profile yet) can',!(await as(U.nobody,`select pt_import_begin()`)).err);
+t('a professional cannot',/companies only/.test((await as(U.con,`select pt_import_begin()`)).err||''));
+t('a suspended company cannot',/suspended/.test((await as(U.sus,`select pt_import_begin()`)).err||''));
+for(let i=0;i<8;i++) await as(U.emp,`select pt_import_begin()`);
+t('the 10th read of the day works',!(await as(U.emp,`select pt_import_begin()`)).err&&(await db.query(`select count(*)::int n from pt_imports where user_id=$1`,[U.emp])).rows[0].n===10);
+t('the 11th read is refused',/daily limit/.test((await as(U.emp,`select pt_import_begin()`)).err||''));
+t('another company is not affected',!(await as(U.emp2,`select pt_import_begin()`)).err);
+const id1=(await db.query(`select id from pt_imports where user_id=$1 limit 1`,[U.emp])).rows[0].id;
+t('a company can mark its own read failed',!(await as(U.emp,`select pt_import_done($1,'failed')`,[id1])).err);
+t('…and then gets that read back',!(await as(U.emp,`select pt_import_begin()`)).err);
+t('someone else cannot change it',(await as(U.emp2,`select pt_import_done($1,'ok')`,[id1])).err===undefined&&(await db.query(`select status from pt_imports where id=$1`,[id1])).rows[0].status==='failed');
+const id2=(await as(U.emp2,`select pt_import_begin() id`)).rows[0].id;
+await as(U.emp2,`select pt_import_done($1,'ok','{"skills":3,"countries":1}'::jsonb)`,[id2]);
+const r2=(await db.query(`select status,found from pt_imports where id=$1`,[id2])).rows[0];
+t('a finished read keeps only the counts',r2.status==='ok'&&r2.found.skills===3,r2);
+await as(U.emp2,`select pt_import_done($1,'ok','{"x":"y"}'::jsonb)`,[id2]);
+t('a finished read cannot be changed again',(await db.query(`select found from pt_imports where id=$1`,[id2])).rows[0].found.skills===3);
+t('a bad status is refused',!!(await as(U.emp2,`select pt_import_done($1,'weird')`,[id2])).err);
+const id3=(await as(U.emp2,`select pt_import_begin() id`)).rows[0].id;
+await as(U.emp2,`select pt_import_done($1,'ok',$2::jsonb)`,[id3,JSON.stringify({x:'y'.repeat(600)})]);
+t('…long notes are stored as nothing',(await db.query(`select found from pt_imports where id=$1`,[id3])).rows[0].found===null);
+t('the table cannot be read directly',!!(await as(U.emp,`select * from public.pt_imports`)).err);
+t('the table cannot be written directly',!!(await as(U.emp,`insert into public.pt_imports(user_id) values (gen_random_uuid())`)).err);
+await db.query(`update pt_imports set created_at=now()-interval '25 hours' where user_id=$1`,[U.emp]);
+t('after 24 hours the limit resets',!(await as(U.emp,`select pt_import_begin()`)).err);
+await db.query(`insert into pt_imports(user_id,status) select gen_random_uuid(),'ok' from generate_series(1,400)`);
+t('the site-wide daily stop works',/busy/.test((await as(U.emp2,`select pt_import_begin()`)).err||''));
+console.log(fails?'FAILS '+fails:'ALL PASSED'); process.exit(fails?1:0);

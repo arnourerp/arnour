@@ -147,16 +147,27 @@
     if (typeof p.bestAt !== 'string') p.bestAt = '';
     return p;
   };
-  APP.ptEditHtml = function (d) {
+  /* the draft the capabilities editor works on: the sign-up wizard's data while a company signs up, otherwise the Edit profile draft */
+  APP.ptHost = function () { return APP._ptHostWiz && APP.wizE ? APP.wizE.data : APP.profileDraft; };
+  APP.ptSummaryLine = function (p) {
+    var n = APP.ptSkillCount(p), prods = {}; ((p && p.skills) || []).forEach(function (k) { if (k.moduleId) prods[k.productId] = 1; });
+    var np = Object.keys(prods).length;
+    return n ? n + (n === 1 ? ' module' : ' modules') + ' across ' + np + (np === 1 ? ' product' : ' products') : '—';
+  };
+  APP.ptSkillCount = function (p) { return ((p && p.skills) || []).filter(function (k) { return k && k.productId && k.moduleId; }).length; };
+  var grp = function (title, hint, body) { return '<div class="field"><span class="label">' + title + (hint ? ' <span class="muted">' + hint + '</span>' : '') + '</span>' + body + '</div>'; };
+  /* pane 1: the products and modules the team delivers (what customers search on), plus industries and specialties */
+  APP.ptSkillsHtml = function (d) {
     var p = APP.ptEnsure(d);
-    var grp = function (title, hint, body) { return '<div class="field"><span class="label">' + title + (hint ? ' <span class="muted">' + hint + '</span>' : '') + '</span>' + body + '</div>'; };
-    return '<div class="pt-edit card" data-pt-edit' + (d.companyType === 'partner' ? '' : ' hidden') + '>' +
-      '<div class="card-h">What your team delivers</div>' +
-      '<p class="muted small">SAP Customers find you by this, on Find partners. Add at least one product and module to be listed. Please leave out rates and prices.</p>' +
+    return '<p class="muted small">SAP Customers find you by this on Find partners. Add at least one product and module to be listed. Please leave out rates and prices.</p>' +
       grp('SAP products and modules your team has delivered', '', APP.skillCardsHtml('partnerCaps', p.skills, 'full')) +
       grp('Industries', '(optional)', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'industries', APP.industries, p.industries) + '</div>') +
-      grp('Specialties', '(optional)', APP.specialtyChipsHtml('partnerCaps', p.specialties, 'specialties')) +
-      grp('Countries you deliver in', '(optional)', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
+      grp('Specialties', '(optional)', APP.specialtyChipsHtml('partnerCaps', p.specialties, 'specialties'));
+  };
+  /* pane 2: where and how the team delivers, size, best-at text and the hide-name switch */
+  APP.ptDetailsHtml = function (d) {
+    var p = APP.ptEnsure(d);
+    return grp('Countries you deliver in', '(optional)', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
       grp('Languages your team works in', '(optional)', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'languages', APP.languages, p.languages) + '</div>') +
       '<div class="form-grid">' +
       grp('How you deliver', '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'delivery', pairsToOpts(APP.PT_DELIVERY), p.delivery) + '</div>') +
@@ -165,9 +176,25 @@
       grp('Team size (SAP consultants)', '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'teamSize', APP.PT_SIZES, p.teamSize, true) + '</div>') +
       '<label class="field"><span class="label">What you are best at <span class="muted">(optional, up to 400 characters)</span></span>' +
       '<textarea class="input" rows="3" maxlength="400" data-pt-best placeholder="e.g. S/4HANA Public Cloud rollouts for retail groups in the Gulf, with a local support desk.">' + h(p.bestAt) + '</textarea></label>' +
-      '<label class="field checkbox-field chk-line"><input type="checkbox" data-pt-hide' + (p.hideName ? ' checked' : '') + '> <span>Hide our name until we accept a request<small class="muted"> — customers see what your team delivers, but not your name, contact person or the text above, until you accept their request.</small></span></label>' +
-      '</div>';
+      '<label class="field checkbox-field chk-line"><input type="checkbox" data-pt-hide' + (p.hideName ? ' checked' : '') + '> <span>Hide our name until we accept a request<small class="muted"> — customers see what your team delivers, but not your name, contact person or the text above, until you accept their request.</small></span></label>';
   };
+  /* "Build it from your company presentation": a lazy-loaded card (js/partner-import.js), only on the live site, only when the feature is switched on */
+  APP.ptImportSlotHtml = function () {
+    if (!APP.LIVE) return '';
+    if (!APP.ptImpLoaded) {
+      if (!APP.ptImpLoading) {
+        APP.ptImpLoading = true;
+        var s = document.createElement('script');
+        s.src = '/js/partner-import.js';
+        s.onload = function () { APP.ptImpLoaded = true; APP.ptImpInit(); };
+        s.onerror = function () { /* the form works without it */ };
+        document.head.appendChild(s);
+      }
+      return '<div id="pt-slot"></div>';
+    }
+    return '<div id="pt-slot">' + APP.ptImpCardHtml() + '</div>';
+  };
+
   /* called by the company-edit save: keep the capabilities of a partner, drop them for any other type */
   APP.ptCollect = function (d, co) {
     if (d.companyType === 'partner') { var p = APP.ptEnsure(d); p.hideName = !!p.hideName; }
@@ -436,18 +463,24 @@
   /* filters on Find partners, and the editing fields of the capabilities section */
   document.addEventListener('change', function (e) {
     var t = e.target; if (!t || !t.matches) return;
-    if (t.name === 'companyType' && t.closest('form[data-form="company-edit"]')) {
-      var box = document.querySelector('[data-pt-edit]'); if (box) box.hidden = t.value !== 'partner';
-      if (APP.profileDraft) APP.profileDraft.companyType = t.value;
+    if (t.name === 'companyType' && t.closest('form[data-form="wiz-e"]') && APP.wizE) {
+      APP.wizE.data.companyType = t.value;
+      var lab = document.querySelectorAll('.wiz-progress .wiz-step small'), names = APP.wizStepsEFor(APP.wizE.data);
+      for (var i = 0; i < lab.length; i++) lab[i].textContent = names[i];
       return;
     }
-    if (t.hasAttribute('data-pt-hide') && APP.profileDraft) { APP.ptEnsure(APP.profileDraft).hideName = !!t.checked; return; }
+    if (t.name === 'companyType' && t.closest('form[data-form="company-edit"]')) {
+      /* the sections on the left change with the type, so rebuild the page (typed values are kept) */
+      if (APP.profileDraft) { APP.syncFormsToDrafts(null); APP.profileDraft.companyType = t.value; APP.render(); }
+      return;
+    }
+    if (t.hasAttribute('data-pt-hide') && APP.ptHost()) { APP.ptEnsure(APP.ptHost()).hideName = !!t.checked; return; }
     var k = t.getAttribute('data-pt-f');
     if (k && k !== 'q') { var f = APP.ptF(); f[k] = t.value; if (k === 'product') f.module = ''; APP.render(); }
   });
   document.addEventListener('input', function (e) {
     var t = e.target; if (!t || !t.hasAttribute) return;
-    if (t.hasAttribute('data-pt-best') && APP.profileDraft) { APP.ptEnsure(APP.profileDraft).bestAt = String(t.value).slice(0, 400); return; }
+    if (t.hasAttribute('data-pt-best') && APP.ptHost()) { APP.ptEnsure(APP.ptHost()).bestAt = String(t.value).slice(0, 400); return; }
     if (t.getAttribute('data-pt-f') === 'q') {
       APP.ptF().q = t.value;
       var box = document.getElementById('pt-results'); if (box) box.innerHTML = resultsHtml(APP.ptF());

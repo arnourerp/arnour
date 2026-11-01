@@ -2011,3 +2011,9 @@ a.sr-title:hover { text-decoration: underline; }
 .pt-promo:hover { border-color: var(--accent-blue); }
 .pt-empty-card { border-style: dashed; }
 @media (max-width: 640px) { .pt-grid { grid-template-columns: 1fr; } .pt-mods li > span:first-child { min-width: 0; } }
+
+/* SI/Partner sign-up and Edit profile: collapsible "More about your team" and the presentation upload card */
+.pt-more { margin: 14px 0; border: 1px solid var(--line); border-radius: 12px; padding: 0 14px; }
+.pt-more > summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+.pt-more[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.pt-import { margin-bottom: 18px; }

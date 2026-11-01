@@ -12,7 +12,7 @@ await p.waitForTimeout(400);
 await p.click('[data-action=co-edit-on]'); await p.waitForTimeout(400);
 t('edit form opens',await ev(()=>!!document.querySelector('form[data-form=company-edit]')),errs);
 if(await ev(()=>!!document.querySelector('form[data-form=company-edit]'))){
-  await p.fill('form[data-form=company-edit] [name=name]','Renamed Co'); await p.fill('form[data-form=company-edit] [name=about]','New about text');
+  await p.fill('form[data-form=company-edit] [name=name]','Renamed Co'); await p.click('.pe-tab[data-s=about]'); await p.fill('form[data-form=company-edit] [name=about]','New about text');
   await p.click('form[data-form=company-edit] button[type=submit]'); await p.waitForTimeout(400);
   t('save applies the changes',await ev((c)=>APP.company(c).name==='Renamed Co'&&APP.company(c).about==='New about text'&&!APP.state.coEdit,co),await ev((c)=>[APP.company(c).name,APP.state.coEdit],co));
   t('page shows new name',await ev(()=>/Renamed Co/.test(document.body.innerText)));

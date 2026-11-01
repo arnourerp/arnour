@@ -105,9 +105,9 @@ APP.views['e-company'] = function () {
       (APP.ptViewHtml ? APP.ptViewHtml(co) : '') +
 
       '<div class="grid-2">' +
-      '<div class="card"><div class="card-h">SAP systems in use</div><div class="chip-wrap">' +
+      (co.companyType === 'partner' ? '' : '<div class="card"><div class="card-h">SAP systems in use</div><div class="chip-wrap">' +
       ((co.sapSystems || []).length ? co.sapSystems.map(id => '<span class="chip">' + APP.h(APP.productShort(id)) + '</span>').join('') : '<span class="muted small">Not listed yet.</span>') +
-      '</div></div>' +
+      '</div></div>') +
       '<div class="card"><div class="card-h">Open roles</div>' +
       (jobs.filter(j => j.status === 'open').length
         ? jobs.filter(j => j.status === 'open').map(j => '<a class="app-item" href="#/e/jobs/' + j.id + '"><div class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + (j.applicants || []).length + ' applicant(s)</small></div></a>').join('')
@@ -121,31 +121,61 @@ APP.views['e-company'] = function () {
       }) + '</div>' +
       '<p class="muted small mt8">Anyone with this link can view your public company page — <a class="link" href="#/company/' + co.id + '" data-action="preview-public" data-href="#/company/' + co.id + '" data-back="#/e/company">open it to preview →</a></p>';
   } else {
+    APP._ptHostWiz = false;
+    const isPt = d.companyType === 'partner';
+    const ptn = isPt ? APP.ptSkillCount(APP.ptEnsure(d)) : 0;
+    const pp = isPt ? d.partner : {};
+    const sec = [
+      { id: 'basics', label: 'Company', sub: 'Name, type and place', ok: !!(d.name && d.country && d.companyType) },
+      { id: 'about', label: 'About', sub: isPt ? 'Who you are' : 'What the company does', ok: !!(d.about && d.about.trim()) }
+    ].concat(isPt
+      ? [{ id: 'skills', label: 'Team skills', sub: 'What your team delivers', ok: ptn > 0 },
+         { id: 'reach', label: 'Reach & visibility', sub: 'Countries, size, name', ok: !!((pp.countries || []).length || pp.teamSize || (pp.engagement || []).length) }]
+      : [{ id: 'systems', label: 'SAP systems', sub: 'What you run', ok: (d.sapSystems || []).length > 0 }]
+    ).concat([{ id: 'contact', label: 'Contact', sub: 'Who professionals talk to', ok: !!(d.contactName && d.contactName.trim()) }]);
+    sec.pct = Math.round(sec.filter(x => x.ok).length * 100 / sec.length);
+    const cur = (sec.find(x => x.id === APP.state.profileSec) || sec[0]).id;
+    const ci = sec.findIndex(x => x.id === cur);
+    const pane = (id, html) => '<section class="pe-pane" data-pane="' + id + '"' + (cur === id ? '' : ' hidden') + '>' + html + '</section>';
+    const PH = {
+      basics: '<h3 class="pe-h">Company</h3>' +
+        '<label class="field"><span class="label">Company name</span><input name="name" class="input" value="' + APP.h(d.name) + '"></label>' +
+        APP.coTypeFieldHtml(d.companyType) +
+        '<div class="form-grid">' +
+        '<label class="field"><span class="label">Industry</span><select name="industry" class="input">' + APP.opt(APP.industries.map(i => [i, i]), d.industry) + '</select></label>' +
+        '<label class="field"><span class="label">Size</span><select name="size" class="input">' + APP.opt(APP.companySizes.map(s => [s, s]), d.size) + '</select></label>' +
+        '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
+        APP.cityInputHtml(d.country, d.city) +
+        '<label class="field"><span class="label">Website</span><input name="website" class="input" value="' + APP.h(d.website) + '"></label>' +
+        '</div>',
+      about: '<h3 class="pe-h">About</h3>' +
+        (isPt && APP.ptImportSlotHtml ? APP.ptImportSlotHtml() : '') +
+        '<label class="field"><span class="label">About</span><textarea name="about" class="input" rows="6" placeholder="' + (isPt ? 'Who is your firm, and what do you do for SAP customers?' : 'What does the company do, and what SAP systems does it run?') + '">' + APP.h(d.about) + '</textarea></label>',
+      skills: isPt ? '<h3 class="pe-h">Team skills</h3>' + APP.ptSkillsHtml(d) : '',
+      reach: isPt ? '<h3 class="pe-h">Reach &amp; visibility</h3>' + APP.ptDetailsHtml(d) : '',
+      systems: '<h3 class="pe-h">SAP systems in use</h3><div class="field"><div class="chip-wrap">' + APP.chipGroup('profile', 'sapSystems', CATALOG.products, d.sapSystems || []) + '</div></div>',
+      contact: '<h3 class="pe-h">Contact</h3><div class="form-grid">' +
+        '<label class="field"><span class="label">Contact name</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '"></label>' +
+        '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '"></label>' +
+        '</div>'
+    };
     body =
       APP.editBarHtml('Editing your company profile', 'f-company-edit') +
-      '<div class="card">' +
+      '<div class="card pe-card">' +
       '<form data-form="company-edit" id="f-company-edit">' +
-      '<label class="field"><span class="label">Company name</span><input name="name" class="input" value="' + APP.h(d.name) + '"></label>' +
-      APP.coTypeFieldHtml(d.companyType) +
-      '<div class="form-grid">' +
-      '<label class="field"><span class="label">Industry</span><select name="industry" class="input">' + APP.opt(APP.industries.map(i => [i, i]), d.industry) + '</select></label>' +
-      '<label class="field"><span class="label">Size</span><select name="size" class="input">' + APP.opt(APP.companySizes.map(s => [s, s]), d.size) + '</select></label>' +
-      '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select>' + '</label>' +
-      APP.cityInputHtml(d.country, d.city) +
-      '<label class="field"><span class="label">Website</span><input name="website" class="input" value="' + APP.h(d.website) + '"></label>' +
-      '</div>' +
-      '<label class="field"><span class="label">About</span><textarea name="about" class="input" rows="4" placeholder="What does the company do, and what SAP systems does it run?">' + APP.h(d.about) + '</textarea></label>' +
-      '<div class="field"><span class="label">SAP systems in use</span><div class="chip-wrap">' + APP.chipGroup('profile', 'sapSystems', CATALOG.products, d.sapSystems || []) + '</div></div>' +
-      '<div class="form-grid">' +
-      '<label class="field"><span class="label">Contact name</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '"></label>' +
-      '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '"></label>' +
-      '</div>' +
-      (APP.ptEditHtml ? APP.ptEditHtml(d) : '') +
+      '<div class="pe-layout"><nav class="pe-nav" aria-label="Profile sections">' +
+      '<div class="pe-pct"><div class="pe-pct-t"><b>' + sec.pct + '%</b> complete</div><div class="pe-bar"><span style="width:' + sec.pct + '%"></span></div></div>' +
+      sec.map(x => '<button type="button" class="pe-tab' + (x.id === cur ? ' on' : '') + '" data-action="psec" data-s="' + x.id + '"><span class="pe-mark ' + (x.ok ? 'ok' : 'todo') + '" aria-hidden="true">' + (x.ok ? '✓' : '!') + '</span><span class="pe-tab-t">' + APP.h(x.label) + '<small>' + APP.h(x.sub) + '</small></span></button>').join('') +
+      '</nav><div class="pe-main">' +
+      sec.map(x => pane(x.id, PH[x.id])).join('') +
+      '<div class="pe-step">' + (ci > 0 ? '<button type="button" class="btn btn-ghost btn-sm" data-action="psec" data-s="' + sec[ci - 1].id + '">← Back</button>' : '<span></span>') +
+        (ci < sec.length - 1 ? '<button type="button" class="btn btn-outline btn-sm" data-action="psec" data-s="' + sec[ci + 1].id + '">Next: ' + APP.h(sec[ci + 1].label) + ' →</button>' : '<span></span>') + '</div>' +
+      '</div></div>' +
       APP.editFootHtml() +
       '</form></div>';
   }
 
-  return '<div class="narrow">' +
+  return '<div class="narrow' + (editing ? ' pe-wide' : '') + '">' +
     '<div class="crumb"><a class="link" href="#/e/dashboard">← Dashboard</a>' + (editing ? '<span class="pill">Editing</span>' : '') + '</div>' +
     body + '</div>';
 };

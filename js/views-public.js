@@ -406,12 +406,16 @@ APP.wizEDefaults = function () {
 };
 
 APP.wizStepsE = ['Company', 'SAP footprint', 'Finish'];
+/* an SI/Partner describes what its team delivers instead of the SAP systems it runs */
+APP.wizStepsEFor = function (d) { return d && d.companyType === 'partner' ? ['Company', 'Team skills', 'Finish'] : APP.wizStepsE; };
 
 APP.views['wiz-e'] = function () {
   if (!APP.wizE) APP.wizE = { step: 1, data: APP.wizEDefaults() };
   const d = APP.wizE.data;
   const step = APP.wizE.step;
-  const progress = APP.wizStepsE.map((label, i) =>
+  APP._ptHostWiz = true;
+  const isPt = d.companyType === 'partner', stepNames = APP.wizStepsEFor(d);
+  const progress = stepNames.map((label, i) =>
     '<div class="wiz-step ' + (i + 1 === step ? 'active' : '') + (i + 1 < step ? 'done' : '') + '"><span class="wiz-dot">' + (i + 1 < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + label + '</small></div>'
   ).join('');
 
@@ -430,6 +434,19 @@ APP.views['wiz-e'] = function () {
       '<label class="field"><span class="label">About</span><textarea name="about" class="input" rows="5" placeholder="What does the company do, and what SAP systems does it run? Professionals read this before they apply.">' + APP.h(d.about) + '</textarea></label>' +
       APP.wizNav2(1, 3) +
       '</form>';
+  } else if (step === 2 && isPt) {
+    APP.ptEnsure(d);
+    body = '<form data-form="wiz-e" data-step="2">' +
+      (APP.ptImportSlotHtml ? APP.ptImportSlotHtml() : '') +
+      '<p class="field-hint">Tell SAP Customers what your team delivers. They search partners by this. Leave out rates and prices.</p>' +
+      APP.ptSkillsHtml(d) +
+      '<details class="pt-more"' + (APP.ptSkillCount(d.partner) && ((d.partner.countries || []).length || d.partner.teamSize || d.partner.bestAt) ? ' open' : '') + '><summary>More about your team <span class="muted">(optional, you can add it later)</span></summary>' + APP.ptDetailsHtml(d) + '</details>' +
+      '<div class="form-grid">' +
+      '<label class="field"><span class="label">Contact name *</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '" placeholder="Hala Al Suwaidi"></label>' +
+      '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '" placeholder="Partner Manager"></label>' +
+      '</div>' +
+      APP.wizNav2(2, 3) +
+      '</form>';
   } else if (step === 2) {
     body = '<form data-form="wiz-e" data-step="2">' +
       '<div class="field"><span class="label">SAP systems your company runs</span>' +
@@ -446,7 +463,7 @@ APP.views['wiz-e'] = function () {
       '<div class="review-box">' +
       '<strong>' + APP.h(d.name || 'Your company') + '</strong>' +
       '<div class="muted small">' + APP.h(d.industry) + ' · ' + APP.h(d.size) + ' · ' + APP.h(APP.locText(d)) +
-      '<br>Systems: ' + APP.h((d.sapSystems || []).map(id => APP.productShort(id)).join(', ') || '—') +
+      (isPt ? '<br>Team skills: ' + APP.h(APP.ptSummaryLine(d.partner)) : '<br>Systems: ' + APP.h((d.sapSystems || []).map(id => APP.productShort(id)).join(', ') || '—')) +
       '<br>Contact: ' + APP.h(d.contactName || '—') + (d.contactTitle ? ' (' + APP.h(d.contactTitle) + ')' : '') + '</div></div>' +
       '<p class="muted small">After creating your profile you can post your first job and start searching talent.</p>' +
       APP.wizNav2(3, 3, true) +
@@ -457,7 +474,7 @@ APP.views['wiz-e'] = function () {
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
     '<div class="card wizard-card">' +
     '<div class="wiz-progress">' + progress + '</div>' +
-    '<h1 class="wiz-title">' + APP.wizStepsE[step - 1] + '</h1>' +
+    '<h1 class="wiz-title">' + stepNames[step - 1] + '</h1>' +
     body +
     '</div></div>';
 };
@@ -820,9 +837,9 @@ APP.views['company-public'] = function (ctx) {
     (co.about ? '<div class="card"><div class="card-h">About</div><p>' + APP.h(co.about) + '</p></div>' : '') +
 
     '<div class="grid-2">' +
-    '<div class="card"><div class="card-h">SAP systems in use</div><div class="chip-wrap">' +
+    (co.companyType === 'partner' ? '' : '<div class="card"><div class="card-h">SAP systems in use</div><div class="chip-wrap">' +
     ((co.sapSystems || []).length ? co.sapSystems.map(id => '<span class="chip">' + APP.h(APP.productShort(id)) + '</span>').join('') : '<span class="muted small">Not listed yet.</span>') +
-    '</div></div>' +
+    '</div></div>') +
     '<div class="card"><div class="card-h">Open roles (' + jobs.length + ')</div>' +
     (jobs.length
       ? jobs.map(j => '<a class="app-item" href="#/job/' + j.id + '"><div class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + APP.h(APP.locText(j)) + ' · posted ' + APP.timeAgo(j.postedTs) + '</small></div><span class="muted small">View →</span></a>').join('')
