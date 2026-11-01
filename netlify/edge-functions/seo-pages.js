@@ -1,7 +1,7 @@
-// Clean entry URLs: /job/<id> and /company/<id>.
+// Clean entry URLs: /job/<id>, /company/<id> and /partner/<id>.
 // Search engines and social sites get a real page (title, text, JobPosting data). People get the normal app,
 // opened on its usual #/ route with no redirect, and any ?utm_… / gclid in the link is kept.
-import { SITE, loadFeeds, jobIndexable, jobPostingLd, jobMeta, jobFallbackHtml, buildPage, esc, cut } from '../edge-lib/seo.mjs';
+import { SITE, loadFeeds, jobIndexable, jobPostingLd, jobMeta, jobFallbackHtml, partnerIndexable, partnerMeta, partnerLd, partnerFallbackHtml, buildPage, esc, cut } from '../edge-lib/seo.mjs';
 
 const DEFAULT_TITLE = 'Arnour — SAP Talent & Consulting Network (MENA & Global)';
 const DEFAULT_DESC = 'Arnour is the SAP talent network for consultants, architects and employers: anonymous until both sides say yes, matched on exact SAP product and module expertise.';
@@ -10,7 +10,7 @@ const INDEX_COMPANIES = false;
 
 export default async (request, context) => {
   const url = new URL(request.url);
-  const m = url.pathname.match(/^\/(job|company)\/([A-Za-z0-9_-]{1,40})\/?$/);
+  const m = url.pathname.match(/^\/(job|company|partner)\/([A-Za-z0-9_-]{1,40})\/?$/);
   if (!m) return Response.redirect(url.origin + '/', 302);
   const kind = m[1], id = m[2];
   const hashTarget = url.origin + '/' + url.search + '#/' + kind + '/' + id;
@@ -25,8 +25,15 @@ export default async (request, context) => {
   const canonicalSelf = SITE + '/' + kind + '/' + id;
   let page = { title: DEFAULT_TITLE, desc: DEFAULT_DESC, canonical: SITE + '/', robots: 'noindex,follow', ld: [], fallback: null, path: url.pathname };
   try {
-    const { jobs, companies } = await loadFeeds();
-    if (kind === 'job' && jobs && companies) {
+    const { jobs, companies, partners } = await loadFeeds();
+    if (kind === 'partner') {
+      /* only partners that show their name get a real page; confidential, sample or unknown ones stay out of search */
+      const p = (partners || []).find((x) => x.id === id);
+      if (p && partnerIndexable(p)) {
+        const meta = partnerMeta(p);
+        page = { title: meta.title, desc: meta.desc, canonical: canonicalSelf, robots: null, ld: [partnerLd(p)], fallback: partnerFallbackHtml(p), path: url.pathname };
+      }
+    } else if (kind === 'job' && jobs && companies) {
       const j = jobs.find((x) => x.id === id);
       if (j && jobIndexable(j, companies)) {
         const meta = jobMeta(j, companies);
@@ -53,4 +60,4 @@ export default async (request, context) => {
   });
 };
 
-export const config = { path: ['/job/*', '/company/*'] };
+export const config = { path: ['/job/*', '/company/*', '/partner/*'] };

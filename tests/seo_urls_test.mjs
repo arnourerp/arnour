@@ -52,7 +52,14 @@ t('entry script only for /job and /company paths', !lib.buildPage(shell, { title
 
 /* ---- the edge functions, with a fake network ---- */
 const realFetch = globalThis.fetch;
-const feeds = { list_jobs: jobs, list_companies: cos };
+const SK = [{ productId: 'S4', moduleId: 'FI', projects: 5, certified: true }];
+const parts = [
+  { id: 'co-pnamed', name: 'Orbit SAP Partners', anon: false, sample: false, country: 'AE', city: 'Dubai', about: 'We deliver S/4HANA programmes.', website: 'https://orbit.example', partner: { skills: SK, engagement: ['team', 'consultants'], bestAt: 'Finance rollouts' } },
+  { id: 'cx:hidden1', name: 'Confidential SI/Partner', anon: true, sample: false, country: 'SA', partner: { skills: SK } },
+  { id: 'co-psample', name: 'Sample Partner', anon: false, sample: true, country: 'EG', partner: { skills: SK } },
+  { id: 'co-pempty', name: 'No Skills Ltd', anon: false, sample: false, partner: { skills: [] } }];
+let partnersOk = true;
+const feeds = { list_jobs: jobs, list_companies: cos, get list_partners() { return partnersOk ? parts : undefined; } };
 let shellOk = true, feedOk = true;
 globalThis.fetch = async (u, init) => {
   const s = String(u);
@@ -73,16 +80,26 @@ shellOk = false; r = await call('/job/x-1?gclid=abc'); t('app page unreachable: 
 lib.resetFeedCache(); feedOk = false; r = await call('/job/x-1'); body = await r.text();
 t('database down: still serves the app, not indexed, no JobPosting', r.status === 200 && body.includes('noindex,follow') && !body.includes('JobPosting')); feedOk = true; lib.resetFeedCache();
 
+lib.resetFeedCache();
+r = await call('/partner/co-pnamed?utm_source=x'); body = await r.text();
+t('GET /partner/<named partner>: indexable page with Organization data and self canonical', r.status === 200 && body.includes('Orbit SAP Partners — SAP SI/Partner | Arnour') && body.includes('"@type":"Organization"') && body.includes('rel="canonical" href="https://arnour.com/partner/co-pnamed"') && !/name="robots"/.test(body) && body.includes('#/partner/co-pnamed') && body.includes('<h1>Orbit SAP Partners</h1>'));
+t('partner page carries no price or rate text', !/price|salary|\$\d/i.test(body.match(/<div class="seo-fallback"[\s\S]*?<\/div>/)[0]));
+for (const id of ['co-psample', 'co-pempty', 'nope']) { r = await call('/partner/' + id); body = await r.text(); t('GET /partner/' + id + ': app page, noindex, home canonical, no partner data', r.status === 200 && body.includes('content="noindex,follow"') && body.includes('rel="canonical" href="https://arnour.com/"') && !body.includes('arnour.com/partner/')); }
+r = await call('/partner/cx:hidden1'); t('a confidential partner alias has no page: redirected home', r.status === 302 && r.headers.get('location') === 'https://arnour.com/');
+lib.resetFeedCache(); partnersOk = false; r = await call('/job/x-1'); body = await r.text();
+t('partner feed missing (release not run): jobs still indexable', r.status === 200 && body.includes('"@type":"JobPosting"')); partnersOk = true; lib.resetFeedCache();
+
 const smCtx = () => ({ next: async () => new Response(staticSitemap, { headers: { 'content-type': 'application/xml' } }) });
 r = await sitemap.default(new Request('https://arnour.com/sitemap.xml'), smCtx()); body = await r.text();
 const locs = [...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-t('sitemap: 4 static pages + only indexable jobs', locs.length === 4 + 2 && locs.includes('https://arnour.com/job/x-1') && locs.includes('https://arnour.com/job/j-8') && locs.slice(0, 4).every((u) => !u.includes('/job/')), locs);
+t('sitemap: 4 static pages + only indexable jobs', locs.length === 4 + 2 + 1 && locs.includes('https://arnour.com/job/x-1') && locs.includes('https://arnour.com/job/j-8') && locs.slice(0, 4).every((u) => !u.includes('/job/')), locs);
 t('sitemap: no samples, confidential, closed, expired, anonymous or hash links', !locs.some((u) => /x-[2-7]|j-9|j-10|#/.test(u)));
 t('sitemap: valid xml wrapper and lastmod dates', body.startsWith('<?xml') && body.includes('</urlset>') && [...body.matchAll(/<lastmod>([^<]+)</g)].every((m) => /^\d{4}-\d{2}-\d{2}$/.test(m[1])));
 lib.resetFeedCache(); feedOk = false; r = await sitemap.default(new Request('https://arnour.com/sitemap.xml'), smCtx()); body = await r.text();
 t('sitemap: database down falls back to the static file', [...body.matchAll(/<loc>/g)].length === 4);
 feedOk = true; lib.resetFeedCache();
-t('edge routes are declared', JSON.stringify(pages.config.path) === '["/job/*","/company/*"]' && sitemap.config.path === '/sitemap.xml');
+t('sitemap: named partner added, confidential/sample/empty partners left out', locs.includes('https://arnour.com/partner/co-pnamed') && !locs.some((u) => /partner\/(cx|co-psample|co-pempty)/.test(u)), locs);
+t('edge routes are declared', JSON.stringify(pages.config.path) === '["/job/*","/company/*","/partner/*"]' && sitemap.config.path === '/sitemap.xml');
 globalThis.fetch = realFetch;
 
 /* ---- share links in the app ---- */

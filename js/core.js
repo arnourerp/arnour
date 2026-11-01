@@ -1700,6 +1700,7 @@ APP.getScope = function (scope) {
     case 'wizC': return APP.wizC ? APP.wizC.data : null;
     case 'wizE': return APP.wizE ? APP.wizE.data : null;
     case 'profile': return APP.profileDraft;
+    case 'partnerCaps': return APP.profileDraft && APP.profileDraft.partner ? APP.profileDraft.partner : null; /* an SI/Partner's capabilities (js/partners.js) */
     case 'jobNew': return APP.jobNewDraft;
     default: return null;
   }
@@ -4762,6 +4763,7 @@ APP.onSubmit = function (f) {
       d.website = g('website'); d.about = g('about');
       d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
       if (APP.profileDraft) d.sapSystems = APP.profileDraft.sapSystems;
+      if (APP.ptCollect) APP.ptCollect(d, co); /* SI/Partner capabilities are kept for partners only */
       Object.assign(co, d);
       APP.state.coEdit = false;
       APP.profileDraft = null;

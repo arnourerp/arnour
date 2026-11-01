@@ -16,8 +16,9 @@ export const rpc = (fn, args) => fetch(SB + '/rest/v1/rpc/' + fn, { method: 'POS
 let _cache = null;
 export async function loadFeeds(call = rpc, now = Date.now()) {
   if (_cache && now - _cache.t < 60000) return _cache.v;
-  const [jobs, companies] = await Promise.all([call('list_jobs'), call('list_companies')]);
-  const v = { jobs: Array.isArray(jobs) ? jobs : null, companies: Array.isArray(companies) ? companies : null };
+  const [jobs, companies, partners] = await Promise.all([call('list_jobs'), call('list_companies'), call('list_partners')]);
+  /* partners are optional: before the partner release exists, or if that call fails, jobs and companies still work */
+  const v = { jobs: Array.isArray(jobs) ? jobs : null, companies: Array.isArray(companies) ? companies : null, partners: Array.isArray(partners) ? partners : [] };
   if (v.jobs && v.companies) _cache = { t: now, v };
   return v;
 }
@@ -37,6 +38,32 @@ export function jobIndexable(job, companies) {
   if (!job.title || !job.country) return false;
   if (job.expiresTs && Number(job.expiresTs) <= Date.now()) return false;
   return !!employerName(job, companies);
+}
+
+/* An SI/Partner page is indexable only when the partner shows its name (confidential ones come back anonymous), is not a sample and lists at least one skill. */
+export function partnerIndexable(p) {
+  return !!(p && p.id && !p.anon && p.sample !== true && p.name && p.partner && Array.isArray(p.partner.skills) && p.partner.skills.length > 0);
+}
+export function partnerMeta(p) {
+  const pt = p.partner || {};
+  const bits = [(pt.engagement || []).length ? 'SAP ' + (pt.engagement || []).map((e) => ({ team: 'project teams', consultants: 'consultants', support: 'support' }[e] || e)).join(', ') : 'SAP consulting', [p.city, p.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  return { title: p.name + ' — SAP SI/Partner | Arnour', desc: cut(bits + '. ' + (p.about || pt.bestAt || 'SAP implementation partner on Arnour, the talent network for the SAP ecosystem.'), 200) };
+}
+export function partnerLd(p) {
+  const ld = { '@context': 'https://schema.org', '@type': 'Organization', name: p.name, url: SITE + '/partner/' + p.id };
+  if (p.about) ld.description = cut(p.about, 300);
+  if (p.country) ld.address = Object.assign({ '@type': 'PostalAddress', addressCountry: p.country }, p.city ? { addressLocality: p.city } : {});
+  if (p.website && /^https?:\/\//i.test(p.website)) ld.sameAs = [p.website];
+  return ld;
+}
+export function partnerFallbackHtml(p) {
+  const pt = p.partner || {};
+  const list = (a) => (a || []).length ? '<p>' + (a || []).map(esc).join(' · ') + '</p>' : '';
+  return '<div class="seo-fallback" style="' + FALLBACK_STYLE + '"><h1>' + esc(p.name) + '</h1>' +
+    '<p>SAP SI/Partner' + (p.country ? ' · ' + esc([p.city, p.country].filter(Boolean).join(', ')) : '') + '</p>' +
+    (p.about ? toParas(p.about) : '') + (pt.bestAt ? toParas(pt.bestAt) : '') + list(pt.industries) + list(pt.specialties) +
+    '<p><a href="/#/partners">Find SAP partners</a> · <a href="/about/">About Arnour</a></p>' +
+    '<noscript><p>Arnour needs JavaScript to run the app.</p></noscript></div>';
 }
 
 const EMP_TYPES = [[/full/i, 'FULL_TIME'], [/part/i, 'PART_TIME'], [/contract|freelance|consult/i, 'CONTRACTOR'], [/temp/i, 'TEMPORARY'], [/intern|trainee/i, 'INTERN']];
@@ -94,7 +121,7 @@ export function buildPage(shell, o) {
   for (const k of ['og:description', 'twitter:description']) h = h.replace(new RegExp('(<meta (?:property|name)="' + k + '" content=")[^"]*(")'), (m, a, b) => a + esc(o.desc) + b);
   h = h.replace(/(<meta property="og:url" content=")[^"]*(")/, (m, a, b) => a + esc(o.canonical) + b);
   /* base href makes the relative js/ and css/ links work from /job/<id>; the script puts the app on its normal #/ route without a redirect */
-  const m = String(o.path || '').match(/^\/(job|company)\/([A-Za-z0-9_-]{1,40})\/?$/);
+  const m = String(o.path || '').match(/^\/(job|company|partner)\/([A-Za-z0-9_-]{1,40})\/?$/);
   const entry = m ? '<script>(function(){try{history.replaceState(null,"","/"+location.search+"#/' + m[1] + '/' + m[2] + '");window.__arnourEntry="/' + m[1] + '/' + m[2] + '"}catch(e){}})()</script>' : '';
   h = h.replace('<head>', () => '<head><base href="/">' + entry);
   const extra = (o.robots ? '<meta name="robots" content="' + esc(o.robots) + '" />' : '') + (o.ld || []).map((x) => '<script type="application/ld+json">' + ldJson(x) + '</script>').join('');
@@ -103,11 +130,13 @@ export function buildPage(shell, o) {
   return h;
 }
 
-export function sitemapXml(staticXml, jobs, companies) {
+export function sitemapXml(staticXml, jobs, companies, partners) {
   const head = String(staticXml || '').match(/<urlset[^>]*>/);
   const open = head ? head[0] : '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
   const keep = [...String(staticXml || '').matchAll(/<url>[\s\S]*?<\/url>/g)].map((x) => x[0]);
   const rows = (jobs || []).filter((j) => jobIndexable(j, companies)).sort((a, b) => (Number(b.postedTs) || 0) - (Number(a.postedTs) || 0))
     .map((j) => '  <url><loc>' + SITE + '/job/' + esc(j.id) + '</loc><lastmod>' + new Date(Number(j.postedTs) || Date.now()).toISOString().slice(0, 10) + '</lastmod></url>');
-  return '<?xml version="1.0" encoding="UTF-8"?>\n' + open + '\n' + keep.map((u) => '  ' + u).join('\n') + (rows.length ? '\n' + rows.join('\n') : '') + '\n</urlset>\n';
+  const prow = (partners || []).filter(partnerIndexable).map((p) => '  <url><loc>' + SITE + '/partner/' + esc(p.id) + '</loc></url>');
+  const all = rows.concat(prow);
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' + open + '\n' + keep.map((u) => '  ' + u).join('\n') + (all.length ? '\n' + all.join('\n') : '') + '\n</urlset>\n';
 }

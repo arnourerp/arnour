@@ -102,6 +102,7 @@ APP.views['e-company'] = function () {
       '</div></div>' +
 
       (co.about ? '<div class="card"><div class="card-h">About</div><p>' + APP.h(co.about) + '</p></div>' : '') +
+      (APP.ptViewHtml ? APP.ptViewHtml(co) : '') +
 
       '<div class="grid-2">' +
       '<div class="card"><div class="card-h">SAP systems in use</div><div class="chip-wrap">' +
@@ -139,6 +140,7 @@ APP.views['e-company'] = function () {
       '<label class="field"><span class="label">Contact name</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '"></label>' +
       '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '"></label>' +
       '</div>' +
+      (APP.ptEditHtml ? APP.ptEditHtml(d) : '') +
       APP.editFootHtml() +
       '</form></div>';
   }

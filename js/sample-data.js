@@ -989,5 +989,32 @@
     { id: 'qo12', authorId: 'co-manara', title: 'Public Cloud: how restrictive is the extensibility model for a bank with local reporting rules?', body: 'Our regulator wants specific monthly reports. Can we cover this with key-user extensibility and CDS views, or will we need BTP side-by-side?', productId: 's4public', moduleId: 'fico', createdTs: now - 3 * D, upvotes: 2, upvotedBy: ['c-karim'], answers: [] }
   ].forEach(q => questions.push(q));
 
+  /* SI/Partners: what their teams deliver, for "Find partners" in the demo (and two SAP Customers who can ask them) */
+  (function () {
+    const by = (id) => companies.find(c => c.id === id);
+    ['co-royal', 'co-rayan'].forEach(id => { by(id).companyType = 'customer'; });
+    Object.assign(by('co-orbit'), { companyType: 'partner', partner: {
+      skills: [
+        { productId: 's4onprem', moduleId: 'fi', projects: 14, certified: true }, { productId: 's4onprem', moduleId: 'co', projects: 11 },
+        { productId: 's4onprem', moduleId: 'mm', projects: 8 }, { productId: 'btp', moduleId: 'integration', projects: 6, certified: true }],
+      industries: ['Oil, Gas & Energy', 'Banking & Financial Services'], specialties: ['clean-core', 'cutover'],
+      countries: ['ae', 'sa', 'kw'], languages: ['English', 'Arabic'], delivery: ['onsite', 'hybrid'], engagement: ['team', 'consultants'],
+      teamSize: '51-200', bestAt: 'S/4HANA finance and supply-chain programmes for Gulf energy and banking groups, delivered by a team based in Dubai.', hideName: false } });
+    Object.assign(by('co-nexus'), { companyType: 'partner', partner: {
+      skills: [
+        { productId: 's4public', moduleId: 'fico', projects: 9, certified: true }, { productId: 'successfactors', moduleId: 'ec', projects: 12, certified: true },
+        { productId: 'ariba', moduleId: 'buying', projects: 7 }, { productId: 'btp', moduleId: 'abapcloud', projects: 5 }],
+      industries: ['Information Technology (IT)', 'Retail & Consumer Goods (FMCG)'], specialties: ['brownfield'],
+      countries: ['ae', 'sa', 'eg'], languages: ['English', 'Hindi'], delivery: ['remote', 'hybrid'], engagement: ['team', 'support'],
+      teamSize: '200+', bestAt: 'Cloud rollouts and application support run from our Bangalore centre, with Gulf project managers on site.', hideName: false } });
+    companies.push({ id: 'co-gulfsys', name: 'GulfSys Consulting', industry: 'Consulting & Professional Services', size: '51-200',
+      country: 'sa', city: 'Riyadh', website: 'gulfsys.example', about: 'SAP implementation partner for Saudi public-sector and utilities programmes.',
+      sapSystems: ['s4onprem', 'btp'], contactName: 'Sami Al-Harbi', contactTitle: 'Managing Director', companyType: 'partner',
+      partner: {
+        skills: [{ productId: 's4onprem', moduleId: 'fi', projects: 10 }, { productId: 's4onprem', moduleId: 'co', projects: 7, certified: true }, { productId: 's4onprem', moduleId: 'mm', projects: 6 }],
+        industries: ['Utilities (Power & Water)', 'Public Sector / Government'], specialties: ['pmo'], countries: ['sa', 'ae'], languages: ['Arabic', 'English'],
+        delivery: ['onsite'], engagement: ['team'], teamSize: '11-50', bestAt: 'Public-sector S/4HANA programmes in Saudi Arabia.', hideName: true } });
+  })();
+
   window.SAMPLE = { consultants, companies, jobs, conversations, notifications, questions, articles };
 })();
