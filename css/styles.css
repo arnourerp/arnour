@@ -1202,6 +1202,8 @@ body.no-scroll { overflow: hidden; }
 .req-join .seg { padding: 4px 12px; font: inherit; font-size: 12.5px; font-weight: 600; background: var(--bg-surface); color: var(--text-secondary); border: 1px solid var(--border-strong); cursor: pointer; }
 .req-join .seg:first-child { border-radius: 999px 0 0 999px; }
 .req-join .seg:last-child { border-radius: 0 999px 999px 0; margin-left: -1px; }
+.req-anyall { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px; }
+.req-anyall .req-join { margin: 0; }
 .req-join .seg.on { background: var(--primary); color: #fff; border-color: var(--primary); }
 .req-sum { display: flex; gap: 10px; align-items: flex-start; margin-top: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--accent-blue-soft); border-radius: var(--radius); color: var(--accent-blue-ink); font-size: 13.5px; }
 .req-sum svg { flex: none; margin-top: 2px; }

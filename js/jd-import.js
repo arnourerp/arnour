@@ -183,6 +183,15 @@
     if (!have && p.requires.length) {
       var counts = APP.rtCounts(d.roleType);
       d.requires = p.requires.map(function (r, i) { return { productId: r.productId, moduleId: r.moduleId, minProjects: counts ? r.minProjects : 0, orPrev: i > 0 && r.orPrev }; });
+      /* "all of these": consecutive same-product rows that are each required (no "or") become one card set to "All of these" */
+      var cid = 0;
+      for (var a = 0; a < d.requires.length;) {
+        var b = a + 1;
+        while (b < d.requires.length && d.requires[b].productId === d.requires[a].productId && !d.requires[b].orPrev && !d.requires[a].orPrev) b++;
+        cid++;
+        if (b - a > 1) for (var z = a; z < b; z++) d.requires[z].cid = cid;
+        a = b;
+      }
       parts.push(plural(p.requires.length, 'SAP skill'));
     }
     if (blank(d.level) && p.level) { d.level = p.level; parts.push('seniority'); }

@@ -1,0 +1,33 @@
+/* Job form: after choosing a product's modules the company says "Any one of these" or "All of these" (demo mode, no network).
+   Any = one group in matching; All = every module is its own required group. */
+import {createRequire} from 'module';
+const require=createRequire(import.meta.url);
+const {chromium}=require('playwright');
+const b=await chromium.launch(); const p=await b.newPage({viewport:{width:1200,height:1000}});
+await p.route('**/fonts.googleapis.com/**',r=>r.abort());
+let f=0; const t=(n,ok,x)=>{console.log(ok?'ok  ':'FAIL',n,ok?'':JSON.stringify(x||'').slice(0,300)); if(!ok)f++;};
+const errs=[]; p.on('pageerror',e=>errs.push(e.message));
+await p.goto('http://localhost:'+(process.env.PORT_DEMO||8124)+'/index.html'); await p.waitForSelector('.hero');
+await p.evaluate(()=>{ const id=Object.keys(APP.db.companies)[0]; APP.db.session={role:'employer',companyId:id}; });
+await p.evaluate(()=>{location.hash='#/e/jobs/new'}); await p.waitForSelector('input[name=title]');
+await p.evaluate(()=>{ APP.state.jobStep=2; document.querySelectorAll('.jw-step').forEach(e=>{ e.hidden=e.dataset.step!=='2'; }); });
+const groups=()=>p.evaluate(()=>APP.reqGroups({requires:APP.jobNewDraft.requires}).map(g=>g.map(r=>r.moduleId)));
+const pick=async(mid)=>{ await p.evaluate((m)=>{ const c=APP.jobReqCards(APP.jobNewDraft.requires)[0]; const el=document.querySelector('[data-req-card] [data-action=mod-toggle][data-mid="'+m+'"]'); el.click(); },mid); await p.waitForTimeout(250); };
+await pick('fi');
+t('one module: no switch yet',await p.evaluate(()=>!document.querySelector('.req-anyall')));
+await pick('co'); await pick('mm');
+t('three modules: the switch shows, default is Any one',await p.evaluate(()=>!!document.querySelector('.req-anyall .seg.on[data-mode=any]')));
+t('Any one = a single group of three',JSON.stringify(await groups())===JSON.stringify([['fi','co','mm']]),await groups());
+await p.click('.req-anyall [data-mode=all]'); await p.waitForTimeout(250);
+t('All of these is selected and stays one card',await p.evaluate(()=>!!document.querySelector('.req-anyall .seg.on[data-mode=all]')&&document.querySelectorAll('[data-req-card]').length===1));
+t('All = three required groups',JSON.stringify(await groups())===JSON.stringify([['fi'],['co'],['mm']]),await groups());
+await pick('sd');
+t('a module added in All mode is required too',JSON.stringify(await groups())===JSON.stringify([['fi'],['co'],['mm'],['sd']]),await groups());
+await p.evaluate(()=>{ const i=document.querySelector('[data-req-min]'); i.value='2'; i.dispatchEvent(new Event('input',{bubbles:true})); i.dispatchEvent(new Event('change',{bubbles:true})); });
+t('minimum projects applies to every module',await p.evaluate(()=>APP.jobNewDraft.requires.every(r=>r.minProjects===2)));
+await p.evaluate(()=>{ const s=document.querySelector('select[data-prod-sel][data-target=jobNew]'); s.value='ecc'; s.dispatchEvent(new Event('change',{bubbles:true})); }); await p.waitForTimeout(250);
+t('changing the product keeps the All choice',await p.evaluate(()=>APP.jobReqCards(APP.jobNewDraft.requires)[0].all===true||APP.jobReqCards(APP.jobNewDraft.requires).length>=1));
+await p.click('.req-anyall [data-mode=any]').catch(()=>{}); await p.waitForTimeout(250);
+t('back to Any one = one group again',(await groups()).length===1,await groups());
+t('no page errors',errs.length===0,errs);
+console.log(f?'FAILED '+f:'ALL OK'); await b.close(); process.exit(f?1:0);

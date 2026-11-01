@@ -2720,7 +2720,7 @@ APP.jobReqCards = function (rows) {
     const last = cards[cards.length - 1];
     if (last && rows[i - 1].cid === r.cid) last.end = i; else cards.push({ start: i, end: i, cid: r.cid });
   });
-  return cards.map(c => ({ start: c.start, end: c.end, cid: c.cid, rows: rows.slice(c.start, c.end + 1), productId: rows[c.start].productId, alt: c.start > 0 && !!rows[c.start].orPrev, min: rows[c.start].minProjects || 0 }));
+  return cards.map(c => ({ start: c.start, end: c.end, cid: c.cid, rows: rows.slice(c.start, c.end + 1), productId: rows[c.start].productId, alt: c.start > 0 && !!rows[c.start].orPrev, all: c.end > c.start && !(c.start > 0 && rows[c.start].orPrev) && !rows[c.start + 1].orPrev, min: rows[c.start].minProjects || 0 }));
 };
 APP.jobReqRowsHtml = function (rows) {
   rows = rows || [];
@@ -2743,8 +2743,13 @@ APP.jobReqRowsHtml = function (rows) {
       '<label class="field"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="jobNew" data-idx="' + c.start + '">' + APP.productOptions(c.productId) + '</select></label>' +
       (APP.rtCounts(APP.jobNewDraft && APP.jobNewDraft.roleType) || !(APP.jobNewDraft && APP.jobNewDraft.roleType) ? '<label class="field req-min"><span class="label">Min. projects <span class="muted">(optional)</span></span><input type="number" min="0" max="99" class="input" data-req-min data-idx="' + c.start + '" value="' + (c.min ? Number(c.min) : '') + '" placeholder="Any"></label>' : '') +
       '</div>' +
-      '<div class="field"><span class="label">Modules <span class="muted">— tick one or more; any of them is enough</span></span>' +
+      '<div class="field"><span class="label">Modules <span class="muted">— tick one or more</span></span>' +
       APP.moduleChipsHtml(c.productId, sel, 'data-target="jobNew" data-idx="' + c.start + '"', 'jobNew:' + c.cid, true) + '</div>' +
+      (c.rows.length > 1 && !c.alt ?
+        '<div class="req-anyall" role="group" aria-label="How many of these modules the professional needs">' +
+        '<span class="muted small">The professional needs</span>' +
+        '<span class="req-join"><button type="button" class="seg' + (c.all ? '' : ' on') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="any" aria-pressed="' + (c.all ? 'false' : 'true') + '">Any one of these</button>' +
+        '<button type="button" class="seg' + (c.all ? ' on' : '') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="all" aria-pressed="' + (c.all ? 'true' : 'false') + '">All of these</button></span></div>' : '') +
       '</div>';
   }).join('');
 };
@@ -3455,6 +3460,7 @@ APP.bindGlobal = function () {
         if (key === 'requires') {
           const c = APP.jobReqCards(rows).find(x => x.start === +t.dataset.idx);
           if (!c) return;
+          const wasAll = !!c.all;
           c.rows.forEach(fix);
           /* keep one row per distinct module; blank rows collapse into one placeholder */
           const seen = {}; let keepBlank = false;
@@ -3467,7 +3473,7 @@ APP.bindGlobal = function () {
           if (left && left.rows.length > 1) { const blank = left.rows.findIndex(r => !r.moduleId); if (blank !== -1) rows.splice(left.start + blank, 1); }
           APP.jobReqNormalize(rows);
           if (rows[0]) rows[0].orPrev = false;
-          APP.jobReqCards(rows).forEach(cc => { if (cc.rows.length > 1) cc.rows.forEach((r, j) => { if (j > 0) r.orPrev = true; }); });
+          APP.jobReqCards(rows).forEach(cc => { if (cc.rows.length > 1 && !(cc.cid === c.cid && wasAll)) cc.rows.forEach((r, j) => { if (j > 0) r.orPrev = true; }); });
         } else if (t.dataset.pid === '') {
           if (t.value && !rows.some(r => r.productId === t.value)) rows.push({ productId: t.value, moduleId: '', projects: 0, certified: false });
         } else {
@@ -3857,6 +3863,17 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'req-all': {
+      const dr = APP.jobNewDraft;
+      if (!dr || !dr.requires) break;
+      APP.skillMutate(el, function () {
+        const c = APP.jobReqCards(dr.requires).find(x => x.start === +d.idx);
+        if (!c || c.alt) return;
+        c.rows.forEach(function (r, j) { if (j > 0) r.orPrev = d.mode !== 'all'; });
+      });
+      break;
+    }
+
     case 'req-rm': {
       const dr = APP.jobNewDraft;
       if (!dr || !dr.requires) break;
@@ -3893,7 +3910,7 @@ APP.onClick = function (el, e) {
               else {
                 const ph = c.rows.findIndex(r => !r.moduleId);
                 if (ph !== -1) rows[c.start + ph].moduleId = d.mid;
-                else rows.splice(c.end + 1, 0, { productId: c.productId, moduleId: d.mid, minProjects: c.min, orPrev: true, cid: c.cid, projects: 0 });
+                else rows.splice(c.end + 1, 0, { productId: c.productId, moduleId: d.mid, minProjects: c.min, orPrev: !c.all, cid: c.cid, projects: 0 });
               }
             }
           }
