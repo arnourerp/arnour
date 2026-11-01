@@ -73,7 +73,7 @@ const step2=(p)=>p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').
   t('A: no upload card when it is switched off, the skills picker is there',await p.evaluate(()=>!document.querySelector('.pt-import')&&/Team skills/.test(document.querySelector('.wiz-title').textContent)));
   t('A: no page errors',p.errors.length===0,p.errors); await p.context().close(); }
 { const p=await open({type:'customer'});
-  t('A: a customer sees the SAP systems step and no upload card',await p.evaluate(()=>!document.querySelector('.pt-import')&&/SAP systems your company runs/.test(document.body.textContent)));
+  t('A: a customer sees the Privacy step and no upload card',await p.evaluate(()=>!document.querySelector('.pt-import')&&!!document.querySelector('.vis-card')));
   t('A: …and the partner feature never asked the server',p.gets===0,p.gets); await p.context().close(); }
 
 /* ========== B. a PowerPoint, start to finish ========== */

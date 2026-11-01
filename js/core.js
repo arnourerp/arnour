@@ -1065,28 +1065,65 @@ APP.introStatusPill = function (i) {
   return i.status === 'accepted' ? '<span class="pill inv">' + APP.icon('check', 12) + ' Accepted</span>'
     : i.status === 'declined' ? '<span class="pill muted-pill">Not accepted</span>' : '<span class="pill warn-pill">Awaiting reply</span>';
 };
-/* Privacy switch + live preview of what the other side sees */
+/* One "Visibility" card for every profile (Skills first, names second): two big choices + a live preview of what the other side sees.
+   kind: 'pro' (professional), 'co' (company default for new roles), 'pt' (SI/Partner name)
+   ctx: where the choice is stored (see the 'vis-set' action). priv: true = name hidden until accepted. */
+APP.visibilityHtml = function (o) {
+  const priv = !!o.priv, kind = o.kind, h = APP.h;
+  const T = {
+    pro: { title: 'Who can see your name?', lead: 'Companies find you by your skills (product, module, projects), not by your name.',
+      a: ['Skills first, name hidden', 'Companies see your skills and experience. Your name, photo, LinkedIn and CV are shared only when you accept their request.'],
+      b: ['Show my name', 'Companies see your full profile, with your name and photo, straight away.'],
+      hid: 'Hidden until you accept: name, photo, LinkedIn, summary, city, nationality and CV.' },
+    co: { title: 'Should your company name show on new roles?', lead: 'This is the starting choice for every role you post. You can still change it on each role.',
+      a: ['Confidential, name hidden', 'Professionals see the role and the industry, not which company is hiring, until you accept their interest.'],
+      b: ['Show our company name', 'Professionals see your company name and logo on your roles.'],
+      hid: 'Hidden until you accept: company name, logo, website and contact.' },
+    pt: { title: 'Who can see your company name?', lead: 'Customers find you by what your team delivers, not by your name.',
+      a: ['Skills first, name hidden', 'Customers see your products, modules and reach. Your name, contact person and the text about your team are shared only when you accept a request.'],
+      b: ['Show our name', 'Customers see your company name and profile on Find partners.'],
+      hid: 'Hidden until you accept: company name, contact person and the text about your team.' }
+  }[kind];
+  const tile = (on, v, txt, rec) => '<button type="button" class="vis-tile' + (on ? ' on' : '') + '" data-action="vis-set" data-ctx="' + o.ctx + '" data-v="' + v + '" aria-pressed="' + on + '">' +
+    '<span class="vis-ico" aria-hidden="true">' + APP.icon(v === 'private' ? 'lock' : 'users', 18) + '</span>' +
+    '<span class="vis-t"><b>' + txt[0] + '</b>' + (rec ? ' <span class="vis-rec">Recommended</span>' : '') + '<small>' + txt[1] + '</small></span>' +
+    '<span class="vis-radio" aria-hidden="true">' + (on ? APP.icon('check', 12) : '') + '</span></button>';
+  const pv = priv ? o.hidden : o.shown;
+  const preview = pv ? '<div class="anon-preview vis-preview"><span class="muted small">' + (priv ? 'Others will see you as' : 'Others will see') + '</span>' +
+    '<div class="ap-row">' + pv.avatar + '<div><b>' + h(pv.name) + '</b><div class="muted small">' + h(pv.sub || '') + '</div></div></div>' +
+    '<p class="muted small">' + (priv ? T.hid + ' ' : '') + 'A reveal cannot be undone, so it only happens when you accept.' + (o.after || '') + '</p></div>' : '';
+  return '<div class="card privacy-card vis-card' + (o.cls ? ' ' + o.cls : '') + '"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + T.title + '</div>' +
+    '<p class="muted small vis-lead">' + T.lead + '</p>' +
+    '<div class="vis-tiles" role="group" aria-label="' + h(T.title) + '">' + tile(priv, 'private', T.a, kind === 'pro') + tile(!priv, 'public', T.b, false) + '</div>' + preview + '</div>';
+};
+/* professional: preview built from the (draft) profile */
+APP.visPro = function (d, ctx, extra) {
+  let nm = 'SAP professional', sub = '', full = ((d.firstName || '') + ' ' + (d.lastName || '')).trim() || 'Your name';
+  try { const x = APP.cv(Object.assign({ id: 'preview' }, d), true); nm = APP.consultantFullName(x); sub = x.headline; } catch (e) {}
+  const loc = d.country ? ' · ' + (APP.countryName(d.country) || '') : '';
+  return APP.visibilityHtml(Object.assign({ kind: 'pro', ctx: ctx, priv: !!d.anon,
+    hidden: { avatar: APP.avatarHtml(nm, 'lg', true), name: nm, sub: (sub || '') + loc },
+    shown: { avatar: APP.avatarHtml(full, 'lg'), name: full, sub: (d.headline || '') + loc } }, extra || {}));
+};
+APP.visPt = function (d, ctx, extra) {
+  const p = d.partner || {}, nm = d.name || 'Your company', loc = (APP.countryName(d.country) || '') + (p.teamSize ? ' · ' + p.teamSize + ' consultants' : '');
+  return APP.visibilityHtml(Object.assign({ kind: 'pt', ctx: ctx, priv: !!p.hideName,
+    hidden: { avatar: APP.avatarHtml('Confidential SI/Partner', 'lg'), name: 'Confidential SI/Partner', sub: loc },
+    shown: { avatar: APP.avatarHtml(nm, 'lg'), name: nm, sub: loc } }, extra || {}));
+};
+APP.visCo = function (d, ctx, extra) {
+  const nm = d.name || 'Your company', ind = (d.industry || '') + (d.country ? ' · ' + (APP.countryName(d.country) || '') : '');
+  return APP.visibilityHtml(Object.assign({ kind: 'co', ctx: ctx, priv: d.confidentialDefault === true,
+    hidden: { avatar: APP.avatarHtml('Confidential company', 'lg'), name: 'Confidential company', sub: ind },
+    shown: { avatar: APP.avatarHtml(nm, 'lg'), name: nm, sub: ind } }, extra || {}));
+};
+/* the card on the user's own profile page */
 APP.privacyCardHtml = function () {
-  const s = APP.db.session, isC = s.role === 'consultant';
-  if (!isC) return ''; /* companies are never anonymous as a whole: confidentiality is set on each role */
-  const me = isC ? APP.consultant(s.consultantId) : APP.company(s.companyId);
-  if (!me) return '';
-  const on = !!me.anon;
-  let preview = '';
-  if (isC) {
-    const v = APP.cv(me, true);
-    preview = '<div class="anon-preview"><span class="muted small">' + (on ? 'Companies see you as' : 'If you turn this on, companies see you as') + '</span><div class="ap-row">' + APP.avatarHtml(APP.consultantFullName(v), 'lg', true) +
-      '<div><b>' + APP.h(APP.consultantFullName(v)) + '</b><div class="muted small">' + APP.h(v.headline) + ' · ' + APP.h(APP.countryName(v.country) || '') + '</div></div></div>' +
-      '<p class="muted small">Your profile title is shown as your name, so keep it free of employer names. Hidden until you accept: name, photo, LinkedIn, summary, city, nationality and CV.</p>' +
-      '<a class="btn btn-outline btn-sm" href="#/c/preview">' + APP.icon('ext', 14) + ' Preview my full anonymous profile</a></div>';
-  } else if (on) {
-    preview = '<div class="anon-preview"><span class="muted small">Professionals see</span><div class="ap-row">' + APP.avatarHtml('Confidential company', 'lg') +
-      '<div><b>Confidential company</b><div class="muted small">' + APP.h(me.industry || '') + ' · ' + APP.h(APP.countryName(me.country) || '') + '</div></div></div>' +
-      '<p class="muted small">Hidden until you accept an introduction: your company name, logo, website and contact. You can also override this for each role when you post it.</p></div>';
-  }
-  return '<div class="card privacy-card"><div class="pc-row"><div class="grow"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + (isC ? 'Mutual Reveal: keep my identity private' : 'Keep my company confidential') + '</div>' +
-    '<p class="muted small" style="margin:4px 0 0">' + (isC ? 'Companies see your skills and experience, but not who you are. They can ask to connect; your name, photo and CV are shared only if you accept, and a reveal cannot be undone.' : 'Professionals see your roles, but not which company is hiring, until you accept their interest. A reveal cannot be undone.') + '</p></div>' +
-    '<button type="button" class="switch' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + (isC ? 'Keep my identity private' : 'Keep my company confidential') + '" data-action="toggle-anon"><span></span></button></div>' + preview + '</div>';
+  const s = APP.db.session; if (!s) return '';
+  if (s.role === 'consultant') { const me = APP.consultant(s.consultantId); return me ? APP.visPro(me, 'profile', { after: ' You can change this any time.' }) : ''; }
+  const co = APP.company(s.companyId);
+  if (!co || co.companyType === 'partner') return ''; /* partners set their name on the Reach & visibility tab */
+  return APP.visCo(co, 'company');
 };
 
 /* Introductions page for both roles */
@@ -3278,6 +3315,7 @@ APP.profileSections = function (d, rp) {
   const spec = (d.specialties || []).length + (Array.isArray(d.otherSkills) ? d.otherSkills.length : (has(d.otherSkills) ? 1 : 0));
   const list = [
     { id: 'basics', label: 'Basics', ok: has(d.firstName) && has(d.lastName) && has(d.headline) && !!d.roleType && !!d.country && (d.languages || []).length > 0, hint: 'Name, role, country, languages', req: true },
+    { id: 'privacy', label: 'Privacy', ok: true, hint: d.anon ? 'Name hidden until you accept' : 'Name visible', req: false },
     { id: 'experience', label: 'Experience', ok: +d.yearsExp > 0 && has(d.availability), hint: 'Years, availability, industries', req: true },
     { id: 'skills', label: 'SAP skills', ok: skills.length > 0, hint: skills.length ? skills.length + ' skill' + (skills.length === 1 ? '' : 's') : 'Add your products and modules', req: true },
     { id: 'specialties', label: 'Specialties', ok: spec > 0, hint: spec ? spec + ' chosen' : (lead ? 'Pick what you are known for' : 'Optional'), req: lead },
@@ -4082,6 +4120,33 @@ APP.onClick = function (el, e) {
     case 'intro-request': APP.confirmRequestIntro(d.cid); break;
     case 'intro-accept': APP.confirmAcceptIntro(d.id); break;
     case 'intro-decline': APP.confirmDeclineIntro(d.id); break;
+    case 'vis-set': {
+      const on = d.v === 'private', ctx = d.ctx;
+      if (ctx === 'wizC' || ctx === 'wizE') {
+        const w = ctx === 'wizC' ? APP.wizC : APP.wizE; if (!w) break;
+        APP.syncFormsToDrafts(null);
+        if (ctx === 'wizC') w.data.anon = on; else w.data.confidentialDefault = on;
+        APP.renderKeep(); break;
+      }
+      if (ctx === 'pt' || ctx === 'pedit' || ctx === 'coedit') {
+        APP.syncFormsToDrafts(null);
+        const hd = ctx === 'pt' ? APP.ptHost() : APP.profileDraft; if (!hd) break;
+        if (ctx === 'pt') APP.ptEnsure(hd).hideName = on; else if (ctx === 'pedit') hd.anon = on; else hd.confidentialDefault = on;
+        APP.renderKeep(); break;
+      }
+      const s0 = APP.db.session; if (!s0) break;
+      if (ctx === 'profile' && s0.role === 'consultant') {
+        const me = APP.consultant(s0.consultantId); if (!me) break;
+        me.anon = on; APP.save(); APP.render();
+        APP.toast(on ? 'Your name is hidden until you accept' : 'Your name is now visible to companies'); break;
+      }
+      if (ctx === 'company' && s0.role === 'employer') {
+        const co = APP.company(s0.companyId); if (!co) break;
+        co.confidentialDefault = on; APP.save(); APP.render();
+        APP.toast(on ? 'New roles start confidential' : 'New roles show your company name'); break;
+      }
+      break;
+    }
     case 'toggle-anon': {
       const s0 = APP.db.session; if (!s0) break;
       const tgt = s0.role === 'consultant' ? APP.consultant(s0.consultantId) : APP.company(s0.companyId);
@@ -4699,11 +4764,11 @@ APP.onSubmit = function (f) {
         const miss = APP.ptMissing(APP.ptEnsure(d));
         if (miss) { APP.toast(miss); return; }
         if (!d.contactName) { APP.toast('Add a contact name so customers know who they\'re talking to'); return; }
-      } else if (step === 2) {
+      } else if (step === 3) {
         if (f.querySelector('[name="about"]')) d.about = g('about'); /* About lives on step 1 — never clobber it here */
         d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
         if (!d.contactName) { APP.toast('Add a contact name so professionals know who they\'re talking to'); return; }
-      } else if (step === (d.companyType === 'partner' ? 4 : 3)) {
+      } else if (step === 4) {
         d.sapSystems = d.sapSystems || [];
         const co = Object.assign({}, d);
         if (co.companyType !== 'partner') delete co.partner; /* capabilities belong to SI/Partners only */

@@ -97,12 +97,12 @@ t('Team skills shows the current products',await p.evaluate(()=>{ const e=docume
   await p.click('.pe-pane[data-pane=skills] [data-action=cert-toggle]'); await p.waitForTimeout(300);
   t('a partner can tick a certified module (no permission error)',await p.evaluate((b)=>APP.profileDraft.partner.skills.filter(k=>k.certified).length!==b&&!/permission/i.test(document.body.innerText),before)); }
 await tab('reach');
-t('the hide switch starts off',await p.evaluate(()=>!document.querySelector('[data-pt-hide]').checked));
+t('the visibility card is at the top of the tab and "show our name" is chosen',await p.evaluate(()=>{ const f=document.querySelector('.pe-pane[data-pane=reach] .vis-card'); return !!f&&f.compareDocumentPosition(document.querySelector('.pe-pane[data-pane=reach] .field'))&4&&document.querySelector('.pe-pane[data-pane=reach] .vis-tile[data-v=public]').classList.contains('on'); }));
 await p.fill('[data-pt-best]','We deliver finance programmes on S/4HANA.');
 await p.click('.pe-pane[data-pane=reach] [data-action=chip][data-group=languages][data-value=French]'); await p.waitForTimeout(300);
 t('chips toggle without losing the typed text',await p.evaluate(()=>APP.profileDraft.partner.languages.includes('French')&&document.querySelector('[data-pt-best]').value==='We deliver finance programmes on S/4HANA.'));
 await p.click('.pe-pane[data-pane=reach] [data-action=chip][data-group=teamSize][data-value="200+"]'); await p.waitForTimeout(300);
-await p.check('[data-pt-hide]');
+await p.click('.pe-pane[data-pane=reach] .vis-tile[data-v=private]'); await p.waitForTimeout(250);
 await p.evaluate(()=>document.querySelector('form[data-form=company-edit]').requestSubmit()); await p.waitForTimeout(500);
 t('saving keeps the new values',await p.evaluate(()=>{ const c=APP.company('co-orbit').partner; return c.bestAt==='We deliver finance programmes on S/4HANA.'&&c.languages.includes('French')&&c.teamSize==='200+'&&c.hideName===true; }));
 t('…and the page now says the name is hidden',await p.evaluate(()=>/Your name is hidden on Find partners/.test(document.getElementById('app').innerText)));
@@ -137,7 +137,7 @@ await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubm
 t('it will not go on without a product and module',await p.evaluate(()=>APP.wizE.step===2));
 await p.evaluate(()=>{ const pr=CATALOG.products.find(x=>x.modules.length); APP.wizE.data.partner.skills.push({productId:pr.id,moduleId:pr.modules[0].id,projects:3,certified:false}); APP.render(); }); await p.waitForTimeout(300);
 await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(300);
-t('step 3 is its own step, with every field marked required',await p.evaluate(()=>APP.wizE.step===3&&/About your team/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('[data-pt-best]')&&!!document.querySelector('[data-pt-hide]')&&!!document.querySelector('input[name=contactName]')&&!document.querySelector('details.pt-more')&&(document.getElementById('app').innerText.match(/\*/g)||[]).length>=6&&!/\(optional/.test(document.querySelector('form[data-form=wiz-e]').innerText)));
+t('step 3 is its own step, with every field marked required',await p.evaluate(()=>APP.wizE.step===3&&/About your team/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('[data-pt-best]')&&!!document.querySelector('.vis-card .vis-tile')&&!!document.querySelector('input[name=contactName]')&&!document.querySelector('details.pt-more')&&(document.getElementById('app').innerText.match(/\*/g)||[]).length>=6&&!/\(optional/.test(document.querySelector('form[data-form=wiz-e]').innerText)));
 const submit3=async()=>{ await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(250); };
 const needs=async(label,re)=>{ await submit3(); t('step 3 stops: '+label,await p.evaluate((r)=>APP.wizE.step===3&&new RegExp(r).test(document.getElementById('toasts').innerText),re.source)); };
 await needs('countries first',/at least one country/);
@@ -157,7 +157,7 @@ t('…and shows on Find partners',(await cards()).includes('Delta SAP'));
 await as(null); await go('#/onboard-e'); await p.waitForSelector('form[data-form=wiz-e]');
 await p.fill('input[name=name]','Switchy'); await p.selectOption('select[name=country]','ae');
 await p.check('input[name=companyType][value=partner]'); await p.waitForTimeout(150); await p.check('input[name=companyType][value=customer]'); await p.waitForTimeout(150);
-t('switching back restores the SAP footprint name',await p.evaluate(()=>[...document.querySelectorAll('.wiz-progress small')].map(e=>e.textContent).join('|')==='Company|SAP footprint|Finish'));
+t('switching back restores the SAP footprint name',await p.evaluate(()=>[...document.querySelectorAll('.wiz-progress small')].map(e=>e.textContent).join('|')==='Company|Privacy|SAP footprint|Finish'));
 
 /* ---- a new partner with nothing filled in is told how to be listed ---- */
 await p.evaluate(()=>{ APP.db.companies['co-new']={id:'co-new',name:'Fresh SI',companyType:'partner',country:'ae'}; }); await as('employer','co-new'); await go('#/e/company');

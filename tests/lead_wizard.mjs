@@ -10,11 +10,11 @@ const ev=(fn,a)=>p.evaluate(fn,a);
 const submit=async()=>{ await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(150); };
 await ev(()=>{ localStorage.clear(); APP.db.session=null; APP.wizC={step:1,data:Object.assign(APP.wizCDefaults(),{firstName:'Ara',lastName:'Arch',gender:'male',headline:'Enterprise Architect',nationality:'Egypt',country:'ae',languages:['English']})}; APP.rtSet(APP.wizC.data,['architect']); location.hash='#/onboard'; APP._formSyncSkip=['wiz-c']; APP.render(); });
 await p.waitForTimeout(200);
-t('architect step order: about, experience, expertise, landscape, finish',await ev(()=>JSON.stringify(APP.wizVisible())===JSON.stringify(APP.SHOW_RATES?[1,2,4,3,5,6]:[1,2,4,3,6])));
+t('architect step order: about, experience, expertise, landscape, finish',await ev(()=>JSON.stringify(APP.wizVisible())===JSON.stringify(APP.SHOW_RATES?[1,7,2,4,3,5,6]:[1,7,2,4,3,6])));
 t('progress labels follow the new order',await ev(()=>Array.from(document.querySelectorAll('.wiz-step small')).map(x=>x.textContent).join('|')),'');
 const labels=await ev(()=>Array.from(document.querySelectorAll('.wiz-step small')).map(x=>x.textContent));
 t('labels read Your expertise then SAP landscape',labels.indexOf('Your expertise')>-1&&labels.indexOf('Your expertise')<labels.indexOf('SAP landscape'),labels);
-await submit(); await submit();
+await submit(); await submit(); await submit();
 t('after experience comes Your expertise',await ev(()=>APP.wizC.step===4&&/Your expertise/.test(document.querySelector('.wiz-title').textContent)));
 t('no "skip" before the SAP landscape is done',await ev(()=>!document.querySelector('[data-action=wiz-skip]')));
 t('programmes field is on the expertise step',await ev(()=>!!document.querySelector('[name=programs]')));
@@ -33,7 +33,7 @@ t('stored as product level',await ev(()=>APP.wizC.data.skills.length===1&&APP.wi
 // change role back to functional keeps what was entered and reorders
 await ev(()=>{ APP.rtSet(APP.wizC.data,['functional']); APP.wizC.step=1; APP._formSyncSkip=['wiz-c']; APP.render(); }); await submit();
 t('changing role keeps skills and specialties',await ev(()=>APP.wizC.data.skills.length===1&&APP.wizC.data.specialties.length===2));
-t('functional order puts SAP skills right after experience',await ev(()=>JSON.stringify(APP.wizVisible().slice(0,4))==='[1,2,3,4]'));
+t('functional order puts SAP skills right after experience',await ev(()=>JSON.stringify(APP.wizVisible().slice(0,4))==='[1,7,2,3]'));
 // finish as architect and check profile pages
 await ev(()=>{ APP.rtSet(APP.wizC.data,['architect']); APP.wizC.step=6; APP._formSyncSkip=['wiz-c']; APP.render(); }); await submit(); await p.waitForTimeout(400);
 const me=await ev(()=>APP.db.session&&APP.consultant(APP.db.session.consultantId));

@@ -2023,3 +2023,54 @@ a.sr-title:hover { text-decoration: underline; }
 .pt-here { font-size: 13px; color: var(--text-secondary); }
 .pt-here b { color: var(--text-primary, inherit); font-weight: 600; }
 .pt-how { padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+
+/* Visibility card: "Skills first, names second" */
+.vis-intro { margin: 0 0 var(--space-4, 16px); color: var(--text-secondary); }
+.vis-card { padding: var(--space-5, 20px); }
+.vis-lead { margin: 4px 0 var(--space-4, 16px); }
+.vis-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vis-tile { display: flex; align-items: flex-start; gap: 12px; text-align: left; padding: 14px; border: 1.5px solid var(--border-subtle, #e2e8f0); border-radius: 12px; background: var(--bg-surface, #fff); cursor: pointer; font: inherit; color: inherit; position: relative; }
+.vis-tile:hover { border-color: var(--border-strong, #94a3b8); }
+.vis-tile.on { border-color: var(--accent-blue, #2563eb); background: var(--accent-blue-soft, #eff6ff); }
+.vis-ico { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--bg-subtle, #f1f5f9); color: var(--text-secondary); }
+.vis-tile.on .vis-ico { background: var(--accent-blue, #2563eb); color: #fff; }
+.vis-t { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.vis-t small { color: var(--text-secondary); font-size: 13px; line-height: 1.4; }
+.vis-rec { display: inline-block; font-size: 11px; font-weight: 600; color: var(--badge-success-text, #166534); background: var(--badge-success-bg, #dcfce7); border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 1px; }
+.vis-radio { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border-strong, #94a3b8); display: grid; place-items: center; color: #fff; }
+.vis-tile.on .vis-radio { background: var(--accent-blue, #2563eb); border-color: var(--accent-blue, #2563eb); }
+@media (max-width: 640px) { .vis-tiles { grid-template-columns: 1fr; } }
+
+/* Partner page */
+.narrow.pt-wide { max-width: 1040px; }
+.pt-hero { display: grid; gap: 16px; }
+.pt-hero-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.pt-hero-top .grow { min-width: 0; flex: 1 1 260px; }
+.pt-hero .brand-logo { flex: none; }
+.pt-h1 { margin: 0; font-size: 24px; line-height: 1.25; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pt-meta, .pt-site { margin: 4px 0 0; }
+.pt-facts-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 20px; margin: 0; padding: 14px 0 0; border-top: 1px solid var(--border-subtle, #e2e8f0); }
+.pt-facts-strip dt { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; }
+.pt-facts-strip dd { margin: 2px 0 0; font-weight: 500; }
+.pt-cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.pt-main { display: grid; gap: 16px; min-width: 0; }
+.pt-main > .card { margin: 0; }
+.pt-side { position: sticky; top: 76px; }
+.pt-side > .card, .pt-side > form { margin: 0; }
+.pt-best { background: var(--accent-blue-soft, #eff6ff); border-color: transparent; }
+.pt-best p { margin: 6px 0 0; font-size: 17px; line-height: 1.5; }
+.pt-prod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.pt-prod-card { border: 1px solid var(--border-subtle, #e2e8f0); border-radius: 12px; padding: 12px; display: grid; gap: 8px; align-content: start; }
+.pt-prod-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pt-mod small { margin-left: 6px; color: var(--text-muted); font-size: 11px; }
+.pt-more-prod { margin-top: 12px; }
+.pt-more-prod > summary { cursor: pointer; font-weight: 600; color: var(--accent-blue, #2563eb); padding: 4px 0; }
+.pt-more-prod[open] > summary { margin-bottom: 10px; }
+.pt-about { white-space: pre-wrap; margin: 0; }
+@media (max-width: 860px) { .pt-cols { grid-template-columns: 1fr; } .pt-side { position: static; } .pt-hero-cta { width: 100%; } }
+.pt-hero .brand-logo { width: 56px; height: 56px; font-size: 20px; }
+.pt-mod { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.pt-mod small { white-space: nowrap; margin-left: 0; }
+.vis-t > .vis-rec { justify-self: start; margin-left: 0; }
+.vis-card, .vis-card * { overflow-wrap: anywhere; min-width: 0; }
+.vis-card .ap-row > div { min-width: 0; }

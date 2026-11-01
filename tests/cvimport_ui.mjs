@@ -105,7 +105,7 @@ const submit=async(p)=>{ await p.evaluate(()=>document.querySelector('form[data-
   /* the person completes what a CV cannot give, then walks the steps */
   await p.evaluate(()=>{ APP.wizC.data.gender='female'; APP.wizC.data.nationality='Egyptian'; APP._formSyncSkip=['wiz-c']; APP.render(); });
   t('B: nothing is still needed after that',await p.evaluate(()=>!/Still needed/.test(document.querySelector('.cv-found').textContent)));
-  await submit(p);
+  await submit(p); await submit(p); /* privacy step */
   t('B: step 2 follows with the reminder',await p.evaluate(()=>APP.wizC.step===2&&!!document.querySelector('.cv-banner')&&/Filled in from your CV/.test(document.querySelector('.cv-banner').textContent)&&!document.querySelector('.cv-import')));
   t('B: step 2 shows the level and years from the CV',await p.evaluate(()=>document.querySelector('[name=yearsExp]').value==='12'&&document.querySelector('.seg-item.active').textContent==='Senior'));
   await submit(p);
@@ -184,7 +184,7 @@ for(const [status,body,re] of [[429,{error:'limit'},/used all of today/],[503,{e
   const d=await p.evaluate(()=>JSON.parse(JSON.stringify(APP.wizC.data)));
   t('G: architect: modules kept without project counts',d.roleType==='architect'&&d.skills.filter(k=>k.moduleId).every(k=>k.projects===0),d.skills);
   await p.evaluate(()=>{ APP.wizC.data.gender='male'; APP.wizC.data.nationality='Egyptian'; APP._formSyncSkip=['wiz-c']; APP.render(); });
-  await submit(p); await submit(p);
+  await submit(p); await submit(p); await submit(p);
   t('G: leadership order: expertise step shows the specialties',await p.evaluate(()=>APP.wizC.step===4&&APP.wizC.data.specialties.length===2));
   await p.context().close(); }
 { const p=await open({answer:{status:200,body:{profile:Object.assign({},PROFILE,{roleType:'basis'})}}});

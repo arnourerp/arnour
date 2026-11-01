@@ -69,7 +69,7 @@ const u=be.users['hr@acme.com'];
 await e.goto(BASE+'?token_hash='+u.token+'&type=signup'); 
 await e.waitForFunction(()=>location.hash==='#/onboard-e',null,{timeout:8000}); t('email link confirms and opens company wizard',true);
 t('url cleaned',await e.evaluate(()=>!location.search));
-await e.evaluate(()=>{ APP.wizE={step:3,data:Object.assign({},APP.wizE&&APP.wizE.data,{name:'Acme Retail',industry:'Retail & Consumer Goods (FMCG)',size:'201-500',country:'ae',city:'Dubai',website:'acme.example',about:'We sell things',contactName:'Hana HR',contactTitle:'Talent',sapSystems:['s4onprem'],anon:false})}; APP._formSyncSkip=['wiz-e']; APP.render(); });
+await e.evaluate(()=>{ APP.wizE={step:4,data:Object.assign({},APP.wizE&&APP.wizE.data,{name:'Acme Retail',industry:'Retail & Consumer Goods (FMCG)',size:'201-500',country:'ae',city:'Dubai',website:'acme.example',about:'We sell things',contactName:'Hana HR',contactTitle:'Talent',sapSystems:['s4onprem'],anon:false})}; APP._formSyncSkip=['wiz-e']; APP.render(); });
 await e.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit());
 await e.waitForFunction(()=>location.hash==='#/e/dashboard',null,{timeout:8000}); t('company created',true);
 const eid=await e.evaluate(()=>APP.db.session.companyId);

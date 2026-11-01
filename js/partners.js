@@ -179,7 +179,7 @@
   APP.ptDetailsHtml = function (d) {
     var p = APP.ptEnsure(d);
     var R = '<span class="req-star">*</span>';
-    return grp('Countries you deliver in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
+    return APP.visPt(d, 'pt') + grp('Countries you deliver in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
       grp('Languages your team works in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'languages', APP.languages, p.languages) + '</div>') +
       '<div class="form-grid">' +
       grp('How you deliver ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'delivery', pairsToOpts(APP.PT_DELIVERY), p.delivery) + '</div>') +
@@ -187,8 +187,7 @@
       '</div>' +
       grp('Team size (SAP consultants) ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'teamSize', APP.PT_SIZES, p.teamSize, true) + '</div>') +
       '<label class="field"><span class="label">What you are best at ' + R + ' <span class="muted">(up to 400 characters)</span></span>' +
-      '<textarea class="input" rows="3" maxlength="400" data-pt-best placeholder="e.g. S/4HANA Public Cloud rollouts for retail groups in the Gulf, with a local support desk.">' + h(p.bestAt) + '</textarea></label>' +
-      '<label class="field checkbox-field chk-line"><input type="checkbox" data-pt-hide' + (p.hideName ? ' checked' : '') + '> <span>Hide our name until we accept a request<small class="muted"> — customers see what your team delivers, but not your name, contact person or the text above, until you accept their request.</small></span></label>';
+      '<textarea class="input" rows="3" maxlength="400" data-pt-best placeholder="e.g. S/4HANA Public Cloud rollouts for retail groups in the Gulf, with a local support desk.">' + h(p.bestAt) + '</textarea></label>';
   };
   /* "Build it from your company presentation": a lazy-loaded card (js/partner-import.js), only on the live site, only when the feature is switched on */
   APP.ptImportSlotHtml = function () {
@@ -221,28 +220,47 @@
     (skills || []).forEach(function (k) { if (!by[k.productId]) { by[k.productId] = []; order.push(k.productId); } by[k.productId].push(k); });
     return order.map(function (pid) { return { pid: pid, mods: by[pid] }; });
   }
+  /* the facts strip under the name: where, how many, how, in which languages */
+  APP.ptFactsHtml = function (c) {
+    var cs = c.countries || [], names = cs.map(countryName);
+    var f = [
+      ['Delivers in', cs.length ? (names.slice(0, 3).join(', ') + (cs.length > 3 ? ' +' + (cs.length - 3) + ' more' : '')) : ''],
+      ['Team', c.teamSize ? c.teamSize + ' SAP consultants' : ''],
+      ['How', (c.delivery || []).map(function (x) { return lab(APP.PT_DELIVERY, x); }).join(' · ')],
+      ['Languages', (c.languages || []).slice(0, 4).join(', ') + ((c.languages || []).length > 4 ? ' +' + ((c.languages || []).length - 4) : '')]
+    ].filter(function (x) { return x[1]; });
+    return f.length ? '<dl class="pt-facts-strip">' + f.map(function (x) { return '<div><dt>' + h(x[0]) + '</dt><dd>' + h(x[1]) + '</dd></div>'; }).join('') + '</dl>' : '';
+  };
   APP.ptCapsHtml = function (p, opts) {
     var c = p.partner || {}; opts = opts || {};
-    var prods = groupedSkills(c.skills).map(function (g) {
-      return '<div class="pt-prod"><div class="pt-prod-h">' + h(APP.productShort(g.pid) || g.pid) + '</div><ul class="pt-mods">' +
-        g.mods.map(function (k) {
+    var groups = groupedSkills(c.skills);
+    var card = function (g) {
+      return '<div class="pt-prod-card"><div class="pt-prod-top"><b>' + h(APP.productShort(g.pid) || g.pid) + '</b><span class="muted small">' + g.mods.length + (g.mods.length === 1 ? ' module' : ' modules') + '</span></div>' +
+        '<div class="chip-wrap">' + g.mods.map(function (k) {
           var nm = APP.skillName(k.productId, k.moduleId) || k.moduleId;
-          return '<li><span>' + h(nm) + '</span><span class="muted small">' + (k.projects ? k.projects + (k.projects === 1 ? ' project' : ' projects') : '') + '</span>' +
-            (k.certified ? '<span class="pt-cert" title="The team holds an SAP certification in this module">' + APP.icon('check', 12) + ' certified</span>' : '') + '</li>';
-        }).join('') + '</ul></div>';
-    }).join('');
-    var blocks = [
+          return '<span class="chip pt-mod">' + h(nm) + (k.projects ? '<small>' + k.projects + (k.projects === 1 ? ' project' : ' projects') + '</small>' : '') +
+            (k.certified ? '<span class="pt-cert" title="The team holds an SAP certification in this module">' + APP.icon('check', 12) + ' certified</span>' : '') + '</span>';
+        }).join('') + '</div></div>';
+    };
+    var prods = groups.length
+      ? '<div class="pt-prod-grid">' + groups.slice(0, 3).map(card).join('') + '</div>' +
+        (groups.length > 3 ? '<details class="pt-more-prod"><summary>Show ' + (groups.length - 3) + ' more product' + (groups.length - 3 === 1 ? '' : 's') + '</summary><div class="pt-prod-grid">' + groups.slice(3).map(card).join('') + '</div></details>' : '')
+      : '<p class="muted small">Nothing added yet.</p>';
+    var focus = [
       ['Industries', chips(c.industries)],
-      ['Specialties', chips(c.specialties, function (id) { return APP.specialtyName(id); })],
-      ['Countries served', chips(c.countries, countryName)],
-      ['Languages', chips(c.languages)],
-      ['How they deliver', chips(c.delivery, function (x) { return lab(APP.PT_DELIVERY, x); })],
-      ['What they provide', chips(c.engagement, function (x) { return lab(APP.PT_ENGAGE, x); })],
-      ['Team size', c.teamSize ? '<div class="chip-wrap"><span class="chip">' + h(c.teamSize) + ' SAP consultants</span></div>' : '']
+      ['Specialties', chips(c.specialties, function (id) { return APP.specialtyName(id); })]
     ].filter(function (b) { return b[1]; });
-    return '<div class="card"><div class="card-h">What the team delivers</div>' + (prods || '<p class="muted small">Nothing added yet.</p>') + '</div>' +
-      (blocks.length ? '<div class="card pt-facts">' + blocks.map(function (b) { return '<div class="pt-fact"><div class="pt-fact-h">' + h(b[0]) + '</div>' + b[1] + '</div>'; }).join('') + '</div>' : '') +
-      (c.bestAt && !opts.noBest ? '<div class="card"><div class="card-h">What they are best at</div><p>' + h(c.bestAt) + '</p></div>' : '');
+    var cs = c.countries || [];
+    var reach = [
+      ['Countries served', cs.length > 8
+        ? '<details class="pt-more-prod"><summary>' + cs.length + ' countries</summary>' + chips(cs, countryName) + '</details>' : chips(cs, countryName)],
+      ['What they provide', chips(c.engagement, function (x) { return lab(APP.PT_ENGAGE, x); })]
+    ].filter(function (b) { return b[1]; });
+    var blk = function (arr) { return arr.map(function (b) { return '<div class="pt-fact"><div class="pt-fact-h">' + h(b[0]) + '</div>' + b[1] + '</div>'; }).join(''); };
+    return (c.bestAt && !opts.noBest ? '<div class="card pt-best"><div class="pt-fact-h">What they are best at</div><p>' + h(c.bestAt) + '</p></div>' : '') +
+      '<div class="card"><div class="card-h">What the team delivers</div>' + prods + '</div>' +
+      (focus.length ? '<div class="card pt-facts"><div class="card-h">Focus</div>' + blk(focus) + '</div>' : '') +
+      (reach.length ? '<div class="card pt-facts"><div class="card-h">Reach</div>' + blk(reach) + '</div>' : '');
   };
   /* on the partner's own company page */
   APP.ptViewHtml = function (co) {
@@ -386,14 +404,19 @@
     var c = p.partner || {};
     var meta = [p.industry, p.size, p.country ? countryName(p.country) + (p.city ? ', ' + p.city : '') : ''].filter(Boolean).join(' · ');
     var site = safeUrl(p.website);
-    return '<div class="narrow">' + back +
-      '<div class="card co-banner-card"><div class="co-banner"><span class="brand-logo xl">' + (p.anon ? APP.icon('lock', 28) : h(APP.initials(p.name))) + '</span></div>' +
-      '<div class="co-banner-body"><div class="co-id"><h2>' + h(p.name) + ' ' + APP.coTypeBadgeOf('partner') + '</h2>' + (meta ? '<p class="muted">' + h(meta) + '</p>' : '') +
-      (site && !p.anon ? '<p class="small"><a class="link" href="' + h(site) + '" target="_blank" rel="noopener noreferrer">' + h(p.website) + '</a></p>' : '') + '</div></div></div>' +
+    var req = actionHtml(p, id);
+    var canAsk = req.indexOf('data-form="pt-send"') >= 0;
+    return '<div class="narrow pt-wide">' + back +
+      '<header class="card pt-hero"><div class="pt-hero-top"><span class="brand-logo lg" aria-hidden="true">' + (p.anon ? APP.icon('lock', 22) : h(APP.initials(p.name))) + '</span>' +
+      '<div class="grow"><h1 class="pt-h1">' + h(p.name) + ' ' + APP.coTypeBadgeOf('partner') + '</h1>' + (meta ? '<p class="muted pt-meta">' + h(meta) + '</p>' : '') +
+      (site && !p.anon ? '<p class="small pt-site"><a class="link" href="' + h(site) + '" target="_blank" rel="noopener noreferrer">' + h(p.website) + '</a></p>' : '') + '</div>' +
+      (canAsk ? '<button type="button" class="btn btn-primary pt-hero-cta" data-action="pt-scroll-req">Send a request</button>' : '') + '</div>' +
+      APP.ptFactsHtml(c) + '</header>' +
       (p.anon ? '<div class="card pt-anon-card">' + APP.icon('lock', 16) + ' <span>This partner keeps its name private. You will see its name, contact person and contact details once it accepts your request.</span></div>' : '') +
-      (p.about && !p.anon ? '<div class="card"><div class="card-h">About</div><p>' + h(p.about) + '</p></div>' : '') +
+      '<div class="pt-cols"><div class="pt-main">' +
       APP.ptCapsHtml(p, { noBest: p.anon }) +
-      actionHtml(p, id) + '</div>';
+      (p.about && !p.anon ? '<div class="card"><div class="card-h">About</div><p class="pt-about">' + h(p.about) + '</p></div>' : '') +
+      '</div><aside class="pt-side" id="pt-req">' + req + '</aside></div></div>';
   };
 
   /* ------------------------------ requests page ------------------------------ */
@@ -443,6 +466,7 @@
     APP.onClick = function (el, e) {
       var a = el && el.dataset && el.dataset.action;
       if (a === 'pt-accept' || a === 'pt-decline') { APP.ptAnswer(el.dataset.id, a === 'pt-accept'); return; }
+      if (a === 'pt-scroll-req') { var rq = document.getElementById('pt-req'); if (rq) { rq.scrollIntoView({ behavior: 'smooth', block: 'start' }); var ta = rq.querySelector('textarea,select'); if (ta) ta.focus({ preventScroll: true }); } return; }
       if (a === 'pt-clear') { APP.state.ptF = emptyF(); APP.render(); return; }
       if (a === 'pt-retry') { APP.ptFail = false; APP.ptLoad(true); APP.render(); return; }
       return click.apply(this, arguments);

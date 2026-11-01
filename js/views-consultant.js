@@ -213,6 +213,7 @@ APP.views['c-profile'] = function () {
         '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
         '</div>' +
         '<div class="field"><span class="label">Languages <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('profile', 'languages', APP.withSelected(APP.languages, d.languages), d.languages || []) + '</div></div>',
+      privacy: '<h3 class="pe-h">Privacy</h3>' + APP.visPro(d, 'pedit'),
       experience: '<h3 class="pe-h">Experience &amp; availability</h3>' +
         '<div class="form-grid">' +
         '<label class="field"><span class="label">Years of experience</span><input name="yearsExp" type="number" min="1" max="40" class="input" value="' + APP.h(d.yearsExp) + '"></label>' +

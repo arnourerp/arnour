@@ -31,6 +31,8 @@ const modes={functional:'full',technical:'optional',basis:'products',architect:'
 for(const rt of Object.keys(modes)){
   await ev((rt)=>{ APP.wizC={step:1,data:Object.assign(APP.wizCDefaults(),{firstName:'A',lastName:'B',gender:'male',headline:'H',nationality:'Egypt',country:'ae',languages:['English']})}; APP.rtSet(APP.wizC.data,[rt]); APP._formSyncSkip=['wiz-c']; APP.render(); },rt);
   await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(150);
+  t(rt+': step 1 → privacy',await ev(()=>APP.wizC.step===7));
+  await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(150);
   t(rt+': step 1 → 2',await ev(()=>APP.wizC.step===2),await ev(()=>Array.from(document.querySelectorAll('.toast')).map(x=>x.textContent).join('|')+' step='+APP.wizC.step+' d='+JSON.stringify(APP.wizC.data).slice(0,200)));
   const lvl=await p.locator('form[data-form=wiz-c] [data-group=level]').count();
   const wantLvl=!['keyuser','junior'].includes(rt);

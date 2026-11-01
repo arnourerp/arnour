@@ -33,7 +33,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
 const P=await page('pro');
 await go(P,'#/c/profile'); await P.waitForSelector('[data-action=profile-edit-on]');
 await P.click('[data-action=profile-edit-on]'); await P.waitForSelector('.pe-nav');
-t('five sections in a side menu',await P.locator('.pe-tab').count()===5);
+t('six sections in a side menu (Privacy included)',await P.locator('.pe-tab').count()===6);
 t('shows a completeness figure',/\d+% complete/.test(await P.textContent('.pe-pct')));
 t('only the first section is showing',await P.evaluate(()=>[...document.querySelectorAll('.pe-pane')].filter(x=>!x.hidden).map(x=>x.dataset.pane).join()==='basics'));
 t('basics holds names, role and country',await P.locator('.pe-pane[data-pane=basics] [name=firstName]').isVisible()&&await P.locator('.pe-pane[data-pane=basics] [name=country]').isVisible());

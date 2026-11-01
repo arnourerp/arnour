@@ -175,26 +175,6 @@ APP.views.register = function () {
     '</div></div>';
 };
 
-/* Privacy choice shown on the last step of both sign-up wizards: switch + live preview of what the other side will see */
-APP.wizPrivacyHtml = function (role, d) {
-  const on = !!d.anon, isC = role === 'c';
-  let prev;
-  if (isC) {
-    let nm = 'SAP professional', sub = '';
-    try { const x = APP.cv(Object.assign({ id: 'preview' }, d), true); nm = APP.consultantFullName(x); sub = x.headline; } catch (e) {}
-    prev = APP.avatarHtml(nm, 'lg', true) + '<div><b>' + APP.h(nm) + '</b><div class="muted small">' + APP.h(sub) + (d.country ? ' · ' + APP.h(APP.countryName(d.country) || '') : '') + '</div></div>';
-  } else {
-    prev = APP.avatarHtml('Confidential company', 'lg') + '<div><b>Confidential company</b><div class="muted small">' + APP.h(d.industry || '') + (d.country ? ' · ' + APP.h(APP.countryName(d.country) || '') : '') + '</div></div>';
-  }
-  return '<div class="card privacy-card wiz-privacy"><div class="pc-row"><div class="grow"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + (isC ? 'Mutual Reveal: stay private until you say yes' : 'Stay confidential until you say yes') + ' <span class="muted small">' + (isC ? '(recommended)' : '(optional)') + '</span></div>' +
-    '<p class="muted small" style="margin:4px 0 0">' + (isC
-      ? 'Companies find you by your skills (product, module and projects), not your name. They can ask to connect, and your name, photo and CV are shared only if you accept.'
-      : 'Professionals see your roles, not which company is hiring, until you accept their interest. You can also choose this for each role.') + '</p></div>' +
-    '<button type="button" class="switch' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + (isC ? 'Keep my identity private' : 'Keep my company confidential') + '" data-action="wiz-anon" data-r="' + role + '"><span></span></button></div>' +
-    '<div class="anon-preview"><span class="muted small">' + (on ? (isC ? 'Companies will see you as' : 'Professionals will see you as') : (isC ? 'If you turn this on, companies see you as' : 'If you turn this on, professionals see you as')) + '</span><div class="ap-row">' + prev + '</div>' +
-    '<p class="muted small">' + (isC ? 'Hidden until you accept: name, photo, LinkedIn, summary, city, nationality and CV. ' : 'Hidden until you accept: company name, logo, website and contact. ') + 'A reveal cannot be undone, so it only happens when you accept. You can change this any time in your profile.</p></div></div>';
-};
-
 /* ------------------------------ professional wizard ------------------------------ */
 
 APP.wizCDefaults = function () {
@@ -209,11 +189,11 @@ APP.wizCDefaults = function () {
   };
 };
 
-APP.wizStepsC = ['About you', 'Experience', 'SAP skills', 'Specialties', 'Your rate', 'CV & finish'];
+APP.wizStepsC = ['About you', 'Experience', 'SAP skills', 'Specialties', 'Your rate', 'CV & finish', 'Privacy'];
 /* Steps people actually see: the rate step (5) is skipped while APP.SHOW_RATES is off. */
 APP.wizVisible = () => {
   const d = APP.wizC && APP.wizC.data;
-  const base = d && APP.isLeadRole(d) ? [1, 2, 4, 3, 5, 6] : [1, 2, 3, 4, 5, 6]; /* leadership roles: expertise before the SAP landscape */
+  const base = d && APP.isLeadRole(d) ? [1, 7, 2, 4, 3, 5, 6] : [1, 7, 2, 3, 4, 5, 6]; /* leadership roles: expertise before the SAP landscape */
   return APP.SHOW_RATES ? base : base.filter(n => n !== 5);
 };
 APP.wizStepTitle = (n, d) => (d && APP.isLeadRole(d) && { 3: 'SAP landscape', 4: 'Your expertise' }[n]) || APP.wizStepsC[n - 1];
@@ -266,6 +246,12 @@ APP.views['wiz-c'] = function () {
       sec('languages', 'msg', 'Languages <span class="req-star">*</span>',
         '<div class="field field-langs"><div class="chip-wrap">' + APP.chipGroup('wizC', 'languages', APP.withSelected(APP.languages, d.languages), d.languages) + '</div>' + E('languages') + '</div>') +
       APP.wizNav(1, 6) +
+      '</form>';
+  } else if (step === 7) {
+    body = '<form data-form="wiz-c" data-step="7">' +
+      '<p class="vis-intro">Arnour works <b>skills first, names second</b>: companies find you by what you can do. Choose what they see before you accept.</p>' +
+      APP.visPro(d, 'wizC', { after: ' You can change this any time in Edit profile.' }) +
+      APP.wizNav(7, 6) +
       '</form>';
   } else if (step === 2) {
     body = '<form data-form="wiz-c" data-step="2">' +
@@ -343,7 +329,6 @@ APP.views['wiz-c'] = function () {
         (d.workPrefs && d.workPrefs.length ? 'Open to: ' + APP.h(d.workPrefs.join(', ')) + '<br>' : '') +
         (APP.SHOW_RATES ? APP.rateHtml({ currency: d.currencyChosen ? d.currency : APP.defaultCurrency(d.country), dailyRate: d.dailyRate, ratePeriod: d.ratePeriod }) : '') +
         '</div></div>') +
-      APP.wizPrivacyHtml('c', d) +
       APP.wizNav(6, 6, true) +
       '</form>';
   }
@@ -389,7 +374,7 @@ APP.wizNav = function (step, total, last) {
   return '<div class="wiz-nav">' +
     (step > 1 ? '<button type="button" class="btn btn-ghost" data-action="wiz-back" data-target="wizC">← Back</button>' : '') +
     '<span class="grow"></span>' +
-    (!last && APP.wizVisible().indexOf(step) >= (APP.wizC && APP.isLeadRole(APP.wizC.data) ? 3 : 2) ? '<button type="button" class="btn btn-outline" data-action="wiz-skip">Skip the rest and create my profile</button>' : '') +
+    (!last && APP.wizVisible().indexOf(step) >= (APP.wizC && APP.isLeadRole(APP.wizC.data) ? 4 : 3) ? '<button type="button" class="btn btn-outline" data-action="wiz-skip">Skip the rest and create my profile</button>' : '') +
     (last
       ? '<button type="submit" class="btn btn-primary btn-lg">' + APP.icon('check', 16) + ' Create my profile</button>'
       : '<button type="submit" class="btn btn-primary btn-lg">Continue →</button>') +
@@ -405,7 +390,7 @@ APP.wizEDefaults = function () {
   };
 };
 
-APP.wizStepsE = ['Company', 'SAP footprint', 'Finish'];
+APP.wizStepsE = ['Company', 'Privacy', 'SAP footprint', 'Finish'];
 /* an SI/Partner describes what its team delivers instead of the SAP systems it runs */
 APP.wizProgressHtml = function (names, step) {
   return names.map((label, i) =>
@@ -435,7 +420,7 @@ APP.views['wiz-e'] = function () {
       '<label class="field"><span class="label">Website</span><input name="website" class="input" value="' + APP.h(d.website) + '" placeholder="company.com"></label>' +
       '</div>' +
       '<label class="field"><span class="label">About</span><textarea name="about" class="input" rows="5" placeholder="What does the company do, and what SAP systems does it run? Professionals read this before they apply.">' + APP.h(d.about) + '</textarea></label>' +
-      APP.wizNav2(1, 3) +
+      APP.wizNav2(1, 4) +
       '</form>';
   } else if (step === 2 && isPt) {
     APP.ptEnsure(d);
@@ -457,6 +442,12 @@ APP.views['wiz-e'] = function () {
       '</form>';
   } else if (step === 2) {
     body = '<form data-form="wiz-e" data-step="2">' +
+      '<p class="vis-intro">Arnour works <b>skills first, names second</b>. Choose how your company appears when you post roles.</p>' +
+      APP.visCo(d, 'wizE', { after: ' You can change this any time, and per role.' }) +
+      APP.wizNav2(2, 4) +
+      '</form>';
+  } else if (step === 3) {
+    body = '<form data-form="wiz-e" data-step="3">' +
       '<div class="field"><span class="label">SAP systems your company runs</span>' +
       '<p class="field-hint">Professionals use this to self-select. Pick all that apply.</p>' +
       '<div class="chip-wrap">' + APP.chipGroup('wizE', 'sapSystems', CATALOG.products, d.sapSystems) + '</div></div>' +
@@ -464,7 +455,7 @@ APP.views['wiz-e'] = function () {
       '<label class="field"><span class="label">Contact name *</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '" placeholder="Hala Al Suwaidi"></label>' +
       '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '" placeholder="Talent Partner"></label>' +
       '</div>' +
-      APP.wizNav2(2, 3) +
+      APP.wizNav2(3, 4) +
       '</form>';
   } else {
     body = '<form data-form="wiz-e" data-step="' + step + '">' +
@@ -474,7 +465,7 @@ APP.views['wiz-e'] = function () {
       (isPt ? '<br>Team skills: ' + APP.h(APP.ptSummaryLine(d.partner)) + '<br>Delivers in ' + APP.h((d.partner.countries || []).map(id => (APP.countriesById[id] || {}).name || id).join(', ')) + ' · ' + APP.h(d.partner.teamSize) + ' consultants' + (d.partner.hideName ? '<br>Your name stays hidden until you accept a request' : '') : '<br>Systems: ' + APP.h((d.sapSystems || []).map(id => APP.productShort(id)).join(', ') || '—')) +
       '<br>Contact: ' + APP.h(d.contactName || '—') + (d.contactTitle ? ' (' + APP.h(d.contactTitle) + ')' : '') + '</div></div>' +
       '<p class="muted small">After creating your profile you can post your first job and start searching talent.</p>' +
-      APP.wizNav2(isPt ? 4 : 3, isPt ? 4 : 3, true) +
+      APP.wizNav2(4, 4, true) +
       '</form>';
   }
 

@@ -131,7 +131,8 @@ APP.views['e-company'] = function () {
     ].concat(isPt
       ? [{ id: 'skills', label: 'Team skills', sub: 'What your team delivers', ok: ptn > 0 },
          { id: 'reach', label: 'Reach & visibility', sub: 'Countries, size, name', ok: !APP.ptMissing(pp) }]
-      : [{ id: 'systems', label: 'SAP systems', sub: 'What you run', ok: (d.sapSystems || []).length > 0 }]
+      : [{ id: 'privacy', label: 'Privacy', sub: 'Who sees your name', ok: true },
+         { id: 'systems', label: 'SAP systems', sub: 'What you run', ok: (d.sapSystems || []).length > 0 }]
     ).concat([{ id: 'contact', label: 'Contact', sub: 'Who professionals talk to', ok: !!(d.contactName && d.contactName.trim()) }]);
     sec.pct = Math.round(sec.filter(x => x.ok).length * 100 / sec.length);
     const cur = (sec.find(x => x.id === APP.state.profileSec) || sec[0]).id;
@@ -153,6 +154,7 @@ APP.views['e-company'] = function () {
         '<label class="field"><span class="label">About</span><textarea name="about" class="input" rows="6" placeholder="' + (isPt ? 'Who is your firm, and what do you do for SAP customers?' : 'What does the company do, and what SAP systems does it run?') + '">' + APP.h(d.about) + '</textarea></label>',
       skills: isPt ? '<h3 class="pe-h">Team skills</h3>' + APP.ptSkillsHtml(d) : '',
       reach: isPt ? '<h3 class="pe-h">Reach &amp; visibility</h3>' + APP.ptDetailsHtml(d) : '',
+      privacy: isPt ? '' : '<h3 class="pe-h">Privacy</h3>' + APP.visCo(d, 'coedit'),
       systems: '<h3 class="pe-h">SAP systems in use</h3><div class="field"><div class="chip-wrap">' + APP.chipGroup('profile', 'sapSystems', CATALOG.products, d.sapSystems || []) + '</div></div>',
       contact: '<h3 class="pe-h">Contact</h3><div class="form-grid">' +
         '<label class="field"><span class="label">Contact name</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '"></label>' +
@@ -517,7 +519,7 @@ APP.jobFormView = function (mode) {
   const co = APP.company(APP.db.session.companyId);
   if (!co) return '<div class="empty">Company not found.</div>';
   const editing = mode === 'edit';
-  if (!editing && (!APP.jobNewDraft || APP.jobNewDraft.editId)) { APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), { country: co.country, city: co.city, confidential: false }); APP.state.jobStep = 1; APP.state.jobErr = null; }
+  if (!editing && (!APP.jobNewDraft || APP.jobNewDraft.editId)) { APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), { country: co.country, city: co.city, confidential: co.confidentialDefault === true }); APP.state.jobStep = 1; APP.state.jobErr = null; }
   const d = APP.jobNewDraft;
 
   const st = APP.state.jobDet || {};
