@@ -98,9 +98,10 @@ const step2=(p)=>p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').
   t('B: the found card lists what was filled and asks for a check',/We read your presentation/.test(card)&&/1 SAP product and 2 modules/.test(card)&&/industries/.test(card)&&/Please check it/.test(card)&&/Nothing is saved until/.test(card),card);
   t('B: the form shows the filled values (one product card, two certified modules)',await p.evaluate(()=>document.querySelectorAll('form[data-form=wiz-e] .prod-card').length===1&&document.querySelectorAll('form[data-form=wiz-e] .cert-chip.on').length===2));
   t('B: the draft is saved so a reload keeps it',await p.evaluate(()=>{ const x=JSON.parse(localStorage.getItem('arnour-wizard-draft')||'null'); return !!x&&x.wiz.data.partner.skills.length===2; }));
-  t('B: the contact name is still needed',await p.evaluate(()=>!document.querySelector('input[name=contactName]').value));
+  await step2(p);
+  t('B: step 3 already has the details from the file, so only the contact name is still needed',await p.evaluate(()=>APP.wizE.step===3&&!!document.querySelector('[data-pt-best]').value&&!document.querySelector('input[name=contactName]').value));
   await p.fill('input[name=contactName]','Dana'); await step2(p);
-  t('B: step 3 reviews the team skills',await p.evaluate(()=>APP.wizE.step===3&&/Team skills: 2 modules across 1 product/.test(document.body.textContent)));
+  t('B: step 4 reviews the team skills',await p.evaluate(()=>APP.wizE.step===4&&/Team skills: 2 modules across 1 product/.test(document.body.textContent)));
   await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit());
   await p.waitForFunction(()=>location.hash==='#/e/dashboard',null,{timeout:10000});
   const row=(await be.db.query(`select data from companies where owner=$1`,[be.users[p.email].id])).rows[0].data;
@@ -130,8 +131,8 @@ const step2=(p)=>p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').
 { const p=await open({});
   await p.click('[data-pt-act=dismiss]'); await p.waitForTimeout(200);
   t('D: "No thanks" hides the card',await p.evaluate(()=>!document.querySelector('.pt-import')));
-  await p.evaluate(()=>{ APP.wizE.data.partner.skills.push({productId:'s4onprem',moduleId:'mm',projects:1,certified:false}); APP.wizE.data.contactName='Dana'; APP._formSyncSkip=['wiz-e']; APP.render(); });
-  await step2(p); await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit());
+  await p.evaluate(()=>{ const d=APP.wizE.data; d.partner.skills.push({productId:'s4onprem',moduleId:'mm',projects:1,certified:false}); Object.assign(d.partner,{countries:['ae'],languages:['English'],delivery:['onsite'],engagement:['team'],teamSize:'11-50',bestAt:'Finance.'}); d.contactName='Dana'; APP._formSyncSkip=['wiz-e']; APP.render(); });
+  await step2(p); await step2(p); await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit());
   await p.waitForFunction(()=>location.hash==='#/e/dashboard',null,{timeout:10000});
   await p.evaluate(()=>{ location.hash='#/e/company'; }); await p.waitForTimeout(500);
   await p.click('[data-action=co-edit-on]'); await p.waitForTimeout(500);

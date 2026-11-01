@@ -130,7 +130,7 @@ APP.views['e-company'] = function () {
       { id: 'about', label: 'About', sub: isPt ? 'Who you are' : 'What the company does', ok: !!(d.about && d.about.trim()) }
     ].concat(isPt
       ? [{ id: 'skills', label: 'Team skills', sub: 'What your team delivers', ok: ptn > 0 },
-         { id: 'reach', label: 'Reach & visibility', sub: 'Countries, size, name', ok: !!((pp.countries || []).length || pp.teamSize || (pp.engagement || []).length) }]
+         { id: 'reach', label: 'Reach & visibility', sub: 'Countries, size, name', ok: !APP.ptMissing(pp) }]
       : [{ id: 'systems', label: 'SAP systems', sub: 'What you run', ok: (d.sapSystems || []).length > 0 }]
     ).concat([{ id: 'contact', label: 'Contact', sub: 'Who professionals talk to', ok: !!(d.contactName && d.contactName.trim()) }]);
     sec.pct = Math.round(sec.filter(x => x.ok).length * 100 / sec.length);

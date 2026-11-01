@@ -154,6 +154,17 @@
     var np = Object.keys(prods).length;
     return n ? n + (n === 1 ? ' module' : ' modules') + ' across ' + np + (np === 1 ? ' product' : ' products') : '—';
   };
+  /* what a partner must fill in besides its skills; returns the first thing missing (text for a toast) or '' */
+  APP.ptMissing = function (p) {
+    p = p || {};
+    if (!(p.countries || []).length) return 'Choose at least one country you deliver in';
+    if (!(p.languages || []).length) return 'Choose at least one language your team works in';
+    if (!(p.delivery || []).length) return 'Choose how you deliver (on-site, remote or hybrid)';
+    if (!(p.engagement || []).length) return 'Choose what you provide (a project team, consultants or support)';
+    if (!p.teamSize) return 'Choose your team size';
+    if (!String(p.bestAt || '').trim()) return 'Tell customers in a sentence what you are best at';
+    return '';
+  };
   APP.ptSkillCount = function (p) { return ((p && p.skills) || []).filter(function (k) { return k && k.productId && k.moduleId; }).length; };
   var grp = function (title, hint, body) { return '<div class="field"><span class="label">' + title + (hint ? ' <span class="muted">' + hint + '</span>' : '') + '</span>' + body + '</div>'; };
   /* pane 1: the products and modules the team delivers (what customers search on), plus industries and specialties */
@@ -167,14 +178,15 @@
   /* pane 2: where and how the team delivers, size, best-at text and the hide-name switch */
   APP.ptDetailsHtml = function (d) {
     var p = APP.ptEnsure(d);
-    return grp('Countries you deliver in', '(optional)', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
-      grp('Languages your team works in', '(optional)', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'languages', APP.languages, p.languages) + '</div>') +
+    var R = '<span class="req-star">*</span>';
+    return grp('Countries you deliver in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
+      grp('Languages your team works in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'languages', APP.languages, p.languages) + '</div>') +
       '<div class="form-grid">' +
-      grp('How you deliver', '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'delivery', pairsToOpts(APP.PT_DELIVERY), p.delivery) + '</div>') +
-      grp('What you provide', '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'engagement', pairsToOpts(APP.PT_ENGAGE), p.engagement) + '</div>') +
+      grp('How you deliver ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'delivery', pairsToOpts(APP.PT_DELIVERY), p.delivery) + '</div>') +
+      grp('What you provide ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'engagement', pairsToOpts(APP.PT_ENGAGE), p.engagement) + '</div>') +
       '</div>' +
-      grp('Team size (SAP consultants)', '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'teamSize', APP.PT_SIZES, p.teamSize, true) + '</div>') +
-      '<label class="field"><span class="label">What you are best at <span class="muted">(optional, up to 400 characters)</span></span>' +
+      grp('Team size (SAP consultants) ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'teamSize', APP.PT_SIZES, p.teamSize, true) + '</div>') +
+      '<label class="field"><span class="label">What you are best at ' + R + ' <span class="muted">(up to 400 characters)</span></span>' +
       '<textarea class="input" rows="3" maxlength="400" data-pt-best placeholder="e.g. S/4HANA Public Cloud rollouts for retail groups in the Gulf, with a local support desk.">' + h(p.bestAt) + '</textarea></label>' +
       '<label class="field checkbox-field chk-line"><input type="checkbox" data-pt-hide' + (p.hideName ? ' checked' : '') + '> <span>Hide our name until we accept a request<small class="muted"> — customers see what your team delivers, but not your name, contact person or the text above, until you accept their request.</small></span></label>';
   };
@@ -266,22 +278,31 @@
     out.sort(function (a, b) { return (b.m.met - a.m.met) || String(a.p.name).localeCompare(String(b.p.name)); });
     return out;
   };
+  /* A calm card: who they are, what they are best at, the products (never the modules), and how they work with you.
+     The modules are on the partner page. With a product filter on, one line says which modules of that product they delivered. */
   function cardHtml(x, f) {
     var p = x.p, c = p.partner || {}, sk = c.skills || [];
-    var top = sk.slice().sort(function (a, b) { return (b.projects || 0) - (a.projects || 0); });
-    var shown = top.slice(0, 5).map(function (k) { return '<span class="chip">' + h(APP.productShort(k.productId)) + ' · ' + h(APP.moduleShort(APP.skillName(k.productId, k.moduleId) || k.moduleId)) + '</span>'; }).join('');
-    var more = top.length > 5 ? '<span class="chip chip-more">+' + (top.length - 5) + ' more</span>' : '';
-    var meta = [p.country ? countryName(p.country) : '', c.teamSize ? c.teamSize + ' consultants' : '', (c.engagement || []).map(function (e) { return lab(APP.PT_ENGAGE, e); }).join(', ')].filter(Boolean).join(' · ');
-    var extra = [];
-    if ((c.industries || []).length) extra.push('<span class="muted small">' + h(c.industries.slice(0, 3).join(', ')) + (c.industries.length > 3 ? ' +' + (c.industries.length - 3) : '') + '</span>');
-    if ((c.countries || []).length) extra.push('<span class="muted small">Delivers in ' + h(c.countries.slice(0, 4).map(countryName).join(', ')) + (c.countries.length > 4 ? ' +' + (c.countries.length - 4) : '') + '</span>');
+    var byProd = {}, order = [];
+    sk.forEach(function (k) { if (!byProd[k.productId]) { byProd[k.productId] = 0; order.push(k.productId); } byProd[k.productId] += (k.projects || 0) + 1; });
+    order.sort(function (a, b) { return byProd[b] - byProd[a]; });
+    var shown = order.slice(0, 4).map(function (id) { return '<span class="chip">' + h(APP.productShort(id)) + '</span>'; }).join('');
+    var more = order.length > 4 ? '<span class="chip chip-more">+' + (order.length - 4) + ' more</span>' : '';
+    var meta = [p.country ? countryName(p.country) : '', c.teamSize ? c.teamSize + ' consultants' : ''].filter(Boolean).join(' · ');
+    var tag = String(c.bestAt || p.about || '').trim();
+    var how = (c.engagement || []).map(function (e) { return lab(APP.PT_ENGAGE, e); }).join(' · ');
+    var here = '';
+    if (f && f.product) {
+      var ms = sk.filter(function (k) { return k.productId === f.product && k.moduleId && k.moduleId !== '*'; }).map(function (k) { return APP.moduleShort(APP.skillName(k.productId, k.moduleId) || k.moduleId); });
+      if (ms.length) here = '<div class="pt-here">Delivered here: <b>' + h(ms.slice(0, 4).join(', ')) + '</b>' + (ms.length > 4 ? ' +' + (ms.length - 4) : '') + '</div>';
+    }
     var metTxt = x.m.total ? '<span class="pt-met' + (x.m.met === x.m.total ? ' all' : '') + '">Covers ' + x.m.met + ' of ' + x.m.total + (x.m.total === 1 ? ' need' : ' needs') + '</span>' : '';
     return '<div class="card pt-card" data-card-href="#/partner/' + h(p.id) + '">' +
       '<div class="pt-card-top"><span class="brand-logo">' + (p.anon ? APP.icon('lock', 16) : h(APP.initials(p.name))) + '</span>' +
       '<div class="grow"><div class="pt-name"><a class="card-title" href="#/partner/' + h(p.id) + '">' + h(p.name) + '</a>' + APP.coTypeBadgeOf('partner') + '</div>' +
       '<div class="muted small">' + h(meta) + '</div></div>' + metTxt + '</div>' +
-      '<div class="chip-wrap pt-chips">' + shown + more + '</div>' +
-      (extra.length ? '<div class="pt-extra">' + extra.join('') + '</div>' : '') +
+      (tag ? '<p class="pt-tag">' + h(tag) + '</p>' : '') +
+      '<div class="chip-wrap pt-chips">' + shown + more + '</div>' + here +
+      (how ? '<div class="pt-how muted small">' + h(how) + '</div>' : '') +
       (p.anon ? '<div class="muted small pt-anon">' + APP.icon('lock', 12) + ' Name shared after they accept your request</div>' : '') +
       '</div>';
   }
@@ -465,8 +486,7 @@
     var t = e.target; if (!t || !t.matches) return;
     if (t.name === 'companyType' && t.closest('form[data-form="wiz-e"]') && APP.wizE) {
       APP.wizE.data.companyType = t.value;
-      var lab = document.querySelectorAll('.wiz-progress .wiz-step small'), names = APP.wizStepsEFor(APP.wizE.data);
-      for (var i = 0; i < lab.length; i++) lab[i].textContent = names[i];
+      var bar = document.querySelector('.wiz-progress'); if (bar) bar.innerHTML = APP.wizProgressHtml(APP.wizStepsEFor(APP.wizE.data), APP.wizE.step);
       return;
     }
     if (t.name === 'companyType' && t.closest('form[data-form="company-edit"]')) {

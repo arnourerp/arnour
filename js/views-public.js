@@ -407,7 +407,12 @@ APP.wizEDefaults = function () {
 
 APP.wizStepsE = ['Company', 'SAP footprint', 'Finish'];
 /* an SI/Partner describes what its team delivers instead of the SAP systems it runs */
-APP.wizStepsEFor = function (d) { return d && d.companyType === 'partner' ? ['Company', 'Team skills', 'Finish'] : APP.wizStepsE; };
+APP.wizProgressHtml = function (names, step) {
+  return names.map((label, i) =>
+    '<div class="wiz-step ' + (i + 1 === step ? 'active' : '') + (i + 1 < step ? 'done' : '') + '"><span class="wiz-dot">' + (i + 1 < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + label + '</small></div>'
+  ).join('');
+};
+APP.wizStepsEFor = function (d) { return d && d.companyType === 'partner' ? ['Company', 'Team skills', 'About your team', 'Finish'] : APP.wizStepsE; };
 
 APP.views['wiz-e'] = function () {
   if (!APP.wizE) APP.wizE = { step: 1, data: APP.wizEDefaults() };
@@ -415,9 +420,7 @@ APP.views['wiz-e'] = function () {
   const step = APP.wizE.step;
   APP._ptHostWiz = true;
   const isPt = d.companyType === 'partner', stepNames = APP.wizStepsEFor(d);
-  const progress = stepNames.map((label, i) =>
-    '<div class="wiz-step ' + (i + 1 === step ? 'active' : '') + (i + 1 < step ? 'done' : '') + '"><span class="wiz-dot">' + (i + 1 < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + label + '</small></div>'
-  ).join('');
+  const progress = APP.wizProgressHtml(stepNames, step);
 
   let body = '';
   if (step === 1) {
@@ -438,14 +441,19 @@ APP.views['wiz-e'] = function () {
     APP.ptEnsure(d);
     body = '<form data-form="wiz-e" data-step="2">' +
       (APP.ptImportSlotHtml ? APP.ptImportSlotHtml() : '') +
-      '<p class="field-hint">Tell SAP Customers what your team delivers. They search partners by this. Leave out rates and prices.</p>' +
       APP.ptSkillsHtml(d) +
-      '<details class="pt-more"' + (APP.ptSkillCount(d.partner) && ((d.partner.countries || []).length || d.partner.teamSize || d.partner.bestAt) ? ' open' : '') + '><summary>More about your team <span class="muted">(optional, you can add it later)</span></summary>' + APP.ptDetailsHtml(d) + '</details>' +
+      APP.wizNav2(2, 4) +
+      '</form>';
+  } else if (step === 3 && isPt) {
+    APP.ptEnsure(d);
+    body = '<form data-form="wiz-e" data-step="3">' +
+      '<p class="field-hint">Everything marked * is needed, so customers can judge fit before they ask. Leave out rates and prices.</p>' +
+      APP.ptDetailsHtml(d) +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Contact name *</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '" placeholder="Hala Al Suwaidi"></label>' +
       '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '" placeholder="Partner Manager"></label>' +
       '</div>' +
-      APP.wizNav2(2, 3) +
+      APP.wizNav2(3, 4) +
       '</form>';
   } else if (step === 2) {
     body = '<form data-form="wiz-e" data-step="2">' +
@@ -459,14 +467,14 @@ APP.views['wiz-e'] = function () {
       APP.wizNav2(2, 3) +
       '</form>';
   } else {
-    body = '<form data-form="wiz-e" data-step="3">' +
+    body = '<form data-form="wiz-e" data-step="' + step + '">' +
       '<div class="review-box">' +
       '<strong>' + APP.h(d.name || 'Your company') + '</strong>' +
       '<div class="muted small">' + APP.h(d.industry) + ' · ' + APP.h(d.size) + ' · ' + APP.h(APP.locText(d)) +
-      (isPt ? '<br>Team skills: ' + APP.h(APP.ptSummaryLine(d.partner)) : '<br>Systems: ' + APP.h((d.sapSystems || []).map(id => APP.productShort(id)).join(', ') || '—')) +
+      (isPt ? '<br>Team skills: ' + APP.h(APP.ptSummaryLine(d.partner)) + '<br>Delivers in ' + APP.h((d.partner.countries || []).map(id => (APP.countriesById[id] || {}).name || id).join(', ')) + ' · ' + APP.h(d.partner.teamSize) + ' consultants' + (d.partner.hideName ? '<br>Your name stays hidden until you accept a request' : '') : '<br>Systems: ' + APP.h((d.sapSystems || []).map(id => APP.productShort(id)).join(', ') || '—')) +
       '<br>Contact: ' + APP.h(d.contactName || '—') + (d.contactTitle ? ' (' + APP.h(d.contactTitle) + ')' : '') + '</div></div>' +
       '<p class="muted small">After creating your profile you can post your first job and start searching talent.</p>' +
-      APP.wizNav2(3, 3, true) +
+      APP.wizNav2(isPt ? 4 : 3, isPt ? 4 : 3, true) +
       '</form>';
   }
 

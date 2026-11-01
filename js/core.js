@@ -4692,12 +4692,18 @@ APP.onSubmit = function (f) {
         d.companyType = g('companyType');
         if (d.name && d.country && !APP.coTypeById[d.companyType]) { APP.toast('Please tell us what best describes you'); return; }
         if (!d.name || !d.country) { APP.toast(!d.name ? 'Please enter your company name' : 'Please select the headquarters country'); return; }
+      } else if (step === 2 && d.companyType === 'partner') {
+        if (APP.ptSkillCount && !APP.ptSkillCount(APP.ptEnsure(d))) { APP.toast('Add at least one SAP product and module your team delivers'); return; }
+      } else if (step === 3 && d.companyType === 'partner') {
+        d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
+        const miss = APP.ptMissing(APP.ptEnsure(d));
+        if (miss) { APP.toast(miss); return; }
+        if (!d.contactName) { APP.toast('Add a contact name so customers know who they\'re talking to'); return; }
       } else if (step === 2) {
         if (f.querySelector('[name="about"]')) d.about = g('about'); /* About lives on step 1 — never clobber it here */
         d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
-        if (d.companyType === 'partner' && APP.ptSkillCount && !APP.ptSkillCount(APP.ptEnsure(d))) { APP.toast('Add at least one SAP product and module your team delivers'); return; }
         if (!d.contactName) { APP.toast('Add a contact name so professionals know who they\'re talking to'); return; }
-      } else if (step === 3) {
+      } else if (step === (d.companyType === 'partner' ? 4 : 3)) {
         d.sapSystems = d.sapSystems || [];
         const co = Object.assign({}, d);
         if (co.companyType !== 'partner') delete co.partner; /* capabilities belong to SI/Partners only */
@@ -4766,6 +4772,10 @@ APP.onSubmit = function (f) {
       d.website = g('website'); d.about = g('about');
       d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
       if (APP.profileDraft) d.sapSystems = APP.profileDraft.sapSystems;
+      if (d.companyType === 'partner' && APP.ptSkillCount) {
+        const pm = !APP.ptSkillCount(APP.ptEnsure(d)) ? ['skills', 'Add at least one SAP product and module your team delivers'] : (APP.ptMissing(d.partner) ? ['reach', APP.ptMissing(d.partner)] : null);
+        if (pm) { APP.toast(pm[1]); APP.peJump(pm[0]); return; }
+      }
       if (APP.ptCollect) APP.ptCollect(d, co); /* SI/Partner capabilities are kept for partners only */
       Object.assign(co, d);
       APP.state.coEdit = false;
