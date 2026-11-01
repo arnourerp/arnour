@@ -1944,3 +1944,9 @@ a.sr-title:hover { text-decoration: underline; }
 .cv-banner { display: flex; align-items: center; gap: 8px; }
 .cv-est { margin: -4px 0 14px; }
 @media (prefers-reduced-motion: reduce) { .cv-spin { animation: none; } }
+
+/* job page tabs (My match / Job post) and the requirement list inside the company's match breakdown */
+.jd-main > .jd-tabs + .jd-sec { padding-top: 0; border-top: 0; }
+.drawer-body .jd-sec { padding: 0; border-top: 0; }
+.drawer-body .jd-sec h2 { margin: var(--space-5) 0 var(--space-2); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: var(--fw-semibold); }
+.drawer-body .jd-sec h3 { margin: var(--space-3) 0 var(--space-2); }

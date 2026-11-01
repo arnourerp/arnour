@@ -1929,6 +1929,7 @@ APP.matchDrawerHtml = function (c, job) {
     '<div class="drawer-body">' +
     '<div class="mb-score"><strong>' + d.score + '%</strong><span class="match ' + b.cls + '">' + b.label + ' match</span></div>' +
     (why.length ? '<h4>Why it fits</h4><div class="chip-wrap">' + why.map(t => '<span class="chip">' + APP.h(t) + '</span>').join('') + '</div>' : '') +
+    (APP.jobSections ? APP.jobSections(job, c, { third: true, heading: 'Requirements check' }).req : '') +
     (d.gaps.length ? '<h4>To check</h4><ul class="mb-gaps">' + d.gaps.slice(0, 5).map(t => '<li>' + APP.h(t) + '</li>').join('') + '</ul>' : '') +
     '<h4>How the score is built</h4>' + APP.matchPartsHtml(d) +
     '</div></aside>';
@@ -4302,6 +4303,11 @@ APP.onClick = function (el, e) {
       else apply();
       break;
     }
+    case 'jd-tab':   /* professional's job page: My match / Job post */
+      APP.state.jdTab = APP.state.jdTab || {};
+      APP.state.jdTab[d.jid] = d.tab === 'post' ? 'post' : 'match';
+      APP.renderKeep();
+      break;
     case 'job-tab':
       APP.state.jobTab = APP.state.jobTab || {};
       APP.state.jobTab[d.jid] = d.tab;

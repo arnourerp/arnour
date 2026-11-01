@@ -523,14 +523,22 @@ APP.longTextHtml = function (text) {
   return '<div class="long-text' + (long ? ' is-clamped' : '') + '"><div class="long-body job-desc-full">' + out + '</div>' +
     (long ? '<button type="button" class="link-btn long-toggle" data-action="long-toggle" aria-expanded="false">Show more</button>' : '') + '</div>';
 };
-APP.jobSections = function (job, me) {
+/* opts.third: wording for someone looking at another person's match (the company side): "Has this" instead of "You have this".
+   opts.heading: title of the requirements block. */
+APP.jobSections = function (job, me, opts) {
+  opts = opts || {};
   const E = APP.h;
+  const T = !opts.third ? (t) => t : (t) => String(t)
+    .replace(/^You have this/, 'Has this').replace(/^You have (\d+) of /, 'Has $1 of ').replace(/^You have (\d+) yrs$/, '$1 yrs').replace(/^You have (\d+)$/, 'Has $1')
+    .replace(/^You know /, 'Knows ').replace(/^You meet this/, 'Meets this').replace(/^You speak it$/, 'Speaks it').replace(/^You are SAP-certified$/, 'SAP-certified')
+    .replace(/^No certification on your profile$/, 'No certification on profile').replace(/^Not on your profile$/, 'Not on their profile')
+    .replace(/^On your profile$/, 'On their profile').replace(/^In your industries$/, 'In their industries');
   /* ---- requirement rows with the viewer's own status: green = met, orange = partly (with the reason), red = missing.
      Missing "nice to have" items are grey, not red: they are not required. One line per option. ---- */
   const ICO = { ok: '✓', mid: '!', no: '✕', na: '–' };
   const lineHtml = (inner, st) => '<li class="jd-req st-' + (st ? st.cls : 'none') + '">' +
     '<span class="jd-ico" aria-hidden="true">' + (st ? ICO[st.cls] : '•') + '</span>' +
-    '<span class="jd-req-t">' + inner + (st ? '<span class="jd-why">' + E(st.t) + '</span>' : '') + '</span></li>';
+    '<span class="jd-req-t">' + inner + (st ? '<span class="jd-why">' + E(T(st.t)) + '</span>' : '') + '</span></li>';
   const stSkill = (r) => {
     if (!me) return null;
     const m0 = APP.reqFit(me, r, APP.jobRoleType(job));
@@ -551,7 +559,7 @@ APP.jobSections = function (job, me) {
     const top = best >= 0 ? sts[best] : null;
     const head = top ? (top.cls === 'ok' ? { cls: 'ok', t: 'You meet this (option ' + (best + 1) + ')' } : top.cls === 'mid' ? { cls: 'mid', t: 'Partly met' } : { cls: 'no', t: 'Not met' }) : null;
     return '<li class="jd-group"><div class="jd-group-h st-' + (head ? head.cls : 'none') + '"><span class="jd-ico" aria-hidden="true">' + (head ? ICO[head.cls] : '•') + '</span>' +
-      '<span><b>Any one of these</b>' + (head ? '<span class="jd-why">' + E(head.t) + '</span>' : '') + '</span></div>' +
+      '<span><b>Any one of these</b>' + (head ? '<span class="jd-why">' + E(T(head.t)) + '</span>' : '') + '</span></div>' +
       '<ul class="jd-opts">' + g.map((r, i) => (i ? '<li class="jd-or">or</li>' : '') + lineHtml(skillTxt(r), sts[i])).join('') + '</ul></li>';
   };
   const groups = APP.reqGroups(job);
@@ -578,7 +586,7 @@ APP.jobSections = function (job, me) {
   APP.jobIndustries(job).forEach(i => nice.push(lineHtml('<b>Industry</b> ' + E(i), me ? ((me.industries || []).includes(i) ? { cls: 'ok', t: 'In your industries' } : { cls: 'na', t: 'Not on your profile' }) : null)));
 
   const reqSection = (must.length || nice.length)
-    ? '<section class="jd-sec"><h2>Requirements</h2>' +
+    ? '<section class="jd-sec"><h2>' + E(opts.heading || 'Requirements') + '</h2>' +
       (must.length ? '<h3>Must have</h3><ul class="jd-reqs">' + must.join('') + '</ul>' : '') +
       (nice.length ? '<h3>Nice to have</h3><ul class="jd-reqs">' + nice.join('') + '</ul>' : '') + '</section>'
     : '';
@@ -624,8 +632,14 @@ APP.views['job-detail'] = function (ctx) {
   document.title = job.title + (co ? ' at ' + co.name : '') + ' — Arnour';
   const E = APP.h;
 
-  const secs = APP.jobSections(job, me);
+  /* a signed-in professional with a profile sees two tabs: "My match" (the role with the traffic lights) and "Job post" (the role as written, no matching) */
+  APP.state.jdTab = APP.state.jdTab || {};
+  const hasTabs = !!(isC && me);
+  const jdTab = hasTabs && APP.state.jdTab[job.id] === 'post' ? 'post' : 'match';
+  const secs = APP.jobSections(job, jdTab === 'post' ? null : me);
   const descHtml = secs.desc, reqSection = secs.req, factsHtml = secs.facts;
+  const tabBtn = (id, label) => '<button type="button" role="tab" aria-selected="' + (jdTab === id) + '" class="seg-tab' + (jdTab === id ? ' on' : '') + '" data-action="jd-tab" data-jid="' + job.id + '" data-tab="' + id + '">' + label + '</button>';
+  const tabsHtml = hasTabs ? '<div class="seg-tabs jd-tabs" role="tablist" aria-label="Role views">' + tabBtn('match', 'My match') + tabBtn('post', 'Job post') + '</div>' : '';
   const coHref = co && !co._anon ? (APP.authorHref(co.id) || ('#/company/' + co.id)) : '';
   const isExt = !!job.external;
   const extSec = '<section class="jd-sec"><h2>About this listing</h2><div class="job-co job-co-flat">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'lg') +
@@ -672,14 +686,14 @@ APP.views['job-detail'] = function (ctx) {
         (isExt ? '' : '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '" data-jid="' + job.id + '">' + APP.icon('clip', 14) + ' Message</button>') + '</div>';
     }
     side = '<aside class="jd-side"><div class="card jd-act">' + act + '</div>' +
-      '<div class="card jd-match" id="jd-match"><h2>Your match</h2>' +
+      (jdTab === 'post' ? '' : '<div class="card jd-match" id="jd-match"><h2>Your match</h2>' +
       '<div class="mb-score"><strong>' + d.score + '%</strong><span class="match ' + b.cls + '">' + b.label + ' match</span></div>' +
       '<div class="jd-big-bar"><span class="' + b.cls + '" style="width:' + Math.max(2, Math.min(100, d.score)) + '%"></span></div>' +
       (why.length ? '<h4>Why it fits</h4><div class="chip-wrap">' + why.map(t => '<span class="chip">' + E(t) + '</span>').join('') + '</div>' : '') +
       (d.gaps.length ? '<h4>To check</h4><ul class="mb-gaps">' + d.gaps.slice(0, 5).map(t => '<li>' + E(t) + '</li>').join('') + '</ul>' : '') +
       '<h4>How the score is built</h4>' + APP.matchPartsHtml(d) +
       '<p class="muted small">Based on your profile, so keep it up to date. <a class="link" href="#/c/profile">Edit profile</a></p>' +
-      '</div></aside>';
+      '</div>') + '</aside>';
   } else if (!sess) {
     side = '<aside class="jd-side"><div class="card jd-act">' +
       (open ? '<a class="btn btn-primary jd-apply" href="#/register" data-action="remember-job" data-id="' + job.id + '">Sign up to apply</a>' : '<div class="jd-applied closed">This role is closed</div>') +
@@ -701,7 +715,7 @@ APP.views['job-detail'] = function (ctx) {
     (APP.SHOW_RATES ? '<span>' + APP.icon('file') + E(APP.fmtRange(job)) + '</span>' : '') +
     (job.duration ? '<span>' + APP.icon('check') + E(job.duration) + '</span>' : '') +
     '</div></header>' +
-    '<div class="jd-grid"><div class="jd-main card">' +
+    '<div class="jd-grid"><div class="jd-main card">' + tabsHtml +
     descHtml + reqSection +
     (factsHtml ? '<section class="jd-sec"><h2>Role details</h2><dl class="jd-facts">' + factsHtml + '</dl></section>' : '') +
     coSec + share +
