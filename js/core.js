@@ -1594,12 +1594,14 @@ APP.consultantsForJob = function (job, n, minScore) {
     .sort((a, b) => b.score - a.score)
     .slice(0, n || 5);
 };
-/* Professionals with a strong match who should hear about a freshly posted role. */
+/* Professionals with a strong match who should hear about a freshly posted role.
+   On the live site the database does this (match_alerts_run, release 31: same Match v19 score, at most 5 alerts a day per person,
+   70%+ for roles posted by employers, 80%+ for imported roles). This browser version only serves the offline demo. */
 APP.notifyMatches = function (job, before) {
+  if (APP.LIVE) return 0;
   const co = APP.company(job.companyId);
   let n = 0;
   for (const c of Object.values(APP.db.consultants)) {
-    if (APP.LIVE && c.sample) continue; /* sample people have no inbox */
     if (!APP.jobVisibleToConsultant(c, job)) continue;
     const sc = APP.matchScore(c, job);
     /* after an edit, only people who did not already match the earlier version hear about it */
