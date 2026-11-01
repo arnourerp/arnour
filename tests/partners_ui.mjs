@@ -89,6 +89,9 @@ t('the editor opens with the current products and the hide switch off',await p.e
 await p.fill('[data-pt-best]','We deliver finance programmes on S/4HANA.');
 await p.click('[data-pt-edit] [data-action=chip][data-group=languages][data-value=French]'); await p.waitForTimeout(300);
 t('chips toggle without losing the typed text',await p.evaluate(()=>APP.profileDraft.partner.languages.includes('French')&&document.querySelector('[data-pt-best]').value==='We deliver finance programmes on S/4HANA.'));
+{ const before=await p.evaluate(()=>APP.profileDraft.partner.skills.filter(k=>k.certified).length);
+  await p.click('[data-pt-edit] [data-action=cert-toggle]'); await p.waitForTimeout(300);
+  t('a partner can tick a certified module (no permission error)',await p.evaluate((b)=>APP.profileDraft.partner.skills.filter(k=>k.certified).length!==b&&!/permission/i.test(document.body.innerText),before)); }
 await p.click('[data-pt-edit] [data-action=chip][data-group=teamSize][data-value="200+"]'); await p.waitForTimeout(300);
 await p.check('[data-pt-hide]');
 await p.evaluate(()=>document.querySelector('form[data-form=company-edit]').requestSubmit()); await p.waitForTimeout(500);

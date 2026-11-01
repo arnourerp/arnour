@@ -3008,7 +3008,8 @@ APP.requireOwner = function (kind, id) {
 };
 APP.ACTION_RULES = {
   employer: ['job-post', 'close-job', 'reopen-job', 'invite', 'app-stage', 'company-edit', 'co-edit-on', 'co-edit-off'],
-  consultant: ['apply', 'withdraw', 'attach-cv', 'send-cv', 'clear-cv', 'cv-clear', 'cert-toggle', 'profile-edit'],
+  /* cert-toggle is shared by professionals' and SI/Partners' skill cards, so it has no role rule */
+  consultant: ['apply', 'withdraw', 'attach-cv', 'send-cv', 'clear-cv', 'cv-clear', 'profile-edit'],
   ownJob: { 'close-job': 'id', 'reopen-job': 'id', 'invite': 'jid', 'app-stage': 'jid' }
 };
 APP.guardAction = function (name, d) {
