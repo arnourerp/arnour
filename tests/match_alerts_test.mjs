@@ -4,6 +4,8 @@ const ROOT=process.env.ARNOUR_ROOT;
 const be=await makeBackend(); const db=be.db;
 await db.exec(fs.readFileSync(ROOT+'/supabase/014_match_alerts.sql','utf8'));
 await db.exec(fs.readFileSync(ROOT+'/supabase/014_match_alerts.sql','utf8')); /* safe to run twice */
+await db.exec(fs.readFileSync(ROOT+'/supabase/015_module_families.sql','utf8'));
+await db.exec(fs.readFileSync(ROOT+'/supabase/015_module_families.sql','utf8')); /* safe to run twice */
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,400):'');} else console.log('ok  ',n); };
 
 /* ---------- the website's own scoring, loaded in a sandbox, with the catalog and lists read from the database ---------- */
@@ -44,6 +46,13 @@ let bad=0, total=0, sample=null; const hist={};
 for(let i=0;i<3000;i++){ const c=mkCons(), j=mkJob(); const js=APP.matchScore(c,j); const sql=(await db.query(`select match_score($1::jsonb,$2::jsonb) s`,[JSON.stringify(c),JSON.stringify(j)])).rows[0].s;
   total++; hist[Math.floor(js/25)]=(hist[Math.floor(js/25)]||0)+1; if(js!==sql){ bad++; if(!sample) sample={js,sql,c,j}; } }
 t('SQL score = website score on 3000 random pairs ('+JSON.stringify(hist)+')',bad===0,sample&&{bad,sample});
+/* release 32: BTP / Data / IBP modules keep their family once the catalog is loaded (the catalog stores only fin/log/tech) */
+t('website keeps built-in family for BTP modules after catalog load', APP.MODULE_FAMILY.eventmesh==='btp-int' && APP.MODULE_FAMILY.fi==='fin', APP.MODULE_FAMILY.eventmesh);
+{ const c={roleType:'architect',roleTypes:['architect'],yearsExp:10,level:'Senior',skills:[{productId:'btp',moduleId:'eventmesh',projects:4}]};
+  const j={title:'BTP Architect',roleType:'architect',minExp:8,level:'Senior',requires:[{productId:'btp',moduleId:'integration',minProjects:2}]};
+  const js=APP.matchScore(c,j), sq=(await db.query(`select match_score($1::jsonb,$2::jsonb) s`,[JSON.stringify(c),JSON.stringify(j)])).rows[0].s;
+  const fam=(await db.query(`select _m_fam('integration') a, _m_fam('ibp') b, _m_fam('fi') c`)).rows[0];
+  t('same-family BTP credit: SQL = website, families resolved', js===sq && fam.a==='btp-int' && fam.b==='scm-plan' && fam.c==='fin', {js,sq,fam}); }
 /* near-matches: the professional is built from the role, then bent a little (other module, other SAP generation, fewer projects, missing language ...) */
 let bad2=0, hi=0, sample2=null;
 for(let i=0;i<2000;i++){ const j=mkJob(); if(!j.requires.length) continue; const c=mkCons(); c.skills=[];

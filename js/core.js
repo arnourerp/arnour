@@ -232,8 +232,9 @@ APP.applyCatalog = function (c) {
   window.CAT_SET(c.products);
   const fam = {};
   c.products.forEach(p => (p.modules || []).forEach(m => { if (m.family && !fam[m.id]) fam[m.id] = m.family; }));
+  /* The catalog only stores fin / log / tech. Modules it leaves blank (BTP, Data, IBP …) keep the built-in family, so same-family credit still works for them. */
   Object.keys(APP.MODULE_FAMILY).forEach(k => { delete APP.MODULE_FAMILY[k]; });
-  Object.assign(APP.MODULE_FAMILY, fam);
+  Object.assign(APP.MODULE_FAMILY, APP.MODULE_FAMILY_DEFAULT, fam);
   const tree = [], idx = {}, items = [];
   c.areas.forEach(a => {
     const groups = [];
@@ -1304,6 +1305,7 @@ APP.MODULE_FAMILY = {
   /* Supply Chain Cloud */
   ibp: 'scm-plan', dmc: 'scm-exec', apm: 'scm-exec', oms: 'scm-exec'
 };
+APP.MODULE_FAMILY_DEFAULT = Object.assign({}, APP.MODULE_FAMILY);
 /* strict: skills read module by module (wrong module = 0).  floor: credit for a module held with 0 projects when the job asks for a minimum.
    slope: how steeply credit falls when years are below the minimum.  swing: the most context can move the score.
    ready: weights of experience / seniority / programs.  ctx: weights of industry, specialties, languages, certification, location. */
