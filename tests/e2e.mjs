@@ -146,7 +146,7 @@ let mrow=(await q(`select text, edited_ts from messages where text like 'Reply f
 t('edit saved on server',mrow&&mrow.text==='Reply from pro (fixed)'&&+mrow.edited_ts>0,mrow);
 t('edited label shown',(await c.locator('.msg-edited').count())>=1);
 t('original kept for moderation',(await q(`select text from message_history where action='edit'`)).some(r=>r.text==='Reply from pro'));
-await c.click('[data-action=msg-delete][data-i="'+ri+'"]',{force:true}); await c.waitForTimeout(150); await c.click('#dlg-ok'); await c.waitForTimeout(500);
+await c.click('[data-action=msg-delete][data-i="'+ri+'"]',{force:true}); await c.waitForTimeout(150); await c.click('#dlg-ok'); await c.waitForFunction(()=>/You deleted this message/.test((document.getElementById('chat-scroll')||{}).textContent||''),null,{timeout:8000}).catch(()=>{}); await c.waitForTimeout(200);
 mrow=(await q(`select text, deleted from messages where deleted`))[0];
 t('delete saved on server',mrow&&mrow.deleted===true&&mrow.text==='',mrow);
 t('deleted placeholder shown',/You deleted this message/.test(await c.textContent('#chat-scroll')));
