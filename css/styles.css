@@ -2099,3 +2099,32 @@ a.sr-title:hover { text-decoration: underline; }
 .photo-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .photo-pick { cursor: pointer; }
 .photo-act .muted { margin: 0; }
+
+/* ---- Mobile and tablet fit (audit 2026-11-02) ---- */
+/* 16 px fields on touch screens: iPhone Safari zooms the page when a smaller field gets the cursor */
+@media (pointer: coarse), (max-width: 600px) {
+  input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=hidden]), select, textarea, .input, .input.sm, select.input, textarea.input, select.input.sm, select.input.rb-sort-sel { font-size: 16px; }
+  .nav-ico, .nav-user .avatar, .nav-actions .avatar { width: 44px; height: 44px; }
+  .share-ic, .share-mini { width: 44px; height: 44px; }
+  .share-pill { height: 44px; }
+  .btn-sm, .nav-actions .btn { min-height: 44px; }
+  .upvote { min-height: 44px; min-width: 44px; }
+  .link, .crumb a { padding: 12px 2px; }
+  .conv-chips .input { font-size: 16px; height: 44px; }
+}
+/* the notifications panel never leaves the screen (360 px phones) */
+.notif-panel { width: min(360px, calc(100vw - 32px)); }
+/* small tablets and foldables: the top bar shows icons only until the full bar fits */
+@media (min-width: 601px) and (max-width: 820px) {
+  .nav-link { font-size: 0; gap: 0; padding: 8px; min-width: 44px; min-height: 44px; justify-content: center; position: relative; }
+  .nav-link .nav-count { position: absolute; top: 2px; right: 2px; margin: 0; min-width: 18px; height: 18px; }
+  .nav-link .new-dot { top: 6px; right: 6px; }
+  .nav-ico { width: 44px; height: 44px; }
+  .nav-actions { flex-shrink: 0; }
+}
+/* wizard step names do not fit six across on a phone (they broke mid-word): the dots stay, the heading says where you are */
+@media (max-width: 600px) { .wiz-step small { display: none; } }
+/* nothing under 12 px */
+.tabbar .tab, .tabbar .tab-lbl { font-size: 12px; }
+.nav-count, .tabbar .tab-ico .nav-count, .nav-link .nav-count, .badge, .nav-ico .badge { font-size: 12px; min-width: 18px; height: 18px; line-height: 1; }
+.mr-who, .seg-n, .pill.co-type, .pill.sr-kind, .rep, .ci-group, .ci-badge, .vis-rec, small, .small { font-size: 12px; }

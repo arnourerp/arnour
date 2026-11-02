@@ -195,7 +195,7 @@ APP.views['c-profile'] = function () {
     const cur = (sec.find(x => x.id === APP.state.profileSec) || sec[0]).id;
     const pane = (id, html) => '<section class="pe-pane" data-pane="' + id + '"' + (cur === id ? '' : ' hidden') + '>' + html + '</section>';
     const specF = '<div class="field"><span class="label">SAP specialties</span><div class="spec-panel">' + APP.specialtyChipsHtml('profile', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div></div>';
-    const progF = rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"></label>' : '';
+    const progF = rp.prog ? '<label class="field"><span class="label">' + APP.h(rp.prog) + ' <span class="muted">(optional)</span></span><input name="programs" type="number" inputmode="numeric" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8"></label>' : '';
     const skillsF = '<div class="field"><span class="label">SAP skills</span><div class="skill-rows">' + APP.skillCardsHtml('profile', d.skills || [], rp.skills) + '</div></div>';
     const indF = rp.ind ? '<div class="field"><span class="label">Industries' + (rp.ind === 'optional' ? ' <span class="muted">(optional)</span>' : '') + '</span><div class="chip-wrap">' + APP.chipGroup('profile', 'industries', APP.industries, d.industries || []) + '</div></div>' : '';
     const PH = {
@@ -216,7 +216,7 @@ APP.views['c-profile'] = function () {
       privacy: '<h3 class="pe-h">Privacy</h3>' + APP.visPro(d, 'pedit'),
       experience: '<h3 class="pe-h">Experience &amp; availability</h3>' +
         '<div class="form-grid">' +
-        '<label class="field"><span class="label">Years of experience</span><input name="yearsExp" type="number" min="1" max="40" class="input" value="' + APP.h(d.yearsExp) + '"></label>' +
+        '<label class="field"><span class="label">Years of experience</span><input name="yearsExp" type="number" inputmode="numeric" min="1" max="40" class="input" value="' + APP.h(d.yearsExp) + '"></label>' +
         (rp.lvl ? '<label class="field"><span class="label">Level</span><select name="level" class="input">' + APP.opt(APP.levels.map(l => [l, l]), d.level) + '</select></label>' : '') +
         '<label class="field"><span class="label">Availability</span><select name="availability" class="input">' + APP.opt(APP.availability.map(x => [x, x]), d.availability) + '</select></label>' +
         '</div>' + progF + indF +
@@ -227,7 +227,7 @@ APP.views['c-profile'] = function () {
         '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"></label>',
       about: '<h3 class="pe-h">About &amp; CV</h3>' +
         '<div class="field"><span class="label">Profile photo <span class="muted">(optional)</span></span>' + APP.photoFieldHtml('profile', d.photo, APP.consultantFullName(d) || 'You', 'photo') + '</div>' +
-        '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
+        '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" inputmode="url" autocapitalize="off" autocorrect="off" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
         '<div class="field"><span class="label">Summary</span><textarea name="summary" class="input" rows="4">' + APP.h(d.summary) + '</textarea></div>' +
         '<div class="field"><span class="label">CV</span><div class="cv-box">' +
         (d.cv ? '<span class="cv-item">' + APP.icon('file', 16) + ' ' + APP.h(d.cv.name) + ' <em class="muted">' + APP.h(d.cv.size) + '</em></span>' : '') +

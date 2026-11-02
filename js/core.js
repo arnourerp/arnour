@@ -434,7 +434,7 @@ APP.rateInputHtml = function (d, chosen) {
   const cur = chosen && d.currency ? d.currency : APP.defaultCurrency(d.country);
   return '<div class="pay-row rate-row">' +
     '<select name="currency" class="input" aria-label="Currency">' + APP.opt(APP.currencies.map(c => [c.id, c.id]), cur) + '</select>' +
-    '<input name="dailyRate" type="number" min="0" class="input" value="' + APP.h(d.dailyRate || '') + '" placeholder="Amount" aria-label="Rate amount">' +
+    '<input name="dailyRate" type="number" inputmode="decimal" min="0" class="input" value="' + APP.h(d.dailyRate || '') + '" placeholder="Amount" aria-label="Rate amount">' +
     '<select name="ratePeriod" class="input" aria-label="Rate period">' + APP.opt(APP.ratePeriods, d.ratePeriod || 'day') + '</select></div>';
 };
 /* Inline "required" error under the role-type list (no re-render, so nothing typed is lost). */
@@ -2778,8 +2778,8 @@ APP.skillRowsHtml = function (target, skills, withMin, withCert) {
     '<select data-skill-field="productId">' + APP.productOptions(k.productId) + '</select>' +
     '<select data-skill-field="moduleId">' + APP.moduleOptions(k.productId, k.moduleId, withMin) + '</select>' +
     (withMin
-      ? '<input type="number" class="narrow" min="0" max="99" data-skill-field="minProjects" value="' + Number(k.minProjects || 0) + '" title="Minimum projects" placeholder="min">'
-      : '<input type="number" class="narrow" min="0" max="99" data-skill-field="projects" value="' + Number(k.projects || 0) + '" title="Projects done" placeholder="×">') +
+      ? '<input type="number" inputmode="numeric" class="narrow" min="0" max="99" data-skill-field="minProjects" value="' + Number(k.minProjects || 0) + '" title="Minimum projects" placeholder="min">'
+      : '<input type="number" inputmode="numeric" class="narrow" min="0" max="99" data-skill-field="projects" value="' + Number(k.projects || 0) + '" title="Projects done" placeholder="×">') +
     (withMin ? (i === 0
       ? '<span class="skill-or skill-or-off" title="Add a second requirement to make it an alternative">—</span>'
       : '<label class="skill-or" title="Tick if this is an alternative to the row above — either one is enough"><input type="checkbox" data-skill-field="orPrev"' + (k.orPrev ? ' checked' : '') + '> or</label>') : '') +
@@ -2858,7 +2858,7 @@ APP.jobReqRowsHtml = function (rows) {
       (cards.length > 1 ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div>' +
       '<div class="req-fields">' +
       '<label class="field"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="jobNew" data-idx="' + c.start + '">' + APP.productOptions(c.productId) + '</select></label>' +
-      (APP.rtCounts(APP.jobNewDraft && APP.jobNewDraft.roleType) || !(APP.jobNewDraft && APP.jobNewDraft.roleType) ? '<label class="field req-min"><span class="label">Min. projects <span class="muted">(optional)</span></span><input type="number" min="0" max="99" class="input" data-req-min data-idx="' + c.start + '" value="' + (c.min ? Number(c.min) : '') + '" placeholder="Any"></label>' : '') +
+      (APP.rtCounts(APP.jobNewDraft && APP.jobNewDraft.roleType) || !(APP.jobNewDraft && APP.jobNewDraft.roleType) ? '<label class="field req-min"><span class="label">Min. projects <span class="muted">(optional)</span></span><input type="number" inputmode="numeric" min="0" max="99" class="input" data-req-min data-idx="' + c.start + '" value="' + (c.min ? Number(c.min) : '') + '" placeholder="Any"></label>' : '') +
       '</div>' +
       '<div class="field"><span class="label">Modules <span class="muted">— tick one or more</span></span>' +
       APP.moduleChipsHtml(c.productId, sel, 'data-target="jobNew" data-idx="' + c.start + '"', 'jobNew:' + c.cid, true) + '</div>' +
@@ -2888,7 +2888,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
       const k = skills[i]; const m = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).find(x => x.id === k.moduleId);
       return '<div class="skill-row mod-line" data-skill-row="' + i + '" data-target="' + target + '">' +
         '<span class="ml-n" title="' + APP.h(m ? m.name : k.moduleId) + '">' + APP.h(m ? APP.moduleFull(m.name) : k.moduleId) + '</span>' +
-        '<label class="ml-f"><span class="muted small">Projects' + (mode === 'optional' ? ' (optional)' : '') + '</span><input type="number" min="0" max="99" class="input" data-skill-field="projects" value="' + Number(k.projects || 0) + '"></label></div>';
+        '<label class="ml-f"><span class="muted small">Projects' + (mode === 'optional' ? ' (optional)' : '') + '</span><input type="number" inputmode="numeric" min="0" max="99" class="input" data-skill-field="projects" value="' + Number(k.projects || 0) + '"></label></div>';
     }).join('');
     const certChips = sel.map(function (mid) {
       const k = skills.find(x => x.productId === pid && x.moduleId === mid) || {};

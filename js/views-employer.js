@@ -159,7 +159,7 @@ APP.views['e-company'] = function () {
         '<label class="field"><span class="label">Size</span><select name="size" class="input">' + APP.opt(APP.companySizes.map(s => [s, s]), d.size) + '</select></label>' +
         '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
         APP.cityInputHtml(d.country, d.city) +
-        '<label class="field"><span class="label">Website</span><input name="website" class="input" value="' + APP.h(d.website) + '"></label>' +
+        '<label class="field"><span class="label">Website</span><input name="website" class="input" inputmode="url" autocapitalize="off" autocorrect="off" value="' + APP.h(d.website) + '"></label>' +
         '</div>',
       about: '<h3 class="pe-h">About</h3>' +
         (isPt && APP.ptImportSlotHtml ? APP.ptImportSlotHtml() : '') +
@@ -573,7 +573,7 @@ APP.jobFormView = function (mode) {
   const expertise =
     '<p class="field-hint">' + APP.icon('spark', 14) + ' For this role, expertise matters most. Preferred specialties rank the role higher for professionals who have them — they never hide it.</p>' +
     '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties', { roles: d.roleType ? [d.roleType] : [], sugLabel: 'Common for this role type' }) + '</div>' +
-    '<label class="field"><span class="label">Minimum ' + APP.h(progLbl.toLowerCase()) + ' <span class="muted">(optional)</span></span><input name="minPrograms" type="number" min="0" max="100" class="input narrow-in" value="' + (d.minPrograms ? Number(d.minPrograms) : '') + '" placeholder="e.g. 3"></label>' +
+    '<label class="field"><span class="label">Minimum ' + APP.h(progLbl.toLowerCase()) + ' <span class="muted">(optional)</span></span><input name="minPrograms" type="number" inputmode="numeric" min="0" max="100" class="input narrow-in" value="' + (d.minPrograms ? Number(d.minPrograms) : '') + '" placeholder="e.g. 3"></label>' +
     '<div class="field"><span class="label">Industries <span class="muted">(optional)</span></span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div></div>';
   const skills = '<p class="field-hint">' + APP.icon('spark', 14) + ' These drive matching — professionals whose product + module fits rank at the top of their feed.</p>' + reqPart + (leadJ ? '' : specPart);
 
@@ -581,7 +581,7 @@ APP.jobFormView = function (mode) {
     '<div class="form-grid">' +
     '<label class="field"><span class="label">Seniority</span><select name="level" class="input">' + APP.opt([['', 'Any level']].concat(APP.levels.map(l => [l, l])), d.level) + '</select></label>' +
     '<label class="field"><span class="label">SAP certification</span><select name="certification" class="input">' + APP.opt([['', 'Not required'], ['preferred', 'Preferred'], ['required', 'Required']], d.certification) + '</select></label>' +
-    '<label class="field"><span class="label">Min experience (yrs)</span><input name="minExp" type="number" min="0" max="40" class="input" value="' + APP.h(d.minExp) + '" placeholder="5"></label>' +
+    '<label class="field"><span class="label">Min experience (yrs)</span><input name="minExp" type="number" inputmode="numeric" min="0" max="40" class="input" value="' + APP.h(d.minExp) + '" placeholder="5"></label>' +
     '</div>' +
     '<div class="field"><span class="label">Required languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'languages', APP.withSelected(APP.languages, d.languages), d.languages) + '</div><p class="field-hint">Professionals who don\'t speak every required language won\'t see this role in their feed.</p></div>' +
     '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>More ranking preferences <span class="muted">(optional)</span>' + (nMore ? ' <span class="count-pill">' + nMore + ' selected</span>' : '') + '</summary>' +
@@ -592,8 +592,8 @@ APP.jobFormView = function (mode) {
   const pay =
     '<div class="pay-row">' +
     '<select name="currency" class="input" aria-label="Currency">' + APP.opt(APP.currencies.map(c => [c.id, c.id]), d.currency) + '</select>' +
-    '<input name="rateMin" type="number" min="0" class="input" value="' + APP.h(d.rateMin) + '" placeholder="Min" aria-label="Pay minimum">' +
-    '<input name="rateMax" type="number" min="0" class="input" value="' + APP.h(d.rateMax) + '" placeholder="Max" aria-label="Pay maximum">' +
+    '<input name="rateMin" type="number" inputmode="numeric" min="0" class="input" value="' + APP.h(d.rateMin) + '" placeholder="Min" aria-label="Pay minimum">' +
+    '<input name="rateMax" type="number" inputmode="numeric" min="0" class="input" value="' + APP.h(d.rateMax) + '" placeholder="Max" aria-label="Pay maximum">' +
     '<select name="ratePeriod" class="input" aria-label="Pay period">' + APP.opt(APP.ratePeriods, d.ratePeriod) + '</select>' +
     '</div><p class="field-hint">Leave both blank and the role shows “Pay not disclosed”. One figure alone shows as “From” or “Up to”.</p>' + err('pay');
 

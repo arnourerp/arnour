@@ -238,7 +238,7 @@ APP.views['wiz-c'] = function () {
         '</div>' +
         '<label class="field"><span class="label">Your Title/Headline <span class="req-star">*</span></span><input name="headline" class="input" value="' + APP.h(d.headline) + '" placeholder="Senior SAP S/4HANA FICO Consultant"' + inv('headline') + '>' + E('headline') + '<p class="field-hint">Used as your name if you stay private, so keep employer names out.</p></label>' +
         '<details class="opt-more"' + (d.linkedin ? ' open' : '') + '><summary>+ Add LinkedIn <span class="muted">(optional)</span></summary>' +
-        '<label class="field"><input name="linkedin" class="input" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile" aria-label="LinkedIn profile"></label></details>') +
+        '<label class="field"><input name="linkedin" class="input" inputmode="url" autocapitalize="off" autocorrect="off" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile" aria-label="LinkedIn profile"></label></details>') +
       sec('where', 'pin', 'Where you are',
         '<div class="form-grid g3">' +
         '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '><option value=""' + (d.nationality ? '' : ' selected') + '>Select your nationality…</option>' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
@@ -286,7 +286,7 @@ APP.views['wiz-c'] = function () {
         '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>' +
         (er.skills ? '<p class="field-error" role="alert">' + APP.h(er.skills) + '</p>' : '')) +
       (rp.prog && !lead ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
-        '<label class="field"><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
+        '<label class="field"><input name="programs" type="number" inputmode="numeric" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       (rp.ind ? sec('ind', 'building', indLabel,
         '<div class="chip-wrap">' + APP.chipGroup('wizC', 'industries', APP.industries, d.industries) + '</div>') : '') +
       APP.wizNav(3, 6) +
@@ -299,7 +299,7 @@ APP.views['wiz-c'] = function () {
         '<div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div>' +
         (er.spec ? '<p class="field-error" role="alert">' + APP.h(er.spec) + '</p>' : '')) +
       (lead4 && rp.prog ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
-        '<label class="field"><input name="programs" type="number" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
+        '<label class="field"><input name="programs" type="number" inputmode="numeric" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       sec('own', 'plus', 'Your own specialties <span class="muted">(optional)</span>',
         '<label class="field"><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS, MDG rollout — comma separated" aria-label="Your own specialties"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>') +
       APP.wizNav(4, 6) +
@@ -420,7 +420,7 @@ APP.views['wiz-e'] = function () {
       '<label class="field"><span class="label">Company size</span><select name="size" class="input">' + APP.opt(APP.companySizes.map(s => [s, s]), d.size) + '</select></label>' +
       '<label class="field"><span class="label">Headquarters country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
       APP.cityInputHtml(d.country, d.city) +
-      '<label class="field"><span class="label">Website</span><input name="website" class="input" value="' + APP.h(d.website) + '" placeholder="company.com"></label>' +
+      '<label class="field"><span class="label">Website</span><input name="website" class="input" inputmode="url" autocapitalize="off" autocorrect="off" value="' + APP.h(d.website) + '" placeholder="company.com"></label>' +
       '</div>' +
       '<label class="field"><span class="label">About</span><textarea name="about" class="input" rows="5" placeholder="What does the company do, and what SAP systems does it run? Professionals read this before they apply.">' + APP.h(d.about) + '</textarea></label>' +
       APP.wizNav2(1, 4) +
