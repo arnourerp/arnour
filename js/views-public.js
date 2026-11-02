@@ -6,6 +6,8 @@
 
 /* "Companies on Arnour" on the home page: hidden until there are enough real employers to show (set to true to bring it back) */
 APP.SHOW_HOME_COMPANIES = false;
+/* Turn on when the community has real questions to show */
+APP.SHOW_HOME_COMMUNITY = false;
 
 APP.views.landing = function () {
   const prods = CATALOG.products.length;
@@ -20,21 +22,21 @@ APP.views.landing = function () {
   const why = [
     ['Skills are the identity', 'Every profile and job is tagged by SAP product, module and projects delivered. That is enough to judge fit, so the name can wait.', 'spark'],
     ['A direct line', 'Built-in inbox with unread badges and one-click CV sharing. No email ping-pong, no middlemen.', 'msg'],
-    ['Your feed, smart', 'Professionals land on roles that already match their skills. Employers see talent that already fits the brief.', 'check']
+    ['Matched, and alerted', 'Professionals land on roles that already fit their skills and get an alert when a new one matches. Companies see talent that already fits the brief.', 'check']
   ].map(w =>
     '<div class="why-card card"><span class="why-ico">' + APP.icon(w[2], 22) + '</span><h3>' + APP.h(w[0]) + '</h3><p class="muted">' + APP.h(w[1]) + '</p></div>'
   ).join('');
 
   const cSteps = [
-    ['Build your SAP portfolio', 'A guided wizard captures your products, modules, projects, languages and CV.'],
+    ['Start from your CV', 'Upload a PDF or Word CV and the wizard fills in your products, modules and projects. You check every step.'],
     ['Get matched, instantly', 'Your feed is ranked against every open role — you only see work that fits your stack.'],
     ['Reveal only when you choose', 'Companies see your skills, not your name. Share your name and CV in one click, after you accept an introduction.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
 
   const eSteps = [
-    ['Post a precise brief', 'Require exact product + module combinations, locations and experience bands. Keep your company confidential if you wish.'],
-    ['Headhunt with a real search', 'Filter the talent database by products, modules, role type, location, nationality, availability and projects delivered.'],
-    ['Hire without the noise', 'Shortlist in minutes — every result already speaks your SAP language.']
+    ['Post a role, or paste the job ad', 'Paste a job ad and Arnour drafts the brief. Require exact product and module combinations, location and experience. Stay confidential if you wish.'],
+    ['Search and find partners', 'Headhunt by product, module, role type, location and availability. SAP Customers can also find SI/Partners by what their team delivers.'],
+    ['Hire without the noise', 'Shortlist in minutes. Recruiters and partners hire for clients the same way, and every result already speaks your SAP language.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
 
   /* live: the companies the server actually returns (sample ones carry a Sample pill); demo: the bundled examples */
@@ -72,7 +74,7 @@ APP.views.landing = function () {
     '</div>' +
     '<div class="mr-both">' +
     '<div class="card mr-card"><h3>' + APP.icon('users', 18) + ' For SAP professionals</h3><p class="muted">Look for your next role discreetly. Companies find you by what you do, not by your name. You decide who gets your name and CV, and only after you accept.</p></div>' +
-    '<div class="card mr-card"><h3>' + APP.icon('building', 18) + ' For companies</h3><p class="muted">Open a role without telling the market who is hiring or why. Post it as confidential, receive matched interest, and reveal your name only to the people you accept.</p></div>' +
+    '<div class="card mr-card"><h3>' + APP.icon('building', 18) + ' For companies</h3><p class="muted">Open a role without telling the market who is hiring or why. Whether you are an SAP Customer, a partner or a recruiter, you reveal your name only to the people you accept.</p></div>' +
     '</div>' +
     '<p class="mr-note">A reveal cannot be undone, so it only ever happens when you accept. Free to use, and you can switch it on or off any time in your profile.</p></section>';
   /* on a first visit the page is drawn before the data arrives: leave out the numbers that come from the database until then */
@@ -83,13 +85,13 @@ APP.views.landing = function () {
     '<section class="hero">' +
     '<div class="hero-inner">' +
     '<h1>Skills first, <span class="hl">names second.</span></h1>' +
-    '<p class="hero-sub">The SAP network where professionals and companies stay anonymous until both say yes. Search by exact product and module, like “S/4HANA FICO”, and reveal who you are only when it is mutual.</p>' +
+    '<p class="hero-sub">The SAP network for the Middle East and beyond, where professionals and companies stay anonymous until both say yes. Search by exact product and module, like “S/4HANA FICO”, and reveal who you are only when it is mutual.</p>' +
     '<div class="hero-split">' +
-    '<a class="hero-card" href="#/onboard-e"><strong>I\'m hiring</strong><span>Post a precise role in about 3 minutes. Your company stays confidential until you accept an introduction.</span><span class="btn btn-light btn-lg">Post a role →</span></a>' +
-    '<a class="hero-card" href="#/onboard"><strong>I\'m an SAP professional</strong><span>Tag your products and modules and get roles ranked by fit, while you stay discreet.</span><span class="btn btn-outline-light btn-lg">Create my profile →</span></a>' +
+    '<a class="hero-card" href="#/onboard-e"><strong>I\'m a company</strong><span>SAP Customers, SI/Partners and recruiters. Post a precise role, search professionals by exact module, or get found for what your team delivers. You stay anonymous until you accept an introduction.</span><span class="btn btn-light btn-lg">Create company profile →</span></a>' +
+    '<a class="hero-card" href="#/onboard"><strong>I\'m an SAP professional</strong><span>Upload your CV and your profile fills itself in minutes. Get roles ranked by fit while you stay discreet.</span><span class="btn btn-outline-light btn-lg">Create my profile →</span></a>' +
     '</div>' +
-    '<a class="hero-jobs-link" href="#/jobs">Browse ' + (dataReady ? liveRoles + ' open roles' : 'open roles') + ' first →</a>' +
-    '<p class="hero-proof">' + (dataReady ? liveRoles + ' open roles · ' + livePros + ' professionals · ' : '') + prods + ' SAP products · ' + mods + ' modules</p>' +
+    '<a class="hero-jobs-link" href="#/jobs">Browse ' + (dataReady ? liveRoles + ' SAP roles' : 'SAP roles') + ' from the market →</a>' +
+    '<p class="hero-proof">' + prods + ' SAP products · ' + mods + ' modules · built for Egypt, the GCC and MENA talent</p>' +
     '</div></section>' +
 
     reveal +
@@ -98,19 +100,19 @@ APP.views.landing = function () {
     '<section class="section"><div class="section-head"><h2>How it works</h2></div>' +
     '<div class="how-grid">' +
     '<div class="card how-card"><div class="how-title">' + APP.icon('users', 18) + ' For SAP professionals</div>' + cSteps + '</div>' +
-    '<div class="card how-card"><div class="how-title">' + APP.icon('building', 18) + ' For companies & recruiters</div>' + eSteps + '</div>' +
+    '<div class="card how-card"><div class="how-title">' + APP.icon('building', 18) + ' For companies</div>' + eSteps + '</div>' +
     '</div></section>' +
 
     (APP.SHOW_HOME_COMPANIES && companies ? '<section class="section hide-m"><div class="section-head center"><h2>' + (APP.LIVE ? 'Companies on Arnour' : 'Companies in this prototype') + '</h2><p class="muted">' + (APP.LIVE ? 'Examples are marked Sample. Real employers appear here as they join.' : 'Sample data. Real employers appear here once they join.') + '</p></div>' +
     '<div class="logo-row">' + companies + '</div></section>' : '') +
 
-    '<section class="section alt"><div class="section-head"><h2>Fresh from the community</h2><p class="muted">Open questions from SAP people — in their own words, with real answers.</p></div>' +
+    (APP.SHOW_HOME_COMMUNITY ? '<section class="section alt"><div class="section-head"><h2>Fresh from the community</h2><p class="muted">Open questions from SAP people — in their own words, with real answers.</p></div>' +
     '<div class="why-grid fresh-grid">' + fresh + '</div>' +
-    '<p class="center mt16"><a class="btn btn-primary" href="#/community">Browse the community</a></p></section>' +
+    '<p class="center mt16"><a class="btn btn-primary" href="#/community">Browse the community</a></p></section>' : '') +
 
     '<section class="cta-band"><div class="cta-inner">' +
     '<h2>Be found for your skills. Be known when you choose.</h2>' +
-    '<a class="btn btn-light btn-lg" href="#/register">Join Arnour free →</a>' +
+    '<div class="cta-btns"><a class="btn btn-light btn-lg" href="#/register">I\'m an SAP professional →</a> <a class="btn btn-outline-light btn-lg" href="#/register/e">I\'m a company →</a></div>' +
     '</div></section>';
 };
 

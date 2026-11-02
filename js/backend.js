@@ -869,7 +869,7 @@
     return card('<h1>Join Arnour</h1>' +
       '<div class="seg-tabs live-roles" role="tablist">' +
       '<a role="tab" aria-selected="' + (role === 'c') + '" class="seg-tab' + (role === 'c' ? ' on' : '') + '" href="#/register/c">I\'m an SAP professional</a>' +
-      '<a role="tab" aria-selected="' + (role === 'e') + '" class="seg-tab' + (role === 'e' ? ' on' : '') + '" href="#/register/e">I\'m hiring</a></div>' +
+      '<a role="tab" aria-selected="' + (role === 'e') + '" class="seg-tab' + (role === 'e' ? ' on' : '') + '" href="#/register/e">I\'m a company</a></div>' +
       '<p class="muted small center">' + (role === 'c' ? 'Build your SAP profile and get roles ranked by fit.' : 'Create your company profile and post precise SAP roles.') + '</p>' +
       B.oauthHtml(role) +
       '<form data-form="live-register" data-role="' + role + '" novalidate>' +
@@ -887,7 +887,7 @@
     var nm = B.oauthNames();
     return card('<h1>Welcome' + (nm.first ? ', ' + esc(nm.first) : '') + '</h1><p class="muted center">How will you use Arnour?</p>' +
       '<button type="button" class="btn btn-primary btn-block" data-action="live-pick-role" data-role="c">I\'m an SAP professional</button>' +
-      '<button type="button" class="btn btn-outline btn-block" data-action="live-pick-role" data-role="e">I\'m hiring for a company</button>');
+      '<button type="button" class="btn btn-outline btn-block" data-action="live-pick-role" data-role="e">I\'m a company</button>');
   };
 
   APP.views['check-email'] = function () {
