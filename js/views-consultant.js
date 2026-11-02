@@ -443,7 +443,7 @@ APP.state.inbox = APP.state.inbox || { q: '', f: 'all', role: '' };
 
 /* ---- helpers: role context, day labels ---- */
 APP.convRole = function (cv) {
-  if (!cv || cv.c2Id || !cv.eId) return null; /* professional-to-professional chats have no role */
+  if (!cv || cv.staff || cv.c2Id || !cv.eId) return null; /* professional-to-professional and Arnour team chats have no role */
   const jobs = Object.values(APP.db.jobs).filter(j => j.companyId === cv.eId);
   const newest = (arr) => arr.slice().sort((a, b) => (b.postedTs || 0) - (a.postedTs || 0))[0];
   let j = cv.jobId ? APP.job(cv.jobId) : null;
@@ -474,6 +474,7 @@ APP.callWhen = (c) => new Date(c.ts).toLocaleDateString('en-GB', { weekday: 'sho
 /* who is on the other end of a conversation, as the current viewer sees them */
 APP.convCounterparty = function (cv) {
   const isC = APP.db.session.role === 'consultant';
+  if (cv.staff) return { name: 'Arnour team', sub: 'Official messages from Arnour', avatar: '<span class="avatar team" title="Arnour team">A</span>', href: '', team: true };
   if (cv.c2Id) {
     const p = APP.consultant(APP.convPeerId(cv));
     if (!p) return null;
@@ -630,10 +631,11 @@ APP.msgLayout = function (convId) {
     const meC = isC ? APP.consultant(s.consultantId) : null;
     const myCv = isC && !peer && meC ? meC.cv : null;
     /* share my identity: a private professional, or a company on a confidential role, until shared */
+    const team = !!active.staff; /* messages from the Arnour team: no identity sharing, no block or report, text only */
     const myShared = mySd === 'c' ? active.revC : active.revE;
     const jobC = active.jobId ? APP.job(active.jobId) : null;
-    const canShare = !myShared && (isC ? !!(meC && meC.anon) : !!(jobC && jobC.confidential === true));
-    const closed = active.blockedByMe || active.blockedMe;
+    const canShare = !team && !myShared && (isC ? !!(meC && meC.anon) : !!(jobC && jobC.confidential === true));
+    const closed = !team && (active.blockedByMe || active.blockedMe);
     const waiting = APP.convWaiting(active);
     let roleBar = '';
     if (role) {
@@ -644,7 +646,7 @@ APP.msgLayout = function (convId) {
         '<div class="cr-acts">' + (b ? '<span class="match ' + b.cls + '" title="Match with this role">' + score + '% match</span>' : '') +
         (canInvite ? '<button type="button" class="btn btn-outline btn-sm" data-action="invite" data-cid="' + cand.id + '" data-jid="' + j.id + '">Invite to apply</button>' : '') + '</div></div>';
     }
-    const chips = closed ? '' : peer
+    const chips = closed || team ? '' : peer
       ? '<button type="button" class="chip" data-action="call-propose" data-conv="' + active.id + '">' + APP.icon('spark', 13) + ' Propose a call</button>'
       : isC
       ? '<button type="button" class="chip chip-cv" data-action="send-cv" data-conv="' + active.id + '">' + APP.icon('file', 13) + (myCv ? ' Send my CV' : ' Upload your CV') + '</button>' +
@@ -656,12 +658,13 @@ APP.msgLayout = function (convId) {
       '<div class="chat-head"><button type="button" class="icon-btn chat-back" data-action="go" data-href="' + back + '" aria-label="Back to inbox">←</button>' +
       (cp ? cp.avatar + '<div>' + (cp.href ? '<a class="chat-who-link" href="' + APP.h(cp.href) + '">' + APP.h(cp.name) + '</a>' : '<strong>' + APP.h(cp.name) + '</strong>') + '<small class="muted">' + APP.h(cp.sub || '') + '</small></div>' : '') +
       (canShare ? '<button type="button" class="btn btn-outline btn-sm chat-share" data-action="share-identity" data-conv="' + active.id + '">' + APP.icon('lock', 13) + ' Share my identity</button>' : '') +
-      (APP.reportBtn ? APP.reportBtn('conversation', active.id, false) : '') +
-      (active.blockedByMe ? '<button type="button" class="link-btn" data-action="conv-block" data-conv="' + active.id + '" data-on="0">Unblock</button>'
+      (!team && APP.reportBtn ? APP.reportBtn('conversation', active.id, false) : '') +
+      (team ? '' : active.blockedByMe ? '<button type="button" class="link-btn" data-action="conv-block" data-conv="' + active.id + '" data-on="0">Unblock</button>'
         : '<button type="button" class="link-btn" data-action="conv-block" data-conv="' + active.id + '" data-on="1">Block</button>') +
       '<button type="button" class="icon-btn chat-x" data-action="go" data-href="' + back + '" title="Close" aria-label="Close conversation">' + APP.icon('x', 18) + '</button></div>' +
       roleBar +
       (canShare ? '<div class="chat-note">' + APP.icon('lock', 13) + ' You appear ' + (isC ? 'as “' + APP.h(APP.anonLabel(meC)) + '”' : 'as “Confidential company”') + ' in this chat. Share your identity whenever you are ready.</div>' : '') +
+      (team ? '<div class="chat-note">' + APP.icon('msg', 13) + ' Official messages from the Arnour team. You can reply here.</div>' : '') +
       '<div class="chat-scroll" id="chat-scroll">' + (active.messages.length ? APP.chatMessagesHtml(active, isC) : '<div class="chat-empty small"><p>Say hello — your first message starts the conversation.</p></div>') + '</div>' +
       '<div class="chat-actions">' + chips + '</div>' +
       (closed ? '<div class="chat-closed">' + (active.blockedByMe ? 'You blocked this person. Unblock to message again.' : 'This conversation is closed.') + '</div>'

@@ -2192,6 +2192,7 @@ APP.pushMessage = function (convId, side, text, cvAttached, extra) {
   if (text || extra || cvAttached) cv.messages.push(Object.assign({ side, text: text || '', ts: Date.now(), cv: myCv }, APP.LIVE ? {} : { id: 'lm' + Math.random().toString(36).slice(2, 10) }, extra || {}));
   cv.lastTs = Date.now();
   cv.unread[other] = (cv.unread[other] || 0) + 1;
+  if (cv.staff) { APP.save(); return; } /* the Arnour team is told through the admin inbox, not a notification */
   if (cv.c2Id) { /* professional to professional */
     const fromId = side === 'c' ? cv.cId : cv.c2Id, toId = side === 'c' ? cv.c2Id : cv.cId, fromP = APP.consultant(fromId);
     if (fromP) APP.addNotif(toId, 'msg', ((!fromP.anon || (side === 'c' ? cv.revC : cv.revE)) ? fromP.firstName + ' ' + fromP.lastName : APP.anonLabel(fromP)) + ' sent you a message', '#/c/messages/' + cv.id);
@@ -4245,6 +4246,7 @@ APP.onClick = function (el, e) {
     case 'start-chat': {
       /* open messaging: anyone can start a conversation; private people and confidential roles stay anonymous inside it */
       const s = APP.db.session;
+      if (!s && APP.isAdminSession() && APP.adminMessage) { APP.adminMessage(d.cid || d.eid); break; } /* the admin writes as the Arnour team */
       if (!s) { APP.go('#/login'); break; }
       const jid = d.jid || '';
       if (s.role === 'employer') {

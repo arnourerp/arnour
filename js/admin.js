@@ -4,7 +4,7 @@
   var B = APP.backend, h = APP.h;
   if (!B) return;
 
-  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, imp: { text: '', rows: null, error: '', result: null, busy: false } };
+  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, msg: { id: null, thread: null, busy: false }, imp: { text: '', rows: null, error: '', result: null, busy: false } };
   var REASONS = [
     ['spam', 'Spam or advertising'], ['abuse', 'Harassment or abuse'], ['fake', 'Fake or misleading'],
     ['inappropriate', 'Inappropriate content'], ['privacy', 'Shares private information'], ['other', 'Something else']
@@ -37,7 +37,7 @@
     var inner = '';
     if (B.isAdmin) {
       if (REMOVABLE.indexOf(kind) !== -1) inner += '<button type="button" class="link-btn danger" data-action="adm-inline-remove" data-kind="' + h(kind) + '" data-id="' + h(id) + '">Remove (admin)</button>';
-      if (kind === 'profile' || kind === 'company') inner += '<a class="link-btn" href="#/admin/people/' + h(id) + '">Manage (admin)</a>';
+      if (kind === 'profile' || kind === 'company') inner += '<button type="button" class="link-btn" data-action="adm-message" data-id="' + h(id) + '">Message as Arnour team</button> <a class="link-btn" href="#/admin/people/' + h(id) + '">Manage (admin)</a>';
     } else inner = APP.reportBtn(kind, id, mine);
     if (!inner) return '';
     return wrap ? '<div class="mod-row">' + inner + '</div>' : '<span class="mod-tools">' + inner + '</span>';
@@ -98,17 +98,18 @@
     ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['health', 'Health', 'Errors and email delivery']]],
     ['People & roles', [['people', 'People', 'Professionals and companies'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
     ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages']]],
-    ['Communicate', [['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
+    ['Communicate', [['messages', 'Messages', 'Write to people as the Arnour team, and read their replies'], ['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
     ['Settings', [['settings', 'Site settings', 'Sample content on or off'], ['log', 'Activity log', 'Everything admins did']]]
   ];
   var TABS = []; GROUPS.forEach(function (g) { g[1].forEach(function (t) { TABS.push(t); }); });
 
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0, fb = A.data.health && A.data.health.openFeedback ? A.data.health.openFeedback : 0;
+    var mn = typeof A.data.staffN === 'number' ? A.data.staffN : 0;
     var menuOpen = !!A.menuOpen; A.menuOpen = false; /* the phone menu closes on the next page or refresh */
     var cur = TABS.filter(function (t) { return t[0] === tab; })[0];
-    var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : 0; return n ? ' <em>' + n + '</em>' : ''; };
-    var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : 0; }); return n; };
+    var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : id === 'messages' ? mn : 0; return n ? ' <em>' + n + '</em>' : ''; };
+    var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : t[0] === 'messages' ? mn : 0; }); return n; };
     return '<div class="adm' + (menuOpen ? ' adm-menu-open' : '') + '"><header class="adm-top"><a class="brand-logo" href="#/admin" aria-label="Arnour admin">A</a><strong>Arnour admin</strong>' +
       '<button type="button" class="btn btn-outline btn-sm adm-menu-btn" data-action="adm-menu" aria-expanded="' + menuOpen + '">☰ ' + h(cur ? cur[1] : 'Menu') + '</button><span class="grow"></span>' +
       '<a class="btn btn-ghost btn-sm" href="#/home">← View the site</a></header>' +
@@ -195,6 +196,7 @@
           (p.suspended && p.reason ? '<p class="small">Reason: ' + h(p.reason) + '</p>' : '') +
           '<div class="adm-actions">' +
           (p.entityId ? '<a class="btn btn-outline btn-sm" href="' + (p.role === 'consultant' ? '#/talent/' : '#/company/') + h(p.entityId) + '">View public page</a>' : '') +
+          (p.entityId && !p.suspended ? '<button class="btn btn-outline btn-sm" data-action="adm-message" data-id="' + h(p.entityId) + '">Message as Arnour team</button>' : '') +
           (p.suspended ? '<button class="btn btn-outline btn-sm" data-action="adm-unsuspend" data-u="' + p.userId + '">Reinstate</button>'
             : '<button class="btn btn-outline btn-sm" data-action="adm-suspend" data-u="' + p.userId + '" data-n="' + h(p.email) + '">Suspend</button>') +
           (p.role === 'consultant' && p.selfCertified ? (p.certRevoked ? '<button class="btn btn-ghost btn-sm" data-action="adm-cert" data-e="' + h(p.entityId) + '" data-on="0">Restore badge</button>' : '<button class="btn btn-ghost btn-sm" data-action="adm-cert" data-e="' + h(p.entityId) + '" data-on="1">Remove badge</button>') : '') +
@@ -700,6 +702,63 @@
   }
   function annErr(e) { A.ann.busy = false; APP.toast(String((e && e.message) || 'Could not do that').replace(/^.*?(Please|The|A role|Choose|Unknown)/, '$1')); APP.render(); }
 
+  /* ---------- messages: the Arnour team writes to people and reads their replies ---------- */
+  function vMessages() {
+    var M = A.msg;
+    if (M.id) return vMsgThread();
+    var w = need('staffbox', 'admin_staff_inbox'); if (w) return w;
+    var L = A.data.staffbox;
+    return '<h1>Messages</h1><p class="muted">Everything you send here goes out as <strong>Arnour team</strong>: the person never sees your name or e-mail, and can reply. To start a new conversation, open a person or company (People, or any profile) and press Message.</p>' +
+      '<div class="adm-actions" style="margin-top:0"><a class="btn btn-outline btn-sm" href="#/admin/people">Find a person →</a></div>' +
+      (L.length ? L.map(function (c) {
+        return '<div class="adm-card adm-msg-row' + (c.unread ? ' unread' : '') + '"><div class="adm-row"><strong>' + h(c.name) + '</strong> <span class="pill muted-pill">' + (c.kind === 'company' ? 'Company' : 'Professional') + '</span>' +
+          (c.unread ? ' <span class="pill warn-pill">' + c.unread + ' new</span>' : '') + '<span class="grow"></span><span class="muted small">' + h(whenT(+c.lastTs)) + '</span></div>' +
+          '<p class="muted" style="margin:4px 0">' + (c.fromThem ? '' : 'You: ') + h(c.last || '') + '</p>' +
+          '<div class="adm-actions">' + cb('adm-msg-open', c.unread ? 'Read and reply' : 'Open', { id: c.id }, c.unread ? 'btn-primary' : 'btn-outline') + '</div></div>';
+      }).join('') : '<div class="empty">No messages yet. Open a person or company and press Message to write the first one.</div>');
+  }
+  function vMsgThread() {
+    var M = A.msg, T = M.thread;
+    if (!T) return '<div class="empty">Loading…</div>';
+    return '<div class="crumb"><button type="button" class="link-btn" data-action="adm-msg-back">← All messages</button></div>' +
+      '<h1>' + h(T.name) + ' <span class="pill muted-pill">' + (T.kind === 'company' ? 'Company' : 'Professional') + '</span></h1>' +
+      '<p class="muted small">You write as <strong>Arnour team</strong>. ' + h(T.name) + ' sees your messages under Messages on Arnour.</p>' +
+      '<div class="adm-card adm-thread" id="adm-thread">' + (T.messages.length ? T.messages.map(function (m) {
+        return '<div class="adm-bub ' + (m.mine ? 'me' : 'them') + '"><div class="adm-bub-t">' + (m.deleted ? '<em class="muted">Message deleted</em>' : h(m.text)) + '</div><small class="muted">' + (m.mine ? 'Arnour team' : h(T.name)) + ' · ' + h(new Date(+m.ts).toLocaleString('en-GB')) + '</small></div>';
+      }).join('') : '<p class="muted">No messages yet.</p>') + '</div>' +
+      '<form class="adm-card" data-form="adm-msg-send"><label class="field"><span class="label">Reply as Arnour team</span><textarea class="input" name="t" rows="3" maxlength="2000" placeholder="Write your message…"></textarea></label>' +
+      '<div class="adm-actions"><button class="btn btn-primary btn-sm" type="submit"' + (M.busy ? ' disabled' : '') + '>Send</button></div></form>';
+  }
+  function msgName(target) {
+    var c = APP.db.consultants && APP.db.consultants[target], co = APP.db.companies && APP.db.companies[target];
+    if (c) return ((c.firstName || '') + ' ' + (c.lastName || '')).trim() || 'this professional';
+    if (co) return co.name || 'this company';
+    return 'this person';
+  }
+  /* the Message button on any profile, company or role page opens this for the admin */
+  APP.adminMessage = function (target) {
+    if (!B.isAdmin || !target) return;
+    var nm = msgName(target);
+    APP.openDialog({
+      title: 'Message ' + h(nm) + ' as Arnour team',
+      sub: h(nm) + ' will see “Arnour team”, not your name or e-mail. They can reply, and you will read the reply under Admin → Messages.',
+      body: '<label class="field"><span class="label">Your message</span><textarea id="dlg-note" class="input" rows="5" maxlength="2000" placeholder="Write your message…"></textarea></label>',
+      confirmLabel: 'Send as Arnour team',
+      onConfirm: function (v) {
+        var text = String(v.note || '').trim();
+        if (!text) { APP.toast('Write a message first'); return; }
+        B.rpc('admin_staff_send', { p_target: target, p_text: text }).then(function (r) {
+          reload('staffbox'); reload('staffN'); reload('log');
+          APP.toast('Sent as Arnour team ✓');
+          if (/^#\/admin\/messages/.test(location.hash)) APP.render();
+        }, function (e) {
+          var m = String((e && e.message) || '');
+          APP.toast(/too many/i.test(m) ? 'Too many messages in the last hour. Try again later.' : /no account/i.test(m) ? 'This profile has no account to message.' : /unknown profile/i.test(m) ? 'Could not find that profile.' : /too long/i.test(m) ? 'That message is too long (up to 2000 characters).' : 'Could not send. Please try again.');
+        });
+      }
+    });
+  };
+
   function vCatalog() {
     var w = need('catalog', 'get_catalog') || need('catusage', 'admin_catalog_usage') || need('catlog', 'admin_catalog_log', { p_limit: 60 }); if (w) return w;
     var C = A.data.catalog, U = A.data.catusage, L = A.data.catlog, sub = A.cat.sub;
@@ -716,7 +775,8 @@
     var tab = (ctx && ctx.p && ctx.p[0]) || 'overview', rest = ctx && ctx.p && ctx.p[1];
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
+    if (A.data.staffN === undefined && !A.err.staffN) load('staffN', 'admin_staff_unread');
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -830,7 +890,16 @@
         }, annErr);
         break;
       }
+      case 'adm-message': APP.adminMessage(d.id); break;
       case 'adm-menu': A.menuOpen = true; APP.render(); break;
+      case 'adm-msg-open':
+        A.msg.id = d.id; A.msg.thread = null; APP.render();
+        B.rpc('admin_staff_thread', { p_conv: d.id }).then(function (t) {
+          A.msg.thread = t; reload('staffbox'); reload('staffN'); APP.render();
+          setTimeout(function () { var el = document.getElementById('adm-thread'); if (el) el.scrollTop = el.scrollHeight; }, 0);
+        }, function () { A.msg.id = null; APP.toast('Could not open the conversation'); APP.render(); });
+        break;
+      case 'adm-msg-back': A.msg.id = null; A.msg.thread = null; reload('staffbox'); APP.render(); break;
       case 'adm-lst-sub': A.lst.sub = d.s; A.lst.ed = null; A.lst.merge = null; APP.render(); break;
       case 'adm-lst-toggle': A.lst.open[d.id] = !A.lst.open[d.id]; APP.render(); break;
       case 'adm-lst-cancel': A.lst.ed = null; A.lst.merge = null; APP.render(); break;
@@ -980,6 +1049,19 @@
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'adm-del') window.__admDel = e.target.value.trim(); });
 
   APP.onSubmit = function (f) {
+    if (f.dataset.form === 'adm-msg-send') {
+      var M = A.msg, ta = f.querySelector('textarea[name="t"]'), txt = ta ? String(ta.value || '').trim() : '';
+      if (M.busy || !M.thread) return;
+      if (!txt) { APP.toast('Write a message first'); return; }
+      M.busy = true;
+      B.rpc('admin_staff_send', { p_target: M.thread.entity, p_text: txt }).then(function () {
+        return B.rpc('admin_staff_thread', { p_conv: M.id });
+      }).then(function (t) {
+        M.busy = false; M.thread = t; reload('staffbox'); reload('staffN'); reload('log'); APP.toast('Sent as Arnour team ✓'); APP.render();
+        setTimeout(function () { var el = document.getElementById('adm-thread'); if (el) el.scrollTop = el.scrollHeight; }, 0);
+      }, function (e) { M.busy = false; APP.toast(/too many/i.test(String((e && e.message) || '')) ? 'Too many messages in the last hour. Try again later.' : 'Could not send. Please try again.'); APP.render(); });
+      return;
+    }
     if (f.dataset.form === 'adm-ann') {
       if (A.ann.busy) return;
       var ar = annArgs();

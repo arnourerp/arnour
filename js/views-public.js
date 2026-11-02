@@ -766,7 +766,8 @@ APP.views['talent-public'] = function (ctx) {
     }
     return '<div class="narrow">' + APP.peopleCrumb() + '<div class="card empty anon-empty">' + APP.icon('lock', 28) +
       '<h3>This profile is private</h3><p class="muted">This professional uses Mutual Reveal: skills first, name second. Their identity is shared only when they choose to share it.</p>' +
-      (!sx ? '<div class="btn-row" style="justify-content:center"><a class="btn btn-primary btn-sm" href="#/login">Sign in to see more</a><a class="btn btn-outline btn-sm" href="#/register">Join free</a></div>'
+      (!sx && APP.isAdminSession() ? '<div class="btn-row" style="justify-content:center">' + '<button class="btn btn-primary btn-sm" data-action="adm-message" data-id="' + c.id + '">' + APP.icon('clip', 14) + ' Message as Arnour team</button>' + '</div>'
+        : !sx ? '<div class="btn-row" style="justify-content:center"><a class="btn btn-primary btn-sm" href="#/login">Sign in to see more</a><a class="btn btn-outline btn-sm" href="#/register">Join free</a></div>'
         : sx.role === 'employer' ? '<a class="btn btn-primary btn-sm" href="#/e/talent/' + c.id + '">View anonymous profile</a>'
         : '<a class="btn btn-outline btn-sm" href="#/">Back to home</a>') + '</div></div>';
   }
@@ -777,6 +778,8 @@ APP.views['talent-public'] = function (ctx) {
   let headActions;
   if (s && s.role === 'employer') {
     headActions = '<button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message ' + APP.h(c.firstName || name) + '</button>';
+  } else if (!s && APP.isAdminSession()) {
+    headActions = '<button class="btn btn-primary btn-sm" data-action="adm-message" data-id="' + c.id + '">' + APP.icon('clip', 14) + ' Message as Arnour team</button>';
   } else if (!s) {
     headActions = '<a class="btn btn-primary btn-sm" href="#/login">Sign in to contact</a><a class="btn btn-outline btn-sm" href="#/register">Join free</a>';
   } else if (s.consultantId !== c.id) {
@@ -824,6 +827,7 @@ APP.views['company-public'] = function (ctx) {
     ? '<div class="btn-row"><button class="btn btn-primary btn-sm" data-action="start-chat" data-eid="' + co.id + '">' + APP.icon('clip', 14) + ' Message</button><a class="btn btn-outline btn-sm" href="#/jobs">' + APP.icon('briefcase', 14) + ' Browse open roles</a></div>'
     : s && s.role === 'employer'
       ? '<span class="muted small">You are signed in as a company — switch to a professional account to apply for roles.</span>'
+      : APP.isAdminSession() ? '<div class="btn-row">' + '<button class="btn btn-primary btn-sm" data-action="adm-message" data-id="' + co.id + '">' + APP.icon('clip', 14) + ' Message as Arnour team</button>' + '</div>'
       : '<div class="btn-row"><a class="btn btn-primary btn-sm" href="#/login">Sign in</a><a class="btn btn-outline btn-sm" href="#/register">Create a free account to apply</a></div>';
 
   return '<div class="narrow">' +

@@ -2128,3 +2128,10 @@ a.sr-title:hover { text-decoration: underline; }
 .tabbar .tab, .tabbar .tab-lbl { font-size: 12px; }
 .nav-count, .tabbar .tab-ico .nav-count, .nav-link .nav-count, .badge, .nav-ico .badge { font-size: 12px; min-width: 18px; height: 18px; line-height: 1; }
 .mr-who, .seg-n, .pill.co-type, .pill.sr-kind, .rep, .ci-group, .ci-badge, .vis-rec, small, .small { font-size: 12px; }
+/* messages from the Arnour team (recipient avatar, admin thread) */
+.avatar.team { background-color: #fff; background-image: url('../assets/logo-192.png'), linear-gradient(135deg, var(--accent-blue), var(--primary)); background-size: contain, cover; background-position: center; background-repeat: no-repeat; color: transparent; border: 1px solid var(--border-subtle); }
+.adm-msg-row.unread { border-color: var(--primary); }
+.adm-thread { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.adm-bub { max-width: 82%; padding: 8px 12px; border-radius: 12px; background: var(--bg-subtle); align-self: flex-start; }
+.adm-bub.me { align-self: flex-end; background: var(--blue-soft, #E8F0FE); }
+.adm-bub-t { white-space: pre-wrap; overflow-wrap: anywhere; }

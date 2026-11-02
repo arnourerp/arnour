@@ -161,7 +161,7 @@
     db.conversations = {};
     p.convs.forEach(function (c) {
       db.conversations[c.id] = { id: c.id, cId: c.c_id, eId: c.e_id || null, c2Id: c.c2_id || null, jobId: c.job_id || '', messages: [], unread: { c: 0, e: 0 }, lastTs: +c.last_ts, botReplyUsed: true,
-        revC: !!c.rev_c, revE: !!c.rev_e, mine: !!c.mine, blockedByMe: !!c.blocked_by_me, blockedMe: !!c.blocked_me, _r: { c: +c.c_read, e: +c.e_read } };
+        revC: !!c.rev_c, revE: !!c.rev_e, staff: !!c.staff, mine: !!c.mine, blockedByMe: !!c.blocked_by_me, blockedMe: !!c.blocked_me, _r: { c: +c.c_read, e: +c.e_read } };
     });
     p.msgs.forEach(function (m) {
       var cv = db.conversations[m.conv_id]; if (!cv) return;
