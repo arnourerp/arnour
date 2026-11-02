@@ -1103,7 +1103,7 @@ APP.visPro = function (d, ctx, extra) {
   const loc = d.country ? ' · ' + (APP.countryName(d.country) || '') : '';
   return APP.visibilityHtml(Object.assign({ kind: 'pro', ctx: ctx, priv: !!d.anon,
     hidden: { avatar: APP.avatarHtml(nm, 'lg', true), name: nm, sub: (sub || '') + loc },
-    shown: { avatar: APP.avatarHtml(full, 'lg'), name: full, sub: (d.headline || '') + loc } }, extra || {}));
+    shown: { avatar: APP.avatarHtml(full, 'lg', false, d.photo), name: full, sub: (d.headline || '') + loc } }, extra || {}));
 };
 /* contact email of a company: shared only after an accepted introduction or request; empty = the sign-in email */
 APP.validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
@@ -1114,13 +1114,13 @@ APP.visPt = function (d, ctx, extra) {
   const p = d.partner || {}, nm = d.name || 'Your company', loc = (APP.countryName(d.country) || '') + (p.teamSize ? ' · ' + p.teamSize + ' consultants' : '');
   return APP.visibilityHtml(Object.assign({ kind: 'pt', ctx: ctx, priv: !!p.hideName,
     hidden: { avatar: APP.avatarHtml('Confidential SI/Partner', 'lg'), name: 'Confidential SI/Partner', sub: loc },
-    shown: { avatar: APP.avatarHtml(nm, 'lg'), name: nm, sub: loc } }, extra || {}));
+    shown: { avatar: APP.avatarHtml(nm, 'lg', false, d.logo), name: nm, sub: loc } }, extra || {}));
 };
 APP.visCo = function (d, ctx, extra) {
   const nm = d.name || 'Your company', ind = (d.industry || '') + (d.country ? ' · ' + (APP.countryName(d.country) || '') : '');
   return APP.visibilityHtml(Object.assign({ kind: 'co', ctx: ctx, priv: d.confidentialDefault === true,
     hidden: { avatar: APP.avatarHtml('Confidential company', 'lg'), name: 'Confidential company', sub: ind },
-    shown: { avatar: APP.avatarHtml(nm, 'lg'), name: nm, sub: ind } }, extra || {}));
+    shown: { avatar: APP.avatarHtml(nm, 'lg', false, d.logo), name: nm, sub: ind } }, extra || {}));
 };
 /* the card on the user's own profile page */
 APP.privacyCardHtml = function () {
@@ -1145,7 +1145,7 @@ APP.introsPageHtml = function (embed) {
     const acts = (i.status === 'pending' && incoming(i))
       ? '<div class="btn-row"><button class="btn btn-primary btn-sm" data-action="intro-accept" data-id="' + i.id + '">Accept</button><button class="btn btn-outline btn-sm" data-action="intro-decline" data-id="' + i.id + '">Decline</button></div>'
       : (i.status === 'accepted' ? '<div class="btn-row"><button class="btn btn-outline btn-sm" data-action="start-chat" data-cid="' + i.cid + '" data-eid="' + i.eid + '">Open chat</button></div>' : '');
-    return '<article class="card intro-card"><div class="card-top">' + APP.avatarHtml(other, 'lg', !isC && shown && shown._anon) +
+    return '<article class="card intro-card"><div class="card-top">' + APP.avatarHtml(other, 'lg', !isC && shown && shown._anon, shown && APP.picOf(shown)) +
       '<div class="card-id"><p class="card-sub">' + (incoming(i) ? 'Wants to connect' : 'You asked to connect') + ' · ' + APP.timeAgo(i.ts) + '</p><h3 class="card-title">' + APP.h(other) + '</h3>' +
       '<p class="muted small">' + APP.h(head) + (job ? (head ? ' · ' : '') + 'about “' + APP.h(job.title) + '”' : '') + '</p></div>' +
       '<div class="card-side">' + ((i.status === 'pending' && incoming(i)) ? '<span class="pill warn-pill">Needs your answer</span>' : APP.introStatusPill(i)) + '</div></div>' +
@@ -1823,9 +1823,83 @@ APP.skillPillLabels = function (skills, job) {
   }));
 };
 
-APP.avatarHtml = function (name, size, anon) {
+/* ---- pictures: professional photo (data.photo) and company logo (data.logo) ----
+   The profile stores a short path into the public "avatars" bucket (random file name); the server only hands it to people who may see the name.
+   The offline demo keeps the small picture itself as a data address. */
+APP.photoUrl = function (p) {
+  if (!p || typeof p !== 'string') return '';
+  if (p.indexOf('data:image/') === 0) return p;
+  const u = (window.ARNOUR_CONFIG && window.ARNOUR_CONFIG.url) || '';
+  return u && /^[0-9a-f-]{36}\/[a-z0-9]{8,40}\.(jpg|png|webp)$/.test(p) ? u.replace(/\/$/, '') + '/storage/v1/object/public/avatars/' + p : '';
+};
+APP.logoImgHtml = function (img) { const src = APP.photoUrl(img); return src ? '<img class="av-img" src="' + APP.h(src) + '" alt="" decoding="async">' : ''; };
+APP.picOf = function (x) { return (x && (x.photo || x.logo)) || ''; };
+document.addEventListener('error', function (e) { const t = e.target; if (t && t.classList && t.classList.contains('av-img')) t.remove(); }, true); /* a missing picture falls back to the initials */
+APP.avatarHtml = function (name, size, anon, img) {
   if (anon || name === 'Confidential company' || name === 'A confidential company') return '<span class="avatar anon' + (size ? ' ' + size : '') + '" title="Identity private">' + APP.icon('lock', size === 'xl' ? 26 : size === 'lg' ? 20 : 15) + '</span>';
-  return '<span class="avatar ' + APP.avColor(name) + (size ? ' ' + size : '') + '">' + APP.h(APP.initials(name)) + '</span>';
+  const src = APP.photoUrl(img);
+  return '<span class="avatar ' + APP.avColor(name) + (size ? ' ' + size : '') + '">' + APP.h(APP.initials(name)) + (src ? '<img class="av-img" src="' + APP.h(src) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>';
+};
+
+/* The browser makes the picture small before it leaves the device: 256 px square, JPEG, under 150 KB. Photos fill the square; logos are shown whole on white. */
+APP.photoPrepare = function (file, kind) {
+  return new Promise(function (resolve) {
+    if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) { APP.toast('Please choose a JPG, PNG or WebP picture'); return resolve(null); }
+    if (file.size > 15 * 1024 * 1024) { APP.toast('That picture is larger than 15 MB'); return resolve(null); }
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = function () {
+      URL.revokeObjectURL(url);
+      const S = 256, w = im.naturalWidth, h = im.naturalHeight;
+      if (!w || !h) return resolve(null);
+      const cv = document.createElement('canvas'); cv.width = cv.height = S;
+      const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, S, S); cx.imageSmoothingQuality = 'high';
+      const k = kind === 'logo' ? Math.min(S / w, S / h) : Math.max(S / w, S / h), dw = w * k, dh = h * k;
+      cx.drawImage(im, (S - dw) / 2, (S - dh) / 2, dw, dh);
+      let q = 0.86;
+      (function go() { cv.toBlob(function (b) { if (!b) return resolve(null); if (b.size > 150000 && q > 0.4) { q -= 0.12; return go(); } resolve(b.size > 150000 ? null : b); }, 'image/jpeg', q); })();
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); APP.toast('We could not read that picture. Please try another one.'); resolve(null); };
+    im.src = url;
+  });
+};
+/* where each picture field lives */
+APP.photoTarget = function (sc) {
+  if (sc === 'wizC') return APP.wizC ? { o: APP.wizC.data, k: 'photo' } : null;
+  if (sc === 'wizE') return APP.wizE ? { o: APP.wizE.data, k: 'logo' } : null;
+  if (sc === 'profile') return APP.profileDraft ? { o: APP.profileDraft, k: 'photo' } : null;
+  if (sc === 'company') return APP.profileDraft ? { o: APP.profileDraft, k: 'logo' } : null;
+  return null;
+};
+APP._picTmp = {}; /* pictures uploaded in this editing session and not saved yet: deleted again when replaced or removed */
+APP.photoSet = function (sc, file) {
+  const kind = sc === 'wizE' || sc === 'company' ? 'logo' : 'photo';
+  APP.photoPrepare(file, kind).then(function (blob) {
+    if (!blob) return;
+    const put = function (val) {
+      const T = APP.photoTarget(sc); if (!T || !val) return;
+      const old = T.o[T.k];
+      if (old && APP._picTmp[old]) { delete APP._picTmp[old]; if (APP.LIVE) APP.backend.dropPicture(old); }
+      T.o[T.k] = val; if (APP.LIVE) APP._picTmp[val] = 1;
+      APP.render();
+    };
+    if (APP.LIVE) APP.backend.uploadPicture(blob).then(put);
+    else { const fr = new FileReader(); fr.onload = function () { put(String(fr.result)); }; fr.readAsDataURL(blob); }
+  });
+};
+APP.photoClear = function (sc) {
+  const T = APP.photoTarget(sc); if (!T) return;
+  const old = T.o[T.k];
+  if (old && APP._picTmp[old]) { delete APP._picTmp[old]; if (APP.LIVE) APP.backend.dropPicture(old); }
+  T.o[T.k] = ''; /* empty, not deleted, so saving really clears it */
+  APP.render();
+};
+APP.photoFieldHtml = function (sc, cur, name, kind) {
+  const logo = kind === 'logo', has = !!APP.photoUrl(cur);
+  return '<div class="photo-field"><div class="photo-row">' + APP.avatarHtml(name || (logo ? 'Company' : 'You'), 'xl', false, cur) +
+    '<div class="photo-act"><div class="photo-btns"><label class="btn btn-outline btn-sm photo-pick">' + (has ? 'Change ' : 'Upload ') + (logo ? 'logo' : 'photo') +
+    '<input type="file" accept="image/jpeg,image/png,image/webp" data-photo-input="' + sc + '" hidden></label>' +
+    (has ? '<button type="button" class="btn btn-ghost btn-sm" data-action="photo-clear" data-scope="' + sc + '">Remove</button>' : '') + '</div>' +
+    '<p class="muted small">JPG, PNG or WebP — we resize it for you. ' + (logo ? 'If your company is confidential, the logo stays hidden until you reveal it.' : 'If your profile is private, your photo stays hidden until you accept an introduction.') + '</p></div></div></div>';
 };
 
 APP.skillChipsHtml = function (skills, n) {
@@ -1866,7 +1940,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
   const meta = APP.metaBarHtml([APP.h(loc), APP.h(job.employmentType || ''), APP.expLabel(job) ? APP.h(APP.expLabel(job)) + ' exp' : (job.level ? APP.h(job.level) + ' level' : '')]);
   return '<article class="card job-card"' + (link ? ' data-card-href="' + APP.h(link) + '"' : '') + '>' +
     '<div class="card-top">' +
-    (isExt ? APP.avatarHtml(coName || 'Jobs', 'lg') : (co ? APP.avatarHtml(co.name, 'lg') : '')) +
+    (isExt ? APP.avatarHtml(coName || 'Jobs', 'lg') : (co ? APP.avatarHtml(co.name, 'lg', false, co.logo) : '')) +
     '<div class="card-id">' +
     '<p class="card-sub">' + (coHref ? '<a class="co-link" href="' + APP.h(coHref) + '">' + APP.h(coName) + '</a>' : APP.h(coName)) + APP.coTypeBadgeOf(APP.jobPosterType(job)) + '</p>' +
     '<h3 class="card-title">' + (link ? '<a href="' + APP.h(link) + '">' : '') + APP.h(job.title) + (link ? '</a>' : '') + APP.samplePill(job) +
@@ -1892,7 +1966,7 @@ APP.personRowHtml = function (c, opts) {
   c = APP.cv(c);
   const name = APP.consultantFullName(c);
   const profile = '#/e/talent/' + c.id;
-  return '<div class="person-row" data-card-href="' + profile + '">' + APP.avatarHtml(name, '', c._anon) +
+  return '<div class="person-row" data-card-href="' + profile + '">' + APP.avatarHtml(name, '', c._anon, c.photo) +
     '<div class="card-id"><p class="card-name"><a class="person-link" href="' + profile + '">' + APP.h(name) + '</a>' + APP.certBadgeHtml(c) + APP.samplePill(c) + '</p>' +
     '<p class="person-title">' + APP.h(c.headline || '') + '</p>' +
     APP.metaBarHtml([APP.h(APP.locText(c)), c.yearsExp != null ? APP.h(c.yearsExp) + ' yrs' : '', APP.availHtml(c.availability)]) +
@@ -1924,7 +1998,7 @@ APP.talentCard = function (c, opts) {
   ]);
   return '<article class="card talent-card" data-card-href="' + profile + '">' +
     '<div class="card-top">' +
-    APP.avatarHtml(name, 'lg', c._anon) +
+    APP.avatarHtml(name, 'lg', c._anon, c.photo) +
     '<div class="card-id">' +
     '<p class="card-name"><a class="person-link" href="' + profile + '">' + APP.h(name) + '</a>' + APP.certBadgeHtml(c) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Anonymous</span>' : '') + (opts.note || '') + '</p>' +
     '<h3 class="card-title">' + APP.h(c.headline || APP.roleTypeLabel(c.roleType) || c.level || '') + '</h3>' +
@@ -2207,7 +2281,7 @@ APP.confirmApply = function (jobId) {
     title: 'Apply to ' + APP.h(job.title) + '?',
     sub: APP.h(co.name || 'The employer') + ' will receive your application right away.',
     body:
-      '<div class="dlg-who">' + APP.avatarHtml(name) + '<div class="dlg-who-t"><b>' + APP.h(name.trim()) + '</b><span class="muted small">' + APP.h(c.headline || '') + '</span></div>' +
+      '<div class="dlg-who">' + APP.avatarHtml(name, '', false, c.photo) + '<div class="dlg-who-t"><b>' + APP.h(name.trim()) + '</b><span class="muted small">' + APP.h(c.headline || '') + '</span></div>' +
       (typeof score === 'number' ? '<span class="dlg-match">' + score + '% match</span>' : '') + '</div>' +
       '<label class="field"><span class="label">Note to ' + APP.h(co.name || 'the employer') + ' <span class="muted">(optional)</span></span>' +
       '<textarea id="dlg-note" class="input" rows="3" maxlength="300" placeholder="Why you are a good fit, your availability, anything useful…"></textarea>' +
@@ -2566,7 +2640,7 @@ APP.navbar = function () {
     '<button class="nav-ico" data-action="go" data-href="' + (isC ? '#/c/messages' : '#/e/messages') + '" title="Messages">' + APP.icon('msg', 20) + (m ? '<span class="badge">' + m + '</span>' : '') + '</button>' +
     '<button class="nav-ico" data-action="toggle-notif" title="Notifications">' + APP.icon('bell', 20) + (n ? '<span class="badge">' + n + '</span>' : '') + '</button>' +
     '<div class="nav-user">' +
-    '<button class="avatar ' + APP.avColor(name) + '" data-action="toggle-menu" title="' + APP.h(name) + '">' + APP.h(APP.initials(name)) + '</button>' +
+    '<button class="avatar ' + APP.avColor(name) + '" data-action="toggle-menu" title="' + APP.h(name) + '">' + APP.h(APP.initials(name)) + (APP.photoUrl(APP.picOf(u)) ? '<img class="av-img" src="' + APP.h(APP.photoUrl(APP.picOf(u))) + '" alt="" decoding="async">' : '') + '</button>' +
     '<div class="menu" id="user-menu">' +
     '<div class="menu-head"><strong>' + APP.h(name) + '</strong><small>' + APP.h(isC ? u.headline : (u.industry || 'Company')) + '</small></div>' +
     '<a class="menu-item" href="' + (isC ? '#/c/profile' : '#/e/company') + '">' + (isC ? 'View my profile' : 'Company profile') + '</a>' +
@@ -3610,6 +3684,12 @@ APP.bindGlobal = function () {
       if (k) { k.minProjects = +t.value || 0; if (row.dataset.target === 'jobNew') APP.jobSummaryRefresh(); }
       return;
     }
+    if (t.hasAttribute && t.hasAttribute('data-photo-input')) {
+      const file = t.files && t.files[0], sc = t.dataset.photoInput;
+      if (file) APP.photoSet(sc, file);
+      try { t.value = ''; } catch (e2) { /* ignore */ }
+      return;
+    }
     /* CV file uploads */
     if (t.getAttribute('data-wiz-cv')) {
       const file = t.files && t.files[0];
@@ -4375,6 +4455,8 @@ APP.onClick = function (el, e) {
       APP.render();
       break;
     }
+
+    case 'photo-clear': { APP.photoClear(d.scope); break; }
 
     case 'cv-clear': {
       if (d.scope === 'wizC' && APP.wizC) { APP.wizC.data.cv = null; APP.render(); }

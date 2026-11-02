@@ -315,7 +315,7 @@
       '<div class="card pt-own-card"><div class="card-h">Your contact</div><p class="small">' + (co.contactName ? '<b>' + h(co.contactName) + '</b>' + (co.contactTitle ? ' · ' + h(co.contactTitle) : '') : '<span class="muted">No contact person yet</span>') + '</p>' +
       '<p class="muted small">' + (co.contactEmail ? h(co.contactEmail) : 'Your sign-in email') + ' · shared only after you accept a request.</p></div>' +
       (extra || '');
-    return '<header class="card pt-hero"><div class="pt-hero-top"><span class="brand-logo lg" aria-hidden="true">' + h(APP.initials(co.name)) + '</span>' +
+    return '<header class="card pt-hero"><div class="pt-hero-top"><span class="brand-logo lg" aria-hidden="true">' + h(APP.initials(co.name)) + APP.logoImgHtml(co.logo) + '</span>' +
       '<div class="grow"><h1 class="pt-h1">' + h(co.name) + ' ' + APP.coTypeBadgeOf('partner') + '</h1>' + (meta ? '<p class="muted pt-meta">' + h(meta) + '</p>' : '') +
       (site ? '<p class="small pt-site"><a class="link" href="' + h(site) + '" target="_blank" rel="noopener noreferrer">' + h(co.website) + '</a></p>' : '') + '</div>' +
       '<button class="btn btn-outline pt-hero-cta" data-action="co-edit-on">Edit profile</button></div>' +
@@ -373,7 +373,7 @@
     }
     var metTxt = x.m.total ? '<span class="pt-met' + (x.m.met === x.m.total ? ' all' : '') + '">Covers ' + x.m.met + ' of ' + x.m.total + (x.m.total === 1 ? ' need' : ' needs') + '</span>' : '';
     return '<div class="card pt-card" data-card-href="#/partner/' + h(p.id) + '">' +
-      '<div class="pt-card-top"><span class="brand-logo">' + (p.anon ? APP.icon('lock', 16) : h(APP.initials(p.name))) + '</span>' +
+      '<div class="pt-card-top"><span class="brand-logo">' + (p.anon ? APP.icon('lock', 16) : h(APP.initials(p.name)) + APP.logoImgHtml(p.logo)) + '</span>' +
       '<div class="grow"><div class="pt-name"><a class="card-title" href="#/partner/' + h(p.id) + '">' + h(p.name) + '</a>' + APP.coTypeBadgeOf('partner') + '</div>' +
       '<div class="muted small">' + h(meta) + '</div></div>' + metTxt + '</div>' +
       (tag ? '<p class="pt-tag">' + h(tag) + '</p>' : '') +
@@ -475,7 +475,7 @@
     var req = actionHtml(p, id);
     var canAsk = req.indexOf('data-form="pt-send"') >= 0;
     return '<div class="narrow pt-wide">' + back +
-      '<header class="card pt-hero"><div class="pt-hero-top"><span class="brand-logo lg" aria-hidden="true">' + (p.anon ? APP.icon('lock', 22) : h(APP.initials(p.name))) + '</span>' +
+      '<header class="card pt-hero"><div class="pt-hero-top"><span class="brand-logo lg" aria-hidden="true">' + (p.anon ? APP.icon('lock', 22) : h(APP.initials(p.name)) + APP.logoImgHtml(p.logo)) + '</span>' +
       '<div class="grow"><h1 class="pt-h1">' + h(p.name) + ' ' + APP.coTypeBadgeOf('partner') + '</h1>' + (meta ? '<p class="muted pt-meta">' + h(meta) + '</p>' : '') +
       (site && !p.anon ? '<p class="small pt-site"><a class="link" href="' + h(site) + '" target="_blank" rel="noopener noreferrer">' + h(p.website) + '</a></p>' : '') + '</div>' +
       (canAsk ? '<button type="button" class="btn btn-primary pt-hero-cta" data-action="pt-scroll-req">Send a request</button>' : '') + '</div>' +

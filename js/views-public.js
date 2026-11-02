@@ -311,6 +311,7 @@ APP.views['wiz-c'] = function () {
       '</form>';
   } else {
     body = '<form data-form="wiz-c" data-step="6">' +
+      sec('photo', 'users', 'Profile photo (optional)', APP.photoFieldHtml('wizC', d.photo, ((d.firstName || '') + ' ' + (d.lastName || '')).trim() || 'You', 'photo')) +
       sec('cv', 'file', 'Your CV',
         '<div class="field"><span class="label">CV (PDF recommended)</span>' +
         '<div class="cv-box">' +
@@ -459,6 +460,7 @@ APP.views['wiz-e'] = function () {
       '</form>';
   } else {
     body = '<form data-form="wiz-e" data-step="' + step + '">' +
+      '<div class="field"><span class="label">Company logo <span class="muted">(optional)</span></span>' + APP.photoFieldHtml('wizE', d.logo, d.name || 'Your company', 'logo') + '</div>' +
       '<div class="review-box">' +
       '<strong>' + APP.h(d.name || 'Your company') + '</strong>' +
       '<div class="muted small">' + APP.h(d.industry) + ' · ' + APP.h(d.size) + ' · ' + APP.h(APP.locText(d)) +
@@ -663,10 +665,10 @@ APP.views['job-detail'] = function (ctx) {
     '<div class="grow"><strong>' + E(job.extEmployer || 'The employer') + '</strong><small class="muted">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</small></div></div>' +
     '<p class="muted small" style="margin:10px 0 0">Arnour lists this role to help you find it. ' + E(job.extEmployer || 'The employer') + ' is not an Arnour member, and you apply on their own site.</p></section>';
   const coSec = isExt ? extSec : !co ? '' : co._anon
-    ? '<section class="jd-sec"><h2>About the company</h2><div class="job-co job-co-flat">' + APP.avatarHtml(co.name, 'lg') +
+    ? '<section class="jd-sec"><h2>About the company</h2><div class="job-co job-co-flat">' + APP.avatarHtml(co.name, 'lg', false, co.logo) +
       '<div class="grow"><strong>Confidential company</strong><small class="muted">' + E(co.industry) + ' · ' + E(APP.countryName(co.country) || APP.locText(co)) + '</small></div></div>' +
       '<p class="muted small" style="margin:10px 0 0">' + APP.icon('lock', 12) + ' The company name is shared with you once it accepts your application' + (sess ? '.' : ' — sign up to apply.') + '</p></section>'
-    : '<section class="jd-sec"><h2>About the company</h2><div class="job-co job-co-flat">' + APP.avatarHtml(co.name, 'lg') +
+    : '<section class="jd-sec"><h2>About the company</h2><div class="job-co job-co-flat">' + APP.avatarHtml(co.name, 'lg', false, co.logo) +
       '<div class="grow"><a class="co-link" href="' + E(coHref) + '"><strong>' + E(co.name) + '</strong></a><small class="muted">' + E(co.industry) + ' · ' + E(APP.locText(co)) + '</small></div>' +
       '<a class="link" href="#/company/' + co.id + '">View company →</a></div></section>';
 
@@ -722,7 +724,7 @@ APP.views['job-detail'] = function (ctx) {
   return '<div class="jd' + (side ? '' : ' jd-one') + '">' +
     APP.crumbHtml(APP.db.session && APP.db.session.role === 'consultant' ? '#/c/jobs' : '#/jobs', 'All open roles') +
     '<header class="jd-head card">' +
-    (isExt ? '<span class="jd-co">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'sm') + '<span>' + E(job.extEmployer || '') + '</span><span class="pill ext-badge">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</span></span>' : co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm') + '<span>' + E(co.name) + '</span></a>') : '') +
+    (isExt ? '<span class="jd-co">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'sm') + '<span>' + E(job.extEmployer || '') + '</span><span class="pill ext-badge">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</span></span>' : co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm', false, co.logo) + '<span>' + E(co.name) + '</span></a>') : '') +
     (APP.jobPosterType(job) ? '<p class="jd-poster">' + APP.coTypeBadgeOf(APP.jobPosterType(job)) + ' <span class="muted small">' + APP.h(APP.coTypeById[APP.jobPosterType(job)].hint) + '</span></p>' : '') +
     '<h1 class="jd-title">' + E(job.title) + APP.samplePill(job) + (!open ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h1>' +
     (APP.LIVE && job.sample ? '<p class="sample-note">Sample role, for illustration. Applications to sample roles are not sent to a real company.</p>' : '') +
@@ -825,7 +827,7 @@ APP.views['company-public'] = function (ctx) {
   return '<div class="narrow">' +
     APP.crumbHtml(APP.db.session && APP.db.session.role === 'consultant' ? '#/c/jobs' : '#/jobs', 'Open roles') +
     '<div class="card co-banner-card">' +
-    '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + '</span></div>' +
+    '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + APP.logoImgHtml(co.logo) + '</span></div>' +
     '<div class="co-banner-body">' +
     '<div class="co-id"><h2>' + APP.h(co.name) + APP.samplePill(co) + ' ' + APP.coTypeBadgeHtml(co) + '</h2>' +
     '<p class="muted">' + APP.h(co.industry) + ' · ' + APP.h(co.size) + ' · ' + APP.icon('pin', 13) + ' ' + APP.h(APP.locText(co)) + (co.website ? ' · ' + APP.h(co.website) : '') + '</p></div>' +

@@ -65,7 +65,7 @@ APP.views['c-dash'] = function () {
     '<aside>' +
     '<div class="card profile-card">' +
     '<div class="profile-card-top">' +
-    APP.avatarHtml(name, 'xl') +
+    APP.avatarHtml(name, 'xl', false, c.photo) +
     '<div><h2 class="profile-name">' + APP.h(name) + '</h2>' +
     '<p class="muted">' + APP.h(c.headline) + '</p></div></div>' +
     '<div class="profile-meta">' +
@@ -226,6 +226,7 @@ APP.views['c-profile'] = function () {
       specialties: '<h3 class="pe-h">Specialties</h3>' + specF +
         '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"></label>',
       about: '<h3 class="pe-h">About &amp; CV</h3>' +
+        '<div class="field"><span class="label">Profile photo <span class="muted">(optional)</span></span>' + APP.photoFieldHtml('profile', d.photo, APP.consultantFullName(d) || 'You', 'photo') + '</div>' +
         '<label class="field"><span class="label">LinkedIn profile</span><input name="linkedin" class="input" value="' + APP.h(d.linkedin || '') + '" placeholder="linkedin.com/in/your-profile"><p class="field-hint">Shown on your public page so companies can verify you — leave empty to remove it.</p></label>' +
         '<div class="field"><span class="label">Summary</span><textarea name="summary" class="input" rows="4">' + APP.h(d.summary) + '</textarea></div>' +
         '<div class="field"><span class="label">CV</span><div class="cv-box">' +
@@ -477,16 +478,16 @@ APP.convCounterparty = function (cv) {
     const p = APP.consultant(APP.convPeerId(cv));
     if (!p) return null;
     const v = APP.cv(p), nm = APP.consultantFullName(v);
-    return { name: nm, sub: v.headline || 'SAP professional', avatar: APP.avatarHtml(nm, '', v._anon), href: APP.authorHref(p.id), peer: true };
+    return { name: nm, sub: v.headline || 'SAP professional', avatar: APP.avatarHtml(nm, '', v._anon, v.photo), href: APP.authorHref(p.id), peer: true };
   }
   if (isC) {
     const co = APP.company(cv.eId);
-    return co ? { name: co.name, sub: co.industry || 'Company', avatar: APP.avatarHtml(co.name), href: APP.authorHref(co.id) } : null;
+    return co ? { name: co.name, sub: co.industry || 'Company', avatar: APP.avatarHtml(co.name, '', false, co.logo), href: APP.authorHref(co.id) } : null;
   }
   const c = APP.consultant(cv.cId);
   if (!c) return null;
   const v = APP.cv(c), nm = APP.consultantFullName(v);
-  return { name: nm, sub: v.headline || 'Professional', avatar: APP.avatarHtml(nm, '', v._anon), href: APP.authorHref(c.id) };
+  return { name: nm, sub: v.headline || 'Professional', avatar: APP.avatarHtml(nm, '', v._anon, v.photo), href: APP.authorHref(c.id) };
 };
 APP.convPreview = function (cv, isC) {
   const last = cv.messages[cv.messages.length - 1];
@@ -527,7 +528,7 @@ APP.inboxPanelHtml = function (activeId) {
       const job = i.jobId ? APP.job(i.jobId) : null, c = APP.consultant(i.cid), co = APP.company(i.eid);
       const other = isC ? APP.coLabel(co, job, i.cid) : APP.personLabel(c, i.eid);
       const shown = isC ? null : APP.cv(c);
-      return '<div class="conv-intro"><div class="ci-ihead">' + APP.avatarHtml(other, '', isC ? !APP.revealed(i.cid, i.eid) && APP.coHidden(co, job) : (shown && shown._anon)) +
+      return '<div class="conv-intro"><div class="ci-ihead">' + APP.avatarHtml(other, '', isC ? !APP.revealed(i.cid, i.eid) && APP.coHidden(co, job) : (shown && shown._anon), isC ? (APP.revealed(i.cid, i.eid) ? co && co.logo : '') : (shown && shown.photo)) +
         '<div class="ci-body"><b class="ci-name">' + APP.h(other) + '</b><span class="ci-role">Wants to connect' + (job ? ' · ' + APP.h(job.title) : '') + '</span></div></div>' +
         '<div class="ci-acts"><button type="button" class="btn btn-primary btn-sm" data-action="intro-accept" data-id="' + i.id + '">Accept</button><button type="button" class="btn btn-ghost btn-sm" data-action="intro-decline" data-id="' + i.id + '">Decline</button></div></div>';
     }).join('') + '<a class="ci-more" href="' + (isC ? '#/c/intros' : '#/e/intros') + '">All introductions →</a>'

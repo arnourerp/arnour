@@ -188,6 +188,7 @@ button.chip:hover:not(.chip-on) { background: #E2E8F0; }
 /* ------------------------------ avatars ------------------------------ */
 
 .avatar {
+  position: relative; overflow: hidden;
   display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 50%; color: #fff;
   font-weight: 700; font-size: 15px; flex: none; user-select: none;
@@ -2087,3 +2088,13 @@ a.sr-title:hover { text-decoration: underline; }
 .pt-msg-form { display: grid; gap: 8px; justify-items: end; }
 .pt-msg-form textarea { width: 100%; }
 .pt-own-note { margin: 4px 0 12px; }
+
+/* pictures: photo / logo over the initials, and the upload field */
+.brand-logo { position: relative; overflow: hidden; }
+.avatar .av-img, .brand-logo .av-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; background: #fff; }
+.photo-field { margin: 4px 0 12px; }
+.photo-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.photo-act { flex: 1 1 220px; min-width: 0; }
+.photo-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.photo-pick { cursor: pointer; }
+.photo-act .muted { margin: 0; }

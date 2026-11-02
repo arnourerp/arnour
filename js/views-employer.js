@@ -104,7 +104,7 @@ APP.views['e-company'] = function () {
     } else
     body = APP.privacyCardHtml() +
       '<div class="card co-banner-card">' +
-      '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + '</span></div>' +
+      '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + APP.logoImgHtml(co.logo) + '</span></div>' +
       '<div class="co-banner-body">' +
       '<div class="co-id"><h2>' + APP.h(co.name) + ' ' + APP.coTypeBadgeHtml(co) + '</h2>' +
       '<p class="muted">' + APP.h(co.industry) + ' · ' + APP.h(co.size) + ' · ' + APP.icon('pin', 13) + ' ' + APP.h(APP.locText(co)) + (co.website ? ' · ' + APP.h(co.website) : '') + '</p></div>' +
@@ -151,6 +151,7 @@ APP.views['e-company'] = function () {
     const pane = (id, html) => '<section class="pe-pane" data-pane="' + id + '"' + (cur === id ? '' : ' hidden') + '>' + html + '</section>';
     const PH = {
       basics: '<h3 class="pe-h">Company</h3>' +
+        '<div class="field"><span class="label">Company logo <span class="muted">(optional)</span></span>' + APP.photoFieldHtml('company', d.logo, d.name || 'Company', 'logo') + '</div>' +
         '<label class="field"><span class="label">Company name</span><input name="name" class="input" value="' + APP.h(d.name) + '"></label>' +
         APP.coTypeFieldHtml(d.companyType) +
         '<div class="form-grid">' +
@@ -469,7 +470,7 @@ APP.views['e-talent-detail'] = function (ctx) {
 
   return '<div class="jd">' +
     (pv ? '<div class="crumb"><a class="link" href="#/c/profile">← Back to my profile</a></div><div class="card preview-banner">' + APP.icon('lock', 16) + '<div><b>This is how companies see you in anonymous mode</b><div class="muted small">' + (c0.anon ? 'Anonymous mode is on.' : 'Anonymous mode is currently off — companies see your full profile. Turn it on from your profile.') + '</div></div></div>' : APP.crumbHtml('#/e/talent', 'Talent search')) +
-    '<header class="jd-head card td-head">' + APP.avatarHtml(name, 'xl', c._anon) +
+    '<header class="jd-head card td-head">' + APP.avatarHtml(name, 'xl', c._anon, c.photo) +
     '<div class="grow"><h1 class="jd-title">' + E(name) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 12) + ' Anonymous</span>' : '') + '</h1>' +
     (APP.LIVE && c.sample ? '<p class="sample-note">Sample profile, for illustration. Messages to sample profiles are not answered.</p>' : '') +
     (c.headline ? '<p class="muted td-headline">' + E(c.headline) + '</p>' : '') +

@@ -36,7 +36,7 @@ APP.commAuthorHtml = function (key, anon) {
   const ses = APP.db.session, isCo = APP.isCoKey(key);
   const canMsg = !!au && !!ses && key !== APP.userKey() && (ses.role === 'consultant' || !isCo);
   const msg = canMsg ? '<button type="button" class="link-btn q-msg" data-action="start-chat" ' + (isCo ? 'data-eid' : 'data-cid') + '="' + APP.h(key) + '">' + APP.icon('clip', 12) + ' Message</button>' : '';
-  return '<span class="q-who">' + APP.avatarHtml(name) +
+  return '<span class="q-who">' + APP.avatarHtml(name, '', false, au && APP.picOf(au)) +
     '<span class="q-who-name">' + (href ? '<a class="q-who-link" href="' + APP.h(href) + '">' : '') + inner + (href ? '</a>' : '') + (badge ? '<span class="rep-row">' + badge + '</span>' : '') + msg + '</span></span>';
 };
 
@@ -288,7 +288,7 @@ APP.views['community-q'] = function (ctx) {
       funnel = fhead + jobs.map(j => {
         const co = APP.company(j.companyId);
         return '<button class="app-item" data-action="go-jobs-for-skill" data-product="' + q.productId + '" data-module="' + q.moduleId + '">' +
-          (co ? APP.avatarHtml(co.name) : '') +
+          (co ? APP.avatarHtml(co.name, '', false, co.logo) : '') +
           '<span class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + APP.h(co ? co.name : '') + ' · ' + APP.h(APP.locText(j)) + ' · ' + APP.h(APP.fmtRange(j)) + '</small></span>' +
           '<span class="muted small">View →</span></button>';
       }).join('') +
@@ -486,7 +486,7 @@ APP.personCardHtml = function (r) {
   const rp = APP.reputation(c.id);
   const country = APP.countryName(c.country);
   return '<div class="card person-card" data-card-href="#/talent/' + c.id + '">' +
-    APP.avatarHtml(name, '', !r.see) +
+    APP.avatarHtml(name, '', !r.see, r.see ? c.photo : '') +
     '<div class="grow pc-main"><div class="pc-name"><a class="link-strong" href="#/talent/' + c.id + '">' + E(name) + '</a>' +
     (!r.see ? ' <span class="pill muted-pill" title="Name hidden until they share it">' + APP.icon('lock', 11) + ' Private</span>' : '') +
     (rp.level ? ' <span class="rep rep-' + rp.level + '">' + E(rp.levelName) + '</span>' : '') + '</div>' +

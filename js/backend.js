@@ -252,8 +252,13 @@
       var psig = JSON.stringify(clean(me));
       if (psig !== S.profile) {
         var oldCv = null; try { oldCv = role === 'consultant' && S.profile ? (JSON.parse(S.profile).cv || {}).path : null; } catch (e) { oldCv = null; }
+        var picKey = role === 'consultant' ? 'photo' : 'logo', oldPic = null; try { oldPic = S.profile ? JSON.parse(S.profile)[picKey] : null; } catch (e) { oldPic = null; }
         ops.push({ run: function () { return rpc('save_profile', { p_data: JSON.parse(psig) }); }, done: function () { S.profile = psig; },
-          after: function () { B.dropOldCv(oldCv, (JSON.parse(psig).cv || {}).path); } });
+          after: function () {
+            B.dropOldCv(oldCv, (JSON.parse(psig).cv || {}).path);
+            var nowPic = JSON.parse(psig)[picKey]; if (nowPic) delete APP._picTmp[nowPic];
+            if (oldPic && oldPic !== nowPic) B.dropPicture(oldPic); /* a replaced or removed picture is deleted */
+          } });
       }
     }
 
@@ -729,6 +734,19 @@
     if (used) return;
     B.sb.storage.from('cvs').remove([oldPath]).then(null, function () { /* best effort */ });
   };
+  /* profile photos and company logos: small public pictures in their own bucket, one random file name each, inside the owner's folder */
+  B.uploadPicture = function (blob) {
+    var r = new Uint8Array(10); (window.crypto || {}).getRandomValues ? window.crypto.getRandomValues(r) : r.forEach(function (_, i) { r[i] = Math.floor(Math.random() * 256); });
+    var path = B.user.id + '/' + Array.prototype.map.call(r, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('') + '.jpg';
+    return B.sb.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: false, cacheControl: '31536000' }).then(function (res) {
+      if (res.error) { APP.toast('Could not upload the picture. Please try again.'); return null; }
+      return path;
+    }, function () { APP.toast('Could not upload the picture. Please try again.'); return null; });
+  };
+  B.dropPicture = function (path) {
+    if (!path || !B.user || path.indexOf(B.user.id + '/') !== 0) return;
+    B.sb.storage.from('avatars').remove([path]).then(null, function () { /* best effort */ });
+  };
   B.downloadCv = function (path, name) {
     B.sb.storage.from('cvs').createSignedUrl(path, 120, { download: name || true }).then(function (r) {
       if (r.error || !r.data) { APP.toast('Could not open the file. It may have been removed.'); return; }
@@ -1012,7 +1030,7 @@
       '<p class="muted small">Last updated: ' + esc(CFG.legalDate || 'October 2026') + '</p>' +
       '<p>This explains what Arnour collects and how it is used.</p>' +
       '<h3>What we collect</h3><p>Your email address and password (stored securely, never in readable form); the profile information you enter (for example name, skills, experience, rates, company details, roles); your messages, applications and introductions; and basic technical data needed to run the site.</p>' +
-      '<h3>Who sees it</h3><p>Other members see your profile according to your privacy choice. If you turn on private mode, your name, photo, LinkedIn, summary, city, nationality and CV are hidden until you accept an introduction. Companies can hide their name and details the same way, for the whole company or per role. Messages are only visible to the two people in the conversation.</p>' +
+      '<h3>Who sees it</h3><p>Other members see your profile according to your privacy choice. If you turn on private mode, your name, photo, LinkedIn, summary, city, nationality and CV are hidden until you accept an introduction. Companies can hide their name and details the same way, for the whole company or per role. Messages are only visible to the two people in the conversation. A profile photo or company logo is a small picture stored under a random file name; its address is given only to people who are allowed to see your name, so it stays hidden while your profile or company is private.</p>' +
       '<h3>How it is used</h3><p>To run the marketplace: match roles and professionals, deliver messages and notifications, and keep the site secure. We do not sell your data.</p>' +
       '<h3>Where it is stored</h3><p>Data is stored with our hosting and database providers (Supabase and Netlify). Emails are sent from noreply@arnour.com.</p>' +
       '<h3>Your rights</h3><p>You can edit your profile at any time and delete your account from the Account page, which removes your profile, messages and applications. To ask for a copy of your data or raise a concern, write to <a href="mailto:contact@arnour.com">contact@arnour.com</a>.</p>' +
@@ -1110,7 +1128,7 @@
         onConfirm: function () {
           var v = document.getElementById('live-del');
           if (!v || v.value.trim() !== 'DELETE') { APP.toast('Type DELETE to confirm'); return false; }
-          B.sb.storage.from('cvs').list(B.user.id).then(function (l) { var f = (l.data || []).map(function (x) { return B.user.id + '/' + x.name; }); return f.length ? B.sb.storage.from('cvs').remove(f) : null; }).catch(function () {}).then(function () { return rpc('delete_my_account'); }).then(function () { return B.signOut(); }).then(function () { location.hash = '#/'; APP.render(); APP.toast('Your account was deleted'); }, function () { APP.toast('Could not delete the account. Please try again.'); });
+          B.sb.storage.from('cvs').list(B.user.id).then(function (l) { var f = (l.data || []).map(function (x) { return B.user.id + '/' + x.name; }); return f.length ? B.sb.storage.from('cvs').remove(f) : null; }).catch(function () {}).then(function () { return B.sb.storage.from('avatars').list(B.user.id).then(function (l) { var f = (l.data || []).map(function (x) { return B.user.id + '/' + x.name; }); return f.length ? B.sb.storage.from('avatars').remove(f) : null; }); }).catch(function () {}).then(function () { return rpc('delete_my_account'); }).then(function () { return B.signOut(); }).then(function () { location.hash = '#/'; APP.render(); APP.toast('Your account was deleted'); }, function () { APP.toast('Could not delete the account. Please try again.'); });
         }
       });
       return;
