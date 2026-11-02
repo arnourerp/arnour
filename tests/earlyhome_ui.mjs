@@ -28,14 +28,15 @@ const state=(p)=>p.evaluate(()=>({splash:!!document.querySelector('#app .live-sp
   const s1=await state(p);
   t('first visit: the home page is drawn before the data has arrived',s1.hero&&!s1.ready,s1);
   t('first visit: no logo screen is covering the home page',!s1.splash,s1);
-  t('first visit: no database numbers shown yet (no "0 open roles")',!/open roles ·|professionals/.test(s1.proof)&&!/\d/.test(s1.link)&&/SAP products/.test(s1.proof),[s1.proof,s1.link]);
+  t('first visit: no database numbers shown yet (no "0 open roles")',!/professionals/.test(s1.proof)&&!/\d/.test(s1.link)&&/SAP products/.test(s1.proof),[s1.proof,s1.link]);
   await p.evaluate(()=>window.scrollTo(0,500)); const y0=(await state(p)).y;
   t('the page can be scrolled before the data arrives',y0>200,y0);
   await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:15000}); await p.waitForTimeout(500);
   const s2=await state(p);
-  t('after the data arrives the numbers appear',/\d+ open roles · \d+ professionals/.test(s2.proof)&&/Browse \d+ open roles first/.test(s2.link),[s2.proof,s2.link]);
+  t('after the data arrives the numbers appear',/Browse \d+ SAP roles from the market/.test(s2.link),[s2.proof,s2.link]);
   t('the scroll position is kept when the data fills in',Math.abs(s2.y-y0)<40,[y0,s2.y]);
   t('no "Companies on Arnour" section on the home page (hidden until there are enough employers)',!(await p.evaluate(()=>/Companies on Arnour/.test(document.body.innerText)||!!document.querySelector('#app .logo-row'))));
+  t('home page: company card, no community section, two final buttons',await p.evaluate(()=>{const b=document.body.innerText;return /I'm a company/.test(b)&&!/I'm hiring/.test(b)&&!/Fresh from the community/.test(b)&&!!document.querySelector('.cta-btns a[href="#/register/e"]')&&/Middle East/.test(b)}));
   await p.context().close();
 }
 /* 2. went to another page before the data arrived */

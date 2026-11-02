@@ -393,6 +393,7 @@ textarea.input { resize: vertical; }
   font-weight: 700; color: var(--mut); font-size: 13px;
 }
 .cta-band { background: linear-gradient(135deg, #1E293B 0%, #0F172A 60%, #020617 100%); color: #fff; padding: 56px 20px; text-align: center; }
+.cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .cta-inner h2 { color: #fff; margin-bottom: 18px; font-size: 26px; }
 
 /* ------------------------------ auth ------------------------------ */
