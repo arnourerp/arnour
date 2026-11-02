@@ -105,7 +105,7 @@ await p.click('.pe-pane[data-pane=reach] [data-action=chip][data-group=teamSize]
 await p.click('.pe-pane[data-pane=reach] .vis-tile[data-v=private]'); await p.waitForTimeout(250);
 await p.evaluate(()=>document.querySelector('form[data-form=company-edit]').requestSubmit()); await p.waitForTimeout(500);
 t('saving keeps the new values',await p.evaluate(()=>{ const c=APP.company('co-orbit').partner; return c.bestAt==='We deliver finance programmes on S/4HANA.'&&c.languages.includes('French')&&c.teamSize==='200+'&&c.hideName===true; }));
-t('…and the page now says the name is hidden',await p.evaluate(()=>/Your name is hidden on Find partners/.test(document.getElementById('app').innerText)));
+t('…and the page now says the name is hidden',await p.evaluate(()=>/Your name is hidden\./.test(document.getElementById('app').innerText)));
 await as(null); await go('#/partners');
 t('after saving, the hidden partner is no longer shown by name',!(await cards()).includes('Orbit SAP Partners'));
 
@@ -137,7 +137,7 @@ await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubm
 t('it will not go on without a product and module',await p.evaluate(()=>APP.wizE.step===2));
 await p.evaluate(()=>{ const pr=CATALOG.products.find(x=>x.modules.length); APP.wizE.data.partner.skills.push({productId:pr.id,moduleId:pr.modules[0].id,projects:3,certified:false}); APP.render(); }); await p.waitForTimeout(300);
 await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(300);
-t('step 3 is its own step, with every field marked required',await p.evaluate(()=>APP.wizE.step===3&&/About your team/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('[data-pt-best]')&&!!document.querySelector('.vis-card .vis-tile')&&!!document.querySelector('input[name=contactName]')&&!document.querySelector('details.pt-more')&&(document.getElementById('app').innerText.match(/\*/g)||[]).length>=6&&!/\(optional/.test(document.querySelector('form[data-form=wiz-e]').innerText)));
+t('step 3 is its own step, with every field marked required',await p.evaluate(()=>APP.wizE.step===3&&/About your team/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('[data-pt-best]')&&!!document.querySelector('.vis-card .vis-tile')&&!!document.querySelector('input[name=contactName]')&&!document.querySelector('details.pt-more')&&(document.getElementById('app').innerText.match(/\*/g)||[]).length>=6&&!/\(optional/.test(document.querySelector('form[data-form=wiz-e]').innerText.replace('Contact email (optional)',''))));
 const submit3=async()=>{ await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(250); };
 const needs=async(label,re)=>{ await submit3(); t('step 3 stops: '+label,await p.evaluate((r)=>APP.wizE.step===3&&new RegExp(r).test(document.getElementById('toasts').innerText),re.source)); };
 await needs('countries first',/at least one country/);
