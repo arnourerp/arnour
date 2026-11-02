@@ -81,7 +81,7 @@
           : Object.assign(localCard(oc), r.status === 'accepted' ? { contactName: oc.contactName, contactTitle: oc.contactTitle } : {});
         var shared = incoming ? r.share : r.toShare;
         return { id: r.id, dir: incoming ? 'in' : 'out', status: r.status, need: r.need, timing: r.timing, note: r.note, ts: r.ts, respTs: r.respTs, other: card,
-          contactEmail: r.status === 'accepted' && shared ? 'hello@' + slug(oc.name) + '.example' : null, iShared: incoming ? !!r.toShare : !!r.share };
+          contactEmail: r.status === 'accepted' && shared ? (oc.contactEmail || 'hello@' + slug(oc.name) + '.example') : null, unread: 0, iShared: incoming ? !!r.toShare : !!r.share };
       });
   }
   APP.ptLoadReqs = function (force) {
@@ -98,6 +98,39 @@
   function reqFor(p, pageId) {
     return (APP.partnerReqs || []).filter(function (r) { return r.dir === 'out' && r.other && (r.other.id === p.id || r.other.id === pageId || realId(r.other.id) === realId(p.id)); })[0];
   }
+
+  /* messages on an accepted request */
+  APP.ptMsgs = {}; var msgBusy = {};
+  function localMsgs(rid) {
+    var me = myCo(), r = (APP.db.partnerRequests || []).filter(function (x) { return x.id === rid; })[0];
+    if (!me || !r) return [];
+    var mine = r.from === me.id ? 'from' : 'to';
+    return (APP.db.partnerMessages || []).filter(function (m) { return m.req === rid; }).map(function (m) { return { id: m.id, mine: m.side === mine, text: m.text, ts: m.ts }; });
+  }
+  APP.ptLoadMsgs = function (rid, force) {
+    var mc = myCo(); if (APP.ptMsgsFor !== (mc && mc.id)) { APP.ptMsgs = {}; msgBusy = {}; APP.ptMsgsFor = mc && mc.id; } /* never show another account's thread */
+    if (!force && (APP.ptMsgs[rid] !== undefined || msgBusy[rid])) return;
+    if (!APP.ptLive()) { APP.ptMsgs[rid] = localMsgs(rid); return; }
+    msgBusy[rid] = true;
+    APP.backend.rpc('partner_messages_for', { p_req: rid }).then(function (rows) {
+      APP.ptMsgs[rid] = Array.isArray(rows) ? rows : []; msgBusy[rid] = false; APP.ptRerender();
+    }, function () { APP.ptMsgs[rid] = APP.ptMsgs[rid] || []; msgBusy[rid] = false; });
+  };
+  APP.ptMsgSend = function (f) {
+    var rid = f.dataset.rid, ta = f.querySelector('textarea'), txt = ta ? String(ta.value || '').trim().slice(0, 2000) : '';
+    if (!txt) { APP.toast('Write a message first.'); return; }
+    var btn = f.querySelector('button[type=submit]');
+    if (APP.ptLive()) {
+      if (btn) btn.disabled = true;
+      APP.backend.rpc('send_partner_message', { p_req: rid, p_text: txt }).then(function () { APP.ptLoadMsgs(rid, true); },
+        function (e) { if (btn) btn.disabled = false; APP.toast(/too many/i.test(String(e && e.message)) ? 'Too many messages, try again later.' : 'Could not send. Check your connection and try again.'); });
+      return;
+    }
+    var me = myCo(), r = (APP.db.partnerRequests || []).filter(function (x) { return x.id === rid; })[0];
+    if (!me || !r || r.status !== 'accepted') return;
+    (APP.db.partnerMessages = APP.db.partnerMessages || []).push({ id: 'pm' + Date.now().toString(36), req: rid, side: r.from === me.id ? 'from' : 'to', text: txt, ts: Date.now() });
+    APP.save(); APP.ptMsgs[rid] = localMsgs(rid); APP.render();
+  };
 
   /* ------------------------------ actions ------------------------------ */
   function errText(e) {
@@ -262,13 +295,38 @@
       (focus.length ? '<div class="card pt-facts"><div class="card-h">Focus</div>' + blk(focus) + '</div>' : '') +
       (reach.length ? '<div class="card pt-facts"><div class="card-h">Reach</div>' + blk(reach) + '</div>' : '');
   };
-  /* on the partner's own company page */
-  APP.ptViewHtml = function (co) {
-    if (!co || co.companyType !== 'partner') return '';
-    var c = co.partner || {}, n = (c.skills || []).length;
-    if (!n) return '<div class="card pt-empty-card"><div class="card-h">What your team delivers</div><p class="muted">Not filled in yet. SAP Customers cannot find you on Find partners until you add at least one product and module.</p><button class="btn btn-primary btn-sm" data-action="co-edit-on">Add what your team delivers</button></div>';
-    return '<div class="pt-own"><p class="muted small">' + (c.hideName ? 'Your name is hidden on Find partners until you accept a request.' : 'Listed on <a class="link" href="#/partners">Find partners</a> with your name.') + '</p>' + APP.ptCapsHtml({ partner: c }) + '</div>';
+  /* on the partner's own company page: the page customers see, plus the owner's tools in the side column */
+  APP.ptOwnHtml = function (co, extra) {
+    var c = co.partner || {}, n = APP.ptSkillCount(c), miss = n ? APP.ptMissing(c) : 'Add at least one SAP product and module your team delivers';
+    var meta = [co.industry, co.size, co.country ? countryName(co.country) + (co.city ? ', ' + co.city : '') : ''].filter(Boolean).join(' · ');
+    var site = safeUrl(co.website);
+    APP.ptLoadReqs();
+    var pend = APP.ptPendingIn();
+    var status = c.hideName
+      ? '<div class="card pt-anon-card">' + APP.icon('lock', 16) + ' <span>Your name is hidden. Customers see what your team delivers, not who you are, until you accept their request. Change this in Edit profile, Reach &amp; visibility.</span></div>'
+      : '<p class="muted small pt-own-note">' + APP.icon('check', 13) + ' Listed on <a class="link" href="#/partners">Find partners</a> with your name. <a class="link" href="#/partner/' + h(co.id) + '">See it as a customer sees it →</a></p>';
+    var side =
+      '<div class="card pt-own-card"><div class="card-h">' + (miss ? 'Finish your profile' : 'Profile complete') + '</div>' +
+      (miss ? '<p class="muted small">' + h(miss) + '. Customers can only find you once the required details are in.</p><button class="btn btn-primary btn-sm" data-action="co-edit-on">Complete it</button>'
+            : '<p class="muted small">' + APP.icon('check', 13) + ' Everything customers need to judge fit is filled in.</p>') + '</div>' +
+      '<div class="card pt-own-card"><div class="card-h">Requests</div>' +
+      '<p class="muted small">' + (pend ? '<b>' + pend + '</b> waiting for your answer.' : 'No request is waiting for you.') + '</p>' +
+      '<a class="btn btn-outline btn-sm" href="#/e/partner-requests">Open requests</a></div>' +
+      '<div class="card pt-own-card"><div class="card-h">Your contact</div><p class="small">' + (co.contactName ? '<b>' + h(co.contactName) + '</b>' + (co.contactTitle ? ' · ' + h(co.contactTitle) : '') : '<span class="muted">No contact person yet</span>') + '</p>' +
+      '<p class="muted small">' + (co.contactEmail ? h(co.contactEmail) : 'Your sign-in email') + ' · shared only after you accept a request.</p></div>' +
+      (extra || '');
+    return '<header class="card pt-hero"><div class="pt-hero-top"><span class="brand-logo lg" aria-hidden="true">' + h(APP.initials(co.name)) + '</span>' +
+      '<div class="grow"><h1 class="pt-h1">' + h(co.name) + ' ' + APP.coTypeBadgeOf('partner') + '</h1>' + (meta ? '<p class="muted pt-meta">' + h(meta) + '</p>' : '') +
+      (site ? '<p class="small pt-site"><a class="link" href="' + h(site) + '" target="_blank" rel="noopener noreferrer">' + h(co.website) + '</a></p>' : '') + '</div>' +
+      '<button class="btn btn-outline pt-hero-cta" data-action="co-edit-on">Edit profile</button></div>' +
+      APP.ptFactsHtml(c) + '</header>' + status +
+      '<div class="pt-cols"><div class="pt-main">' +
+      (n ? APP.ptCapsHtml({ partner: c }) : '<div class="card pt-empty-card"><div class="card-h">What your team delivers</div><p class="muted">Not filled in yet. SAP Customers cannot find you on Find partners until you add at least one product and module.</p><button class="btn btn-primary btn-sm" data-action="co-edit-on">Add it</button></div>') +
+      (co.about ? '<div class="card"><div class="card-h">About</div><p class="pt-about">' + h(co.about) + '</p></div>' : '') +
+      '</div><aside class="pt-side pt-own-side">' + side + '</aside></div>';
   };
+  /* kept for older callers */
+  APP.ptViewHtml = function (co) { return co && co.companyType === 'partner' ? APP.ptCapsHtml({ partner: co.partner || {} }) : ''; };
 
   /* ------------------------------ Find partners ------------------------------ */
   var emptyF = function () { return { q: '', product: '', module: '', industry: '', country: '', language: '', engagement: '' }; };
@@ -361,6 +419,16 @@
   };
 
   /* ------------------------------ partner page ------------------------------ */
+  function chatHtml(r) {
+    APP.ptLoadMsgs(r.id);
+    var m = APP.ptMsgs[r.id];
+    var list = m === undefined ? '<p class="muted small">Loading…</p>'
+      : m.length ? '<div class="pt-msgs">' + m.map(function (x) { return '<div class="pt-msg ' + (x.mine ? 'mine' : 'theirs') + '"><div class="pt-bub">' + h(x.text) + '</div><span class="muted small">' + APP.timeAgo(x.ts) + '</span></div>'; }).join('') + '</div>'
+      : '<p class="muted small">No messages yet. Say hello and share what you need.</p>';
+    return '<div class="pt-chat"><div class="card-h">' + APP.icon('msg', 16) + ' Messages</div>' + list +
+      '<form data-form="pt-msg" data-rid="' + h(r.id) + '" class="pt-msg-form"><textarea name="text" class="input" rows="2" maxlength="2000" placeholder="Write a message…" aria-label="Message"></textarea>' +
+      '<button type="submit" class="btn btn-primary btn-sm">Send</button></form></div>';
+  }
   function contactHtml(r) {
     var o = r.other || {}, site = safeUrl(o.website), li = /^https?:\/\//i.test(o.linkedin || '') ? o.linkedin : '';
     return '<div class="pt-contact"><div class="card-h">' + APP.icon('check', 16) + ' Connected: contact details</div>' +
@@ -370,7 +438,7 @@
         : '<p class="muted small">No email address was shared. Use their website or LinkedIn below.</p>') +
       (site ? '<p><a class="link" href="' + h(site) + '" target="_blank" rel="noopener noreferrer">' + h(o.website) + '</a></p>' : '') +
       (li ? '<p><a class="link" href="' + h(li) + '" target="_blank" rel="noopener noreferrer">LinkedIn</a></p>' : '') +
-      '</div>';
+      '</div>' + chatHtml(r);
   }
   function requestFormHtml(p) {
     return '<form data-form="pt-send" data-pid="' + h(p.id) + '" class="card pt-req"><div class="card-h">Ask this partner</div>' +
@@ -429,7 +497,7 @@
       ? '<div class="pt-answer"><label class="chk-line"><input type="checkbox" data-pt-share="' + h(r.id) + '" checked> <span>Share my sign-in email address with them</span></label>' +
         '<div class="btn-row"><button class="btn btn-primary btn-sm" data-action="pt-accept" data-id="' + h(r.id) + '">Accept</button><button class="btn btn-outline btn-sm" data-action="pt-decline" data-id="' + h(r.id) + '">Decline</button></div></div>' : '';
     var contact = r.status === 'accepted' ? contactHtml(r) : '';
-    return '<div class="card pt-reqrow"><div class="pt-reqrow-h"><strong>' + title + '</strong><span class="pill ' + status[1] + '">' + status[0] + '</span><span class="muted small">' + APP.timeAgo(r.ts) + '</span></div>' +
+    return '<div class="card pt-reqrow"><div class="pt-reqrow-h"><strong>' + title + '</strong><span class="pill ' + status[1] + '">' + status[0] + '</span>' + (r.unread ? '<span class="pill warn-pill">' + r.unread + ' new</span>' : '') + '<span class="muted small">' + APP.timeAgo(r.ts) + '</span></div>' +
       '<p class="small">' + h(lab(APP.PT_NEED, r.need)) + (r.timing ? ' · ' + h(r.timing) : '') + '</p>' +
       (r.note ? '<p class="pt-note">' + h(r.note) + '</p>' : '') + link + actions + contact + '</div>';
   }
@@ -452,7 +520,7 @@
     { re: /^#\/partners$/, view: 'partners', auth: null },
     { re: /^#\/partner\/([A-Za-z0-9:_-]+)$/, view: 'partner-detail', auth: null },
     { re: /^#\/e\/partner-requests$/, view: 'partner-requests', auth: 'employer' });
-  ['pt-send', 'pt-accept', 'pt-decline'].forEach(function (a) { APP.ACTION_RULES.employer.push(a); });
+  ['pt-send', 'pt-accept', 'pt-decline', 'pt-msg'].forEach(function (a) { APP.ACTION_RULES.employer.push(a); });
 
   (function () {
     var title = APP.pageTitle;
@@ -473,6 +541,7 @@
     };
     APP.onSubmit = function (f) {
       if (f && f.dataset && f.dataset.form === 'pt-send') { APP.ptSend(f); return; }
+      if (f && f.dataset && f.dataset.form === 'pt-msg') { APP.ptMsgSend(f); return; }
       return submit.apply(this, arguments);
     };
     /* the menu: a Partners link before Community, and my requests in the account menu */

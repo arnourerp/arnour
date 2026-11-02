@@ -91,6 +91,17 @@ APP.views['e-company'] = function () {
 
   let body;
   if (!editing) {
+    const shareBox = '<div class="mt16">' + APP.shareHtml({
+        title: co.name,
+        text: co.name + (co.industry ? ' (' + co.industry + ')' : '') + ' is hiring for SAP roles on Arnour.',
+        tags: '#SAP #Hiring',
+        url: APP.shareUrl('#/company/' + co.id)
+      }) + '</div>';
+    const openRoles = jobs.filter(j => j.status === 'open');
+    if (co.companyType === 'partner' && APP.ptOwnHtml) {
+      body = '<div class="pt-wide-in">' + APP.ptOwnHtml(co, '<div class="card pt-own-card"><div class="card-h">Open roles</div>' +
+        (openRoles.length ? openRoles.map(j => '<a class="app-item" href="#/e/jobs/' + j.id + '"><div class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + (j.applicants || []).length + ' applicant(s)</small></div></a>').join('') : '<p class="muted small">None open right now.</p>') + '</div>') + shareBox + '</div>';
+    } else
     body = APP.privacyCardHtml() +
       '<div class="card co-banner-card">' +
       '<div class="co-banner"><span class="brand-logo xl">' + APP.h(APP.initials(co.name)) + '</span></div>' +
@@ -159,7 +170,7 @@ APP.views['e-company'] = function () {
       contact: '<h3 class="pe-h">Contact</h3><div class="form-grid">' +
         '<label class="field"><span class="label">Contact name</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '"></label>' +
         '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '"></label>' +
-        '</div>'
+        '</div>' + APP.contactEmailField(d)
     };
     body =
       APP.editBarHtml('Editing your company profile', 'f-company-edit') +
@@ -177,7 +188,7 @@ APP.views['e-company'] = function () {
       '</form></div>';
   }
 
-  return '<div class="narrow' + (editing ? ' pe-wide' : '') + '">' +
+  return '<div class="narrow' + (editing ? ' pe-wide' : (co.companyType === 'partner' ? ' pt-wide' : '')) + '">' +
     '<div class="crumb"><a class="link" href="#/e/dashboard">← Dashboard</a>' + (editing ? '<span class="pill">Editing</span>' : '') + '</div>' +
     body + '</div>';
 };

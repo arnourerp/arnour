@@ -437,7 +437,7 @@ APP.views['wiz-e'] = function () {
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Contact name *</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '" placeholder="Hala Al Suwaidi"></label>' +
       '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '" placeholder="Partner Manager"></label>' +
-      '</div>' +
+      '</div>' + APP.contactEmailField(d) +
       APP.wizNav2(3, 4) +
       '</form>';
   } else if (step === 2) {
@@ -454,7 +454,7 @@ APP.views['wiz-e'] = function () {
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Contact name *</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '" placeholder="Hala Al Suwaidi"></label>' +
       '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '" placeholder="Talent Partner"></label>' +
-      '</div>' +
+      '</div>' + APP.contactEmailField(d) +
       APP.wizNav2(3, 4) +
       '</form>';
   } else {

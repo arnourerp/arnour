@@ -1105,6 +1105,11 @@ APP.visPro = function (d, ctx, extra) {
     hidden: { avatar: APP.avatarHtml(nm, 'lg', true), name: nm, sub: (sub || '') + loc },
     shown: { avatar: APP.avatarHtml(full, 'lg'), name: full, sub: (d.headline || '') + loc } }, extra || {}));
 };
+/* contact email of a company: shared only after an accepted introduction or request; empty = the sign-in email */
+APP.validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
+APP.contactEmailField = (d) => '<label class="field"><span class="label">Contact email <span class="muted">(optional)</span></span>' +
+  '<input name="contactEmail" type="email" class="input" maxlength="120" value="' + APP.h(d.contactEmail || '') + '" placeholder="Leave empty to use your sign-in email">' +
+  '<p class="field-hint">Shared with the other side only when you accept an introduction or request, never before.</p></label>';
 APP.visPt = function (d, ctx, extra) {
   const p = d.partner || {}, nm = d.name || 'Your company', loc = (APP.countryName(d.country) || '') + (p.teamSize ? ' · ' + p.teamSize + ' consultants' : '');
   return APP.visibilityHtml(Object.assign({ kind: 'pt', ctx: ctx, priv: !!p.hideName,
@@ -4760,13 +4765,15 @@ APP.onSubmit = function (f) {
       } else if (step === 2 && d.companyType === 'partner') {
         if (APP.ptSkillCount && !APP.ptSkillCount(APP.ptEnsure(d))) { APP.toast('Add at least one SAP product and module your team delivers'); return; }
       } else if (step === 3 && d.companyType === 'partner') {
-        d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
+        d.contactName = g('contactName'); d.contactTitle = g('contactTitle'); d.contactEmail = g('contactEmail').trim();
+        if (d.contactEmail && !APP.validEmail(d.contactEmail)) { APP.toast('That contact email does not look right'); return; }
         const miss = APP.ptMissing(APP.ptEnsure(d));
         if (miss) { APP.toast(miss); return; }
         if (!d.contactName) { APP.toast('Add a contact name so customers know who they\'re talking to'); return; }
       } else if (step === 3) {
         if (f.querySelector('[name="about"]')) d.about = g('about'); /* About lives on step 1 — never clobber it here */
-        d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
+        d.contactName = g('contactName'); d.contactTitle = g('contactTitle'); d.contactEmail = g('contactEmail').trim();
+        if (d.contactEmail && !APP.validEmail(d.contactEmail)) { APP.toast('That contact email does not look right'); return; }
         if (!d.contactName) { APP.toast('Add a contact name so professionals know who they\'re talking to'); return; }
       } else if (step === 4) {
         d.sapSystems = d.sapSystems || [];
@@ -4835,7 +4842,8 @@ APP.onSubmit = function (f) {
       if (!d.country) { APP.toast('Please select the headquarters country'); return; }
       d.companyType = g('companyType') || co.companyType || ''; /* companies that have not chosen yet are asked on their dashboard, not blocked here */
       d.website = g('website'); d.about = g('about');
-      d.contactName = g('contactName'); d.contactTitle = g('contactTitle');
+      d.contactName = g('contactName'); d.contactTitle = g('contactTitle'); d.contactEmail = g('contactEmail').trim();
+      if (d.contactEmail && !APP.validEmail(d.contactEmail)) { APP.toast('That contact email does not look right'); APP.peJump('contact'); return; }
       if (APP.profileDraft) d.sapSystems = APP.profileDraft.sapSystems;
       if (d.companyType === 'partner' && APP.ptSkillCount) {
         const pm = !APP.ptSkillCount(APP.ptEnsure(d)) ? ['skills', 'Add at least one SAP product and module your team delivers'] : (APP.ptMissing(d.partner) ? ['reach', APP.ptMissing(d.partner)] : null);

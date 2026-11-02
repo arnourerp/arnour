@@ -29,7 +29,7 @@ await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubm
 const cid=await p.evaluate(()=>APP.db.session.companyId);
 t('the company was created with its type and no question is asked again',await p.evaluate(()=>APP.company(APP.db.session.companyId).companyType==='partner'&&!document.querySelector('.co-type-prompt')));
 await go('#/e/company'); await p.waitForTimeout(300);
-t('the company page shows the badge',await p.evaluate(()=>/SI\/Partner/.test(document.querySelector('.co-id h2').textContent)));
+t('the company page shows the badge',await p.evaluate(()=>/SI\/Partner/.test(document.querySelector('.co-id h2, .pt-h1').textContent)));
 await p.click('[data-action=co-edit-on]'); await p.waitForTimeout(300);
 t('the profile editor has the choice with the current value',await p.evaluate(()=>document.querySelector('input[name=companyType]:checked').value==='partner'));
 await p.check('input[name=companyType][value=recruiter]'); await p.evaluate(()=>document.querySelector('form[data-form=company-edit]').requestSubmit()); await p.waitForTimeout(400);
