@@ -821,7 +821,7 @@ APP.views['company-public'] = function (ctx) {
   const cta = s && s.role === 'consultant'
     ? '<div class="btn-row"><button class="btn btn-primary btn-sm" data-action="start-chat" data-eid="' + co.id + '">' + APP.icon('clip', 14) + ' Message</button><a class="btn btn-outline btn-sm" href="#/jobs">' + APP.icon('briefcase', 14) + ' Browse open roles</a></div>'
     : s && s.role === 'employer'
-      ? '<span class="muted small">You are viewing a company page as an employer — switch to a professional account to apply for roles.</span>'
+      ? '<span class="muted small">You are signed in as a company — switch to a professional account to apply for roles.</span>'
       : '<div class="btn-row"><a class="btn btn-primary btn-sm" href="#/login">Sign in</a><a class="btn btn-outline btn-sm" href="#/register">Create a free account to apply</a></div>';
 
   return '<div class="narrow">' +
