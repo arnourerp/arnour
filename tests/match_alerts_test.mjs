@@ -6,6 +6,8 @@ await db.exec(fs.readFileSync(ROOT+'/supabase/014_match_alerts.sql','utf8'));
 await db.exec(fs.readFileSync(ROOT+'/supabase/014_match_alerts.sql','utf8')); /* safe to run twice */
 await db.exec(fs.readFileSync(ROOT+'/supabase/015_module_families.sql','utf8'));
 await db.exec(fs.readFileSync(ROOT+'/supabase/015_module_families.sql','utf8')); /* safe to run twice */
+await db.exec(fs.readFileSync(ROOT+'/supabase/026_must_nice.sql','utf8'));
+await db.exec(fs.readFileSync(ROOT+'/supabase/026_must_nice.sql','utf8')); /* safe to run twice */
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,400):'');} else console.log('ok  ',n); };
 
 /* ---------- the website's own scoring, loaded in a sandbox, with the catalog and lists read from the database ---------- */
@@ -37,8 +39,8 @@ function mkCons(){ const c={skills:mkSkills()};
   c.industries=some(inds,Math.floor(rnd()*(rnd()<0.1?10:4))); c.specialties=some(specIds,Math.floor(rnd()*(rnd()<0.1?15:5))); c.languages=some(langs,Math.floor(rnd()*4));
   if(rnd()<0.9) c.country=pick(countryIds); if(rnd()<0.6) c.city=pick(cities); return c; }
 function mkJob(){ const j={title:pick(titles)}; if(rnd()<0.6) j.roleType=pick(RTS);
-  const n=Math.floor(rnd()*5), rows=[]; for(let i=0;i<n;i++){ const p=rnd()<0.8?pick(core):pick(products); const r={productId:p.id,moduleId:rnd()<0.1?'*':pick(p.mods)}; if(rnd()<0.5) r.minProjects=1+Math.floor(rnd()*6); if(i>0&&rnd()<0.4) r.orPrev=true; rows.push(r);} j.requires=rows;
-  if(rnd()<0.7) j.minExp=1+Math.floor(rnd()*14); if(rnd()<0.7) j.level=pick(['Junior','Mid','Senior']); if(rnd()<0.3) j.minPrograms=1+Math.floor(rnd()*6);
+  const n=Math.floor(rnd()*5), rows=[]; for(let i=0;i<n;i++){ const p=rnd()<0.8?pick(core):pick(products); const r={productId:p.id,moduleId:rnd()<0.1?'*':pick(p.mods)}; if(rnd()<0.5) r.minProjects=1+Math.floor(rnd()*6); if(i>0&&rnd()<0.4) r.orPrev=true; if(rnd()<0.3) r.nice=true; rows.push(r);} j.requires=rows;
+  if(rnd()<0.7) j.minExp=1+Math.floor(rnd()*14); if(rnd()<0.7) j.level=pick(['Junior','Mid','Senior']); if(rnd()<0.35) j.mustLevel=true; if(rnd()<0.35) j.mustExp=true; if(rnd()<0.3) j.minPrograms=1+Math.floor(rnd()*6);
   if(rnd()<0.6) j.industries=some(inds,1+Math.floor(rnd()*4)); else if(rnd()<0.4) j.industry=pick(inds);
   if(rnd()<0.5) j.preferredSpecialties=some(specIds,1+Math.floor(rnd()*3)); if(rnd()<0.4) j.languages=some(langs,1+Math.floor(rnd()*2)); if(rnd()<0.3) j.preferredLangs=some(langs,1+Math.floor(rnd()*2));
   if(rnd()<0.4) j.certification=pick(['required','preferred']); if(rnd()<0.3) j.remote=true; if(rnd()<0.8) j.country=pick(countryIds); if(rnd()<0.5) j.city=pick(cities); return j; }
@@ -53,6 +55,24 @@ t('website keeps built-in family for BTP modules after catalog load', APP.MODULE
   const js=APP.matchScore(c,j), sq=(await db.query(`select match_score($1::jsonb,$2::jsonb) s`,[JSON.stringify(c),JSON.stringify(j)])).rows[0].s;
   const fam=(await db.query(`select _m_fam('integration') a, _m_fam('ibp') b, _m_fam('fi') c`)).rows[0];
   t('same-family BTP credit: SQL = website, families resolved', js===sq && fam.a==='btp-int' && fam.b==='scm-plan' && fam.c==='fin', {js,sq,fam}); }
+/* release 43: Must have / Nice to have */
+{ const mk=(extra)=>Object.assign({title:'FI Consultant',roleType:'functional',minExp:8,level:'Senior',country:'ae',city:'Dubai',requires:[{productId:'s4onprem',moduleId:'fi',minProjects:2}]},extra||{});
+  const pro=(o)=>Object.assign({roleTypes:['functional'],yearsExp:10,level:'Senior',country:'ae',city:'Dubai',languages:['English'],skills:[{productId:'s4onprem',moduleId:'fi',projects:5}]},o||{});
+  const both=async(c,j)=>{ const w=APP.matchScore(c,j), q=(await db.query(`select match_score($1::jsonb,$2::jsonb) s`,[JSON.stringify(c),JSON.stringify(j)])).rows[0].s; return {w,q}; };
+  const base=await both(pro(),mk());
+  const jn=mk({requires:[{productId:'s4onprem',moduleId:'fi',minProjects:2},{productId:'s4onprem',moduleId:'co',nice:true}]});
+  const lo={yearsExp:6,level:'Mid'}, base2=await both(pro(lo),mk());
+  const withNice=await both(pro(Object.assign({skills:[{productId:'s4onprem',moduleId:'fi',projects:5},{productId:'s4onprem',moduleId:'co',projects:3}]},lo)),jn);
+  const noNice=await both(pro(lo),jn);
+  t('nice-to-have product present adds points, absent costs nothing (site = database)', withNice.w===withNice.q && noNice.w===noNice.q && noNice.w===base2.w && base2.w<90 && withNice.w>base2.w && withNice.w-base2.w<=10, {base2,withNice,noNice});
+  const jm=mk({mustLevel:true}), junior=await both(pro({level:'Junior'}),jm), senior=await both(pro(),jm), unknown=await both(pro({level:undefined}),jm);
+  t('must-have seniority not met: capped below Strong, met: unchanged (site = database)', junior.w===junior.q && senior.w===senior.q && unknown.w===unknown.q && junior.w<=74 && unknown.w<=74 && senior.w===base.w, {junior,senior,unknown,base});
+  const je=mk({mustExp:true}), lowx=await both(pro({yearsExp:3}),je), okx=await both(pro(),je);
+  t('must-have years not met: capped below Strong (site = database)', lowx.w===lowx.q && okx.w===okx.q && lowx.w<=74 && okx.w===base.w, {lowx,okx});
+  const soft=await both(pro({level:'Junior',yearsExp:3}),mk());
+  t('without the must flags, seniority and years stay soft (no cap)', soft.w===soft.q, soft);
+  const weak=await both(pro({skills:[{productId:'s4onprem',moduleId:'sd',projects:5},{productId:'s4onprem',moduleId:'co',projects:3}]}),jn);
+  t('a nice-to-have cannot rescue a candidate who misses the must-have', weak.w===weak.q && weak.w<50, weak); }
 /* near-matches: the professional is built from the role, then bent a little (other module, other SAP generation, fewer projects, missing language ...) */
 let bad2=0, hi=0, sample2=null;
 for(let i=0;i<2000;i++){ const j=mkJob(); if(!j.requires.length) continue; const c=mkCons(); c.skills=[];

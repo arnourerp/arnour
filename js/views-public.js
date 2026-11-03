@@ -560,7 +560,9 @@ APP.jobSections = function (job, me, opts) {
   const lineHtml = (inner, st) => '<li class="jd-req st-' + (st ? st.cls : 'none') + '">' +
     '<span class="jd-ico" aria-hidden="true">' + (st ? ICO[st.cls] : '•') + '</span>' +
     '<span class="jd-req-t">' + inner + (st ? '<span class="jd-why">' + E(T(st.t)) + '</span>' : '') + '</span></li>';
-  const stSkill = (r) => {
+  let soft = false; /* nice-to-have rows: a missing item is grey, not red */
+  const stSkill = (r) => { const s0 = stSkill0(r); return soft && s0 && s0.cls === 'no' ? { cls: 'na', t: s0.t } : s0; };
+  const stSkill0 = (r) => {
     if (!me) return null;
     const m0 = APP.reqFit(me, r, APP.jobRoleType(job));
     const m = { kind: (m0.kind === 'direct' || m0.kind === 'wildcard') ? 'exact' : m0.kind === 'depth' ? 'projects' : m0.kind === 'adjacent' ? 'product' : m0.kind, have: m0.have, via: m0.via };
@@ -572,13 +574,13 @@ APP.jobSections = function (job, me, opts) {
     return { cls: 'no', t: 'Not on your profile' };
   };
   const skillTxt = (r) => '<b>' + E(APP.productShort(r.productId)) + '</b> ' + E(APP.skillName(r.productId, r.moduleId)) + (r.minProjects ? ' <em>' + r.minProjects + '+ projects</em>' : '');
-  const RANKC = { ok: 3, mid: 2, no: 1 };
+  const RANKC = { ok: 3, mid: 2, no: 1, na: 0 };
   const reqLine = (g) => {
     if (g.length === 1) return lineHtml(skillTxt(g[0]), stSkill(g[0]));
     const sts = g.map(stSkill);
     let best = -1; sts.forEach((x, i) => { if (x && (best < 0 || RANKC[x.cls] > RANKC[sts[best].cls])) best = i; });
     const top = best >= 0 ? sts[best] : null;
-    const head = top ? (top.cls === 'ok' ? { cls: 'ok', t: 'You meet this (option ' + (best + 1) + ')' } : top.cls === 'mid' ? { cls: 'mid', t: 'Partly met' } : { cls: 'no', t: 'Not met' }) : null;
+    const head = top ? (top.cls === 'ok' ? { cls: 'ok', t: 'You meet this (option ' + (best + 1) + ')' } : top.cls === 'mid' ? { cls: 'mid', t: 'Partly met' } : { cls: top.cls === 'na' ? 'na' : 'no', t: 'Not met' }) : null;
     return '<li class="jd-group"><div class="jd-group-h st-' + (head ? head.cls : 'none') + '"><span class="jd-ico" aria-hidden="true">' + (head ? ICO[head.cls] : '•') + '</span>' +
       '<span><b>Any one of these</b>' + (head ? '<span class="jd-why">' + E(T(head.t)) + '</span>' : '') + '</span></div>' +
       '<ul class="jd-opts">' + g.map((r, i) => (i ? '<li class="jd-or">or</li>' : '') + lineHtml(skillTxt(r), sts[i])).join('') + '</ul></li>';
@@ -590,8 +592,10 @@ APP.jobSections = function (job, me, opts) {
   const must = groups.map(reqLine);
   (job.languages || []).forEach(l => must.push(lineHtml('<b>Language</b> ' + E(l), me ? (myLangs.includes(l) ? { cls: 'ok', t: 'You speak it' } : { cls: 'no', t: 'Not on your profile' }) : null)));
   if (job.certification === 'required') must.push(lineHtml('<b>SAP certification</b> required', me ? (certAny ? { cls: 'ok', t: 'You are SAP-certified' } : { cls: 'no', t: 'No certification on your profile' }) : null));
-  if (job.minExp) must.push(lineHtml('<b>Experience</b> ' + E(APP.expLabel(job) || (job.minExp + '+ years')), me ? ((me.yearsExp || 0) >= job.minExp ? { cls: 'ok', t: 'You have ' + me.yearsExp + ' yrs' } : { cls: (me.yearsExp || 0) >= job.minExp - 2 ? 'mid' : 'no', t: 'You have ' + (me.yearsExp || 0) + ' yrs' }) : null));
   const nice = [];
+  if (job.level) (job.mustLevel ? must : nice).push(lineHtml('<b>Seniority</b> ' + E(job.level), me ? (me.level === job.level ? { cls: 'ok', t: 'You are ' + me.level } : (job.mustLevel && !({ Junior: 1, Mid: 2, Senior: 3 }[me.level] >= { Junior: 1, Mid: 2, Senior: 3 }[job.level])) ? { cls: 'no', t: me.level ? 'Your level is ' + me.level : 'Not on your profile' } : { cls: 'mid', t: me.level ? 'Your level is ' + me.level : 'Not on your profile' }) : null));
+  if (job.minExp) (job.mustExp ? must : nice).push(lineHtml('<b>Experience</b> ' + E(APP.expLabel(job) || (job.minExp + '+ years')), me ? ((me.yearsExp || 0) >= job.minExp ? { cls: 'ok', t: 'You have ' + me.yearsExp + ' yrs' } : { cls: (me.yearsExp || 0) >= job.minExp - 2 ? 'mid' : (job.mustExp ? 'no' : 'na'), t: 'You have ' + (me.yearsExp || 0) + ' yrs' }) : null));
+  soft = true; APP.reqGroups(job, 'nice').forEach(g => nice.push(reqLine(g))); soft = false;
   if (job.certification && job.certification !== 'required') nice.push(lineHtml('<b>SAP certification</b> preferred', me ? (certAny ? { cls: 'ok', t: 'You are SAP-certified' } : { cls: 'na', t: 'Not on your profile' }) : null));
   (job.preferredLangs || []).forEach(l => nice.push(lineHtml('<b>Language</b> ' + E(l), me ? (myLangs.includes(l) ? { cls: 'ok', t: 'You speak it' } : { cls: 'na', t: 'Not on your profile' }) : null)));
   if (+job.minPrograms > 0) {

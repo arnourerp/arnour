@@ -1225,10 +1225,13 @@ APP.jobIndustryLabel = function (job, max) {
 
 /* Requirement rows → groups. A row flagged `orPrev` is an alternative to the row above it
    (either one satisfies the requirement); different groups must all be satisfied. */
-APP.reqGroups = function (job) {
+APP.reqGroups = function (job, which) {
   const groups = [];
+  /* which: 'must' (default) = the required rows, 'nice' = rows flagged nice-to-have (r.nice), 'all' = both */
+  const want = which || 'must';
   for (const r of (job && job.requires) || []) {
     if (!r || !r.productId || !r.moduleId) continue;
+    if (want !== 'all' && !!r.nice !== (want === 'nice')) continue;
     if (r.orPrev && groups.length) groups[groups.length - 1].push(r);
     else groups.push([r]);
   }
@@ -1582,9 +1585,38 @@ APP.matchDetail = function (c, job) {
   const ctxFactor = 1 - pf.swing * (1 - other);
   ctx.sort((a, b) => b.w - a.w).forEach(x => parts.push({ stage: 'other', label: x.label, pct: pct(x.f), note: x.note, weight: x.w }));
 
-  const raw = core * rf.f * ready * ctxFactor * 100;
-  const score = Math.max(0, Math.min(100, Math.round(raw)));
-  return { score: score, parts: parts, gaps: gaps, cap: null, coreFit: pct(core), readyFit: pct(ready), otherFit: pct(other), roleFit: pct(rf.f), ctxSwing: Math.round(pf.swing * 100), roleType: rt };
+  /* ---- nice-to-have products: a modest bonus (up to 10 points), scaled by how well everything required fits; missing them costs nothing ---- */
+  let niceFit = 0; const niceMissing = [];
+  const nGroups = APP.reqGroups(job, 'nice');
+  if (nGroups.length) {
+    let nacc = 0;
+    for (const g of nGroups) {
+      const best = g.map(r => APP.reqFit(c, r, rt).credit).reduce((a, b) => Math.max(a, b), 0);
+      nacc += best;
+      if (best < 0.3) niceMissing.push(g.map(APP.reqLabel).join(' / '));
+    }
+    niceFit = nacc / nGroups.length;
+    parts.push({ stage: 'other', label: 'Nice-to-have skills', pct: pct(niceFit), note: niceMissing.length ? 'Not on the profile: ' + niceMissing.join(', ') : 'All nice-to-have skills covered', weight: 0 });
+  }
+  const bonus = 10 * niceFit * core * rf.f * ready;
+
+  /* ---- must-have seniority / minimum years: if not met the role is flagged and the score stays below Strong ---- */
+  const mustMiss = [];
+  if (job.mustLevel && job.level) {
+    const ord = { Junior: 1, Mid: 2, Senior: 3 };
+    if (!ord[c.level] || ord[c.level] < ord[job.level]) mustMiss.push('Seniority: ' + job.level + (c.level ? ' (profile: ' + c.level + ')' : ' (not on the profile)'));
+  }
+  if (job.mustExp && +job.minExp > 0) {
+    const known = c.yearsExp != null && c.yearsExp !== '';
+    if (!known || (+c.yearsExp || 0) < +job.minExp) mustMiss.push('Experience: ' + job.minExp + '+ years' + (known ? ' (profile: ' + (+c.yearsExp || 0) + ')' : ' (not on the profile)'));
+  }
+  mustMiss.forEach(t => gaps.push('Must have, not met - ' + t));
+
+  const raw = core * rf.f * ready * ctxFactor * 100 + bonus;
+  let score = Math.max(0, Math.min(100, Math.round(raw)));
+  const cap = mustMiss.length ? 74 : null;
+  if (cap != null) score = Math.min(score, cap);
+  return { score: score, parts: parts, gaps: gaps, cap: cap, mustMiss: mustMiss, niceMissing: niceMissing, bonus: Math.round(bonus * 10) / 10, coreFit: pct(core), readyFit: pct(ready), otherFit: pct(other), roleFit: pct(rf.f), ctxSwing: Math.round(pf.swing * 100), roleType: rt };
 };
 APP.matchScore = function (c, job) { return APP.matchDetail(c, job).score; };
 
@@ -2820,6 +2852,11 @@ APP.skillMutate = function (el, fn) {
 
 /* ---- job requirement cards: one card = one product + one or more modules (any one is enough) ---- */
 APP.jobReqNormalize = function (rows) {
+  /* required rows first, nice-to-have rows after (the form shows them in two boxes); each box starts a fresh requirement */
+  if (rows.some(r => r.nice) && rows.some(r => !r.nice)) {
+    const ordered = rows.filter(r => !r.nice).concat(rows.filter(r => r.nice));
+    if (ordered.some((r, i) => r !== rows[i])) rows.splice(0, rows.length, ...ordered);
+  }
   let mx = 0; rows.forEach(r => { if (r.cid != null && r.cid > mx) mx = r.cid; });
   rows.forEach(function (r, i) {
     if (r.cid != null) return;
@@ -2829,6 +2866,7 @@ APP.jobReqNormalize = function (rows) {
     if (r.cid == null) r.cid = ++mx;
   });
   if (rows[0]) rows[0].orPrev = false;
+  const fn = rows.findIndex(r => r.nice); if (fn > 0) rows[fn].orPrev = false;
   return rows;
 };
 APP.jobReqCards = function (rows) {
@@ -2840,10 +2878,13 @@ APP.jobReqCards = function (rows) {
   });
   return cards.map(c => ({ start: c.start, end: c.end, cid: c.cid, rows: rows.slice(c.start, c.end + 1), productId: rows[c.start].productId, alt: c.start > 0 && !!rows[c.start].orPrev, all: c.end > c.start && !(c.start > 0 && rows[c.start].orPrev) && !rows[c.start + 1].orPrev, min: rows[c.start].minProjects || 0 }));
 };
-APP.jobReqRowsHtml = function (rows) {
+APP.jobReqRowsHtml = function (rows, box) {
   rows = rows || [];
+  const nice = box === 'nice';
   const bad = (APP.state.jobErr && APP.state.jobErr.rows) || [];
-  const cards = APP.jobReqCards(rows);
+  const all = APP.jobReqCards(rows);
+  const cards = all.filter(c => !!rows[c.start].nice === nice);
+  const nMust = all.filter(c => !rows[c.start].nice && !c.alt).length;
   let g = 0;
   return cards.map(function (c, ci) {
     if (!c.alt) g++;
@@ -2855,8 +2896,9 @@ APP.jobReqRowsHtml = function (rows) {
       '<button type="button" class="seg' + (c.alt ? ' on' : '') + '" data-action="req-mode" data-idx="' + c.start + '" data-mode="or" aria-pressed="' + (c.alt ? 'true' : 'false') + '">Or instead</button></div>';
     return join +
       '<div class="req-card' + (c.alt ? ' is-alt' : '') + (err ? ' has-err' : '') + '" data-req-card="' + c.cid + '">' +
-      '<div class="req-card-h"><span class="req-n">' + (c.alt ? 'Alternative' : 'Requirement ' + g) + '</span>' +
-      (cards.length > 1 ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div>' +
+      '<div class="req-card-h"><span class="req-n">' + (c.alt ? 'Alternative' : (nice ? 'Nice to have ' : 'Requirement ') + g) + '</span>' +
+      (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? 'Make it a must' : 'Make it nice to have') + '</button>' : '') +
+      ((nice || cards.length > 1) ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div>' +
       '<div class="req-fields">' +
       '<label class="field"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="jobNew" data-idx="' + c.start + '">' + APP.productOptions(c.productId) + '</select></label>' +
       (APP.rtCounts(APP.jobNewDraft && APP.jobNewDraft.roleType) || !(APP.jobNewDraft && APP.jobNewDraft.roleType) ? '<label class="field req-min"><span class="label">Min. projects <span class="muted">(optional)</span></span><input type="number" inputmode="numeric" min="0" max="99" class="input" data-req-min data-idx="' + c.start + '" value="' + (c.min ? Number(c.min) : '') + '" placeholder="Any"></label>' : '') +
@@ -2953,13 +2995,15 @@ APP.jobReqSummary = function (d, short) {
     }).join(' or ');
   };
   const txt = groups.map(part).join(' <span class="and-w">and</span> ');
+  const niceG = APP.reqGroups(d, 'nice');
+  const niceTxt = niceG.length ? ' <span class="muted">Nice to have: ' + niceG.map(part).join(', ') + '.</span>' : '';
   const n = APP.jobMatchCount(d);
   const cnt = n == null ? '' : n === 0
     ? '<span class="rs-warn">No strong matches yet</span> — try “Any module”, or add an alternative.'
     : '<b>' + n + '</b> professional' + (n === 1 ? '' : 's') + ' on Arnour already look like a good fit (50%+ match).';
   return short
     ? '<p class="muted small">' + cnt + '</p>'
-    : '<div class="req-sum">' + APP.icon('spark', 14) + '<div><p>Looking for ' + txt + '</p><p class="muted small">' + cnt + '</p></div></div>';
+    : '<div class="req-sum">' + APP.icon('spark', 14) + '<div><p>Looking for ' + txt + '.' + niceTxt + '</p><p class="muted small">' + cnt + '</p></div></div>';
 };
 /* Architect / Project Manager roles: a product alone is a valid requirement ("any module") */
 APP.jobRowsAnyModule = function (d) {
@@ -2979,7 +3023,7 @@ APP.jobStepErrors = function (d, step) {
   }
   if (step === 2) {
     const rows = d.requires || [];
-    if (!rows.some(r => r.productId && r.moduleId)) { e.req = 'Pick a SAP product and a module for at least one requirement'; e.rows = rows.map((r, i) => i); }
+    if (!rows.some(r => r.productId && r.moduleId && !r.nice)) { e.req = 'Pick a SAP product and a module for at least one requirement'; e.rows = rows.map((r, i) => i); }
     else {
       const half = []; rows.forEach((r, i) => { if ((r.productId && !r.moduleId) || (!r.productId && r.moduleId)) half.push(i); });
       if (half.length) { e.req = 'Finish or remove the requirement with no module selected'; e.rows = half; }
@@ -4000,12 +4044,41 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'req-nice': { /* move a requirement (with its alternatives) between "Must have" and "Nice to have" */
+      const dr = APP.jobNewDraft;
+      if (!dr || !dr.requires) break;
+      APP.skillMutate(el, function () {
+        const rows = dr.requires, cards = APP.jobReqCards(rows);
+        let i = cards.findIndex(x => x.start === +d.idx); if (i < 0) return;
+        while (i > 0 && cards[i].alt) i--;
+        let e = i; while (e + 1 < cards.length && cards[e + 1].alt) e++;
+        const a = cards[i].start, b = cards[e].end, toNice = !rows[a].nice;
+        if (toNice && rows.filter((r, k) => !r.nice && (k < a || k > b)).length === 0) { APP.toast('Keep at least one must-have requirement'); return; }
+        for (let k = a; k <= b; k++) { if (toNice) rows[k].nice = true; else delete rows[k].nice; }
+        rows[a].orPrev = false;
+        APP.jobReqNormalize(rows);
+      });
+      break;
+    }
+
+    case 'job-must': { /* seniority / minimum years / certification: move between "Must have" and "Nice to have" */
+      const dr = APP.jobNewDraft;
+      if (!dr) break;
+      APP.skillMutate(el, function () {
+        if (d.key === 'level') dr.mustLevel = !dr.mustLevel;
+        else if (d.key === 'exp') dr.mustExp = !dr.mustExp;
+        else if (d.key === 'cert') dr.certification = dr.certification === 'required' ? 'preferred' : 'required';
+      });
+      break;
+    }
+
     case 'req-rm': {
       const dr = APP.jobNewDraft;
       if (!dr || !dr.requires) break;
       APP.skillMutate(el, function () {
         const cards = APP.jobReqCards(dr.requires); const c = cards.find(x => x.start === +d.idx);
-        if (!c || cards.length < 2) return;
+        if (!c) return;
+        if (!dr.requires[c.start].nice && cards.filter(x => !dr.requires[x.start].nice).length < 2) return; /* keep one must-have */
         dr.requires.splice(c.start, c.end - c.start + 1);
         APP.jobReqNormalize(dr.requires);
       });
@@ -4113,7 +4186,9 @@ APP.onClick = function (el, e) {
         APP.jobReqNormalize(rows);
         const last = rows[rows.length - 1];
         let mx = 0; rows.forEach(r => { if (r.cid > mx) mx = r.cid; });
-        rows.push({ productId: (last && last.productId) || 's4onprem', moduleId: '', minProjects: 0, orPrev: false, cid: mx + 1, projects: 0 });
+        const nr = { productId: (last && last.productId) || 's4onprem', moduleId: '', minProjects: 0, orPrev: false, cid: mx + 1, projects: 0 };
+        if (d.nice) { nr.nice = true; rows.push(nr); }
+        else { const fn = rows.findIndex(r => r.nice); if (fn < 0) rows.push(nr); else rows.splice(fn, 0, nr); }
       });
       break;
     }
@@ -5047,12 +5122,12 @@ APP.onSubmit = function (f) {
       if (APP.SHOW_RATES && d.rateMin && d.rateMax && d.rateMin > d.rateMax) { APP.toast('Pay minimum should be lower than maximum'); return; }
       /* Don't strip incomplete rows from the draft itself — otherwise a failed publish silently deletes the rows the poster is still filling in. */
       const reqRows = (d.requires || []).filter(r => r.productId && r.moduleId);
-      if (!reqRows.length) { APP.toast('Add at least one required SAP skill — pick a product and a module'); return; }
+      if (!reqRows.some(r => !r.nice)) { APP.toast('Add at least one required SAP skill — pick a product and a module'); return; }
       if (d.editId) {
         const orig = APP.db.jobs[d.editId];
         if (!orig || orig.companyId !== APP.db.session.companyId) { APP.toast('Role not found'); return; }
         const before = JSON.parse(JSON.stringify(orig));
-        const sig = j => JSON.stringify([(j.requires || []).map(r => [r.productId, r.moduleId, r.minProjects, !!r.orPrev]), j.country, j.city, !!j.remote, j.languages, j.certification]);
+        const sig = j => JSON.stringify([(j.requires || []).map(r => [r.productId, r.moduleId, r.minProjects, !!r.orPrev, !!r.nice]), j.country, j.city, !!j.remote, j.languages, j.certification, j.level, j.minExp, !!j.mustLevel, !!j.mustExp]);
         const keep = { id: orig.id, companyId: orig.companyId, applicants: orig.applicants || [], invited: orig.invited || [], postedTs: orig.postedTs, status: orig.status };
         const upd = Object.assign({}, d, { requires: reqRows.map(r => Object.assign({}, r)) }, keep, { editedTs: Date.now() });
         delete upd.editId; delete upd.maxExp;

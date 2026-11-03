@@ -2149,3 +2149,11 @@ a.sr-title:hover { text-decoration: underline; }
 .adm-scroll { overflow-x: auto; }
 .adm-table-num td:not(:first-child), .adm-table-num th:not(:first-child) { text-align: right; }
 .adm-total td { background: var(--bg-surface); }
+
+/* Must have / Nice to have boxes on the job form */
+.must-item { margin: 14px 0 4px; }
+.must-item .mi-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.must-item .mi-h .label { margin: 0; }
+.req-move { font-size: 13px; white-space: nowrap; }
+.req-card-h .req-move { margin-left: auto; margin-right: 8px; }
+.nice-list .req-card { border-style: dashed; }
