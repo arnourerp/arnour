@@ -113,4 +113,7 @@ mock(); sbMode = 'ok'; aiMode = 'ok'; aiOut = { title: 'FICO Lead', role_type: '
   t('the prompt explains nice rows and must flags', /nice = true/.test(calls.ai[0].body.system) && /level_is_must/.test(calls.ai[0].body.system)); }
 mock(); aiOut = { title: 'X', role_type: 'functional', country: 'ae', requires: [{ product_id: 's4onprem', module_id: 'fi', nice: true }] };
 { const x = await fn.handler(EV({ text: AD, lists: LISTS })); const j = JSON.parse(x.body).job; t('only nice skills found: they become required (a role needs a Must box)', j.requires.length === 1 && !j.requires[0].nice, j.requires); }
+mock(); sbMode = 'ok'; aiMode = 'ok'; aiOut = GOOD; await fn.handler(EV({ text: AD, lists: LISTS }));
+t('the prompt: integration modules are not requirements, the ad language is not a language requirement, few specialties, inferred level is not a must',
+  /touch points or integration/.test(calls.ai[0].body.system) && /language the ad is written in is NOT a requirement/.test(calls.ai[0].body.system) && /at most 4/.test(calls.ai[0].body.system) && /only infer from the duties/.test(calls.ai[0].body.system) && /configures AND leads/.test(calls.ai[0].body.system));
 console.log(fails ? 'FAILED ' + fails : 'ALL OK'); process.exit(fails ? 1 : 0);
