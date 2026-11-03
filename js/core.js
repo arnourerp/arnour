@@ -2858,6 +2858,15 @@ APP.skillMutate = function (el, fn) {
 };
 
 /* ---- job requirement cards: one card = one product + one or more modules (any one is enough) ---- */
+/* Small ⓘ button: the explanation opens in a bubble on click (keeps forms free of grey helper text). `html` must be trusted markup. */
+APP.hintHtml = function (html) {
+  return '<span class="hint-wrap"><button type="button" class="hint-i" data-action="hint-toggle" aria-label="More information" aria-expanded="false">i</button><span class="hint-pop" role="note">' + html + '</span></span>';
+};
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', function (e) {
+  const t = e && e.target; if (!t || !t.closest) return;
+  if (t.closest('.hint-wrap')) return;
+  document.querySelectorAll('.hint-wrap.open').forEach(w => { w.classList.remove('open'); const b = w.querySelector('.hint-i'); if (b) b.setAttribute('aria-expanded', 'false'); });
+});
 APP.jobReqNormalize = function (rows) {
   /* required rows first, nice-to-have rows after (the form shows them in two boxes); each box starts a fresh requirement */
   if (rows.some(r => r.nice) && rows.some(r => !r.nice)) {
@@ -4091,6 +4100,13 @@ APP.onClick = function (el, e) {
           dr.languages = must ? all : []; dr.preferredLangs = must ? [] : all; dr.langMust = must;
         }
       });
+      break;
+    }
+
+    case 'hint-toggle': {
+      const w = el.closest('.hint-wrap'); if (!w) break;
+      document.querySelectorAll('.hint-wrap.open').forEach(x => { if (x !== w) { x.classList.remove('open'); const b = x.querySelector('.hint-i'); if (b) b.setAttribute('aria-expanded', 'false'); } });
+      const on = w.classList.toggle('open'); el.setAttribute('aria-expanded', on ? 'true' : 'false');
       break;
     }
 

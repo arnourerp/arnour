@@ -539,30 +539,30 @@ APP.jobFormView = function (mode) {
   const nMore = (d.industries || []).length;
   const openSpec = st.spec !== undefined ? st.spec : nSpec > 0;
   const openMore = st.more !== undefined ? st.more : editing;
-  const sec = (n, title, sub, body) =>
-    '<section class="card form-sec"><div class="sec-h"><span class="sec-n">' + n + '</span><div><h3>' + title + '</h3>' + (sub ? '<p class="muted small">' + sub + '</p>' : '') + '</div></div>' + body + '</section>';
+  const sec = (n, title, sub, body, cls) =>
+    '<section class="card form-sec' + (cls ? ' ' + cls : '') + '"><div class="sec-h"><span class="sec-n">' + n + '</span><div><h3>' + title + (sub ? APP.hintHtml(sub) : '') + '</h3></div></div>' + body + '</section>';
 
   const err = (k) => (!editing && APP.state.jobErr && APP.state.jobErr[k]) ? '<p class="field-error" role="alert" data-for="' + k + '">' + APP.h(APP.state.jobErr[k]) + '</p>' : '';
   const basics =
     '<label class="field"><span class="label">Job title *</span><input name="title" class="input" value="' + APP.h(d.title) + '" placeholder="S/4HANA FICO Consultant"' + (!editing && APP.state.jobErr && APP.state.jobErr.title ? ' aria-invalid="true"' : '') + '>' + err('title') + '</label>' +
-    '<label class="field"><span class="label">Role type *</span><select name="roleType" class="input"' + (!editing && APP.state.jobErr && APP.state.jobErr.roleType ? ' aria-invalid="true"' : '') + '>' +
+    '<label class="field"><span class="label">Role type *' + APP.hintHtml((d.roleType && APP.roleTypeById[d.roleType] ? APP.h(APP.roleTypeById[d.roleType].sub) + ' ' : '') + 'It decides how professionals are ranked — for example, project managers are matched on delivery experience, not on every SAP module.') + '</span><select name="roleType" class="input"' + (!editing && APP.state.jobErr && APP.state.jobErr.roleType ? ' aria-invalid="true"' : '') + '>' +
     APP.opt([['', 'Select the type of role…']].concat(APP.roleTypes.map(t => [t.id, t.name])), d.roleType) + '</select>' +
-    '<p class="field-hint">' + (d.roleType && APP.roleTypeById[d.roleType] ? APP.h(APP.roleTypeById[d.roleType].sub) + ' ' : '') + 'It decides how professionals are ranked — for example, project managers are matched on delivery experience, not on every SAP module.</p>' + err('roleType') + '</label>' +
+    err('roleType') + '</label>' +
     '<div class="form-grid">' +
     '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
     APP.cityInputHtml(d.country, d.city) +
     '<label class="field"><span class="label">Type</span><select name="employmentType" class="input">' + APP.opt(APP.jobTypes.map(t => [t, t]), d.employmentType) + '</select></label>' +
     '<label class="field"><span class="label">Duration</span><select name="duration" class="input">' + APP.opt(((d.employmentType === 'Full-time') ? ['Permanent'] : APP.durations.filter(x => x !== 'Permanent')).map(x => [x, x]), d.duration) + '</select></label>' +
     '</div>' +
-    '<label class="field"><span class="label">Apply on your own career portal <span class="muted">(optional)</span></span><input name="applyUrl" type="url" inputmode="url" class="input" value="' + APP.h(d.applyUrl || '') + '" placeholder="https://careers.yourcompany.com/job/123"' + (!editing && APP.state.jobErr && APP.state.jobErr.applyUrl ? ' aria-invalid="true"' : '') + '>' + err('applyUrl') +
-      '<p class="field-hint">Add a link and candidates apply on your site instead of on Arnour. Leave it empty to receive applications here.</p></label>' +
+    '<label class="field"><span class="label">Apply on your own career portal <span class="muted">(optional)</span>' + APP.hintHtml('Add a link and candidates apply on your site instead of on Arnour. Leave it empty to receive applications here.') + '</span><input name="applyUrl" type="url" inputmode="url" class="input" value="' + APP.h(d.applyUrl || '') + '" placeholder="https://careers.yourcompany.com/job/123"' + (!editing && APP.state.jobErr && APP.state.jobErr.applyUrl ? ' aria-invalid="true"' : '') + '>' + err('applyUrl') +
+      '</label>' +
     '<label class="field checkbox-field"><input type="checkbox" name="remote" ' + (d.remote ? 'checked' : '') + '> Remote-friendly</label>' +
     '<label class="field checkbox-field chk-line"><input type="checkbox" name="confidential" ' + (APP.coHidden(co, d) ? 'checked' : '') + '> <span>Keep my company confidential for this role<small class="muted"> — professionals see “Confidential company” on this role until an introduction about it is accepted. Your other roles and company page are not affected.</small></span></label>';
 
   const reqPart =
     '<div class="skill-rows req-list' + ((!editing && APP.state.jobErr && APP.state.jobErr.req) ? ' has-err' : '') + '">' + APP.jobReqRowsHtml(d.requires, 'must') + '</div>' +
     err('req') +
-    '<button type="button" class="btn btn-outline btn-sm" data-action="add-req">' + APP.icon('plus', 14) + ' Add another requirement</button>' +
+    '<button type="button" class="add-row" data-action="add-req">' + APP.icon('plus', 14) + ' Add requirement</button>' +
     '<div id="req-summary">' + APP.jobReqSummary(d) + '</div>';
   const specPart =
     '<details class="opt-box" data-det="spec"' + (openSpec ? ' open' : '') + '><summary>Preferred specialties <span class="muted">(optional)</span>' + (nSpec ? ' <span class="count-pill">' + nSpec + ' selected</span>' : '') + '</summary>' +
@@ -579,7 +579,7 @@ APP.jobFormView = function (mode) {
   const sw = (key, isMust) => '<span class="mn-sw" role="group" aria-label="How strict">' +
     '<button type="button" class="seg' + (isMust ? '' : ' on') + '" data-action="job-must" data-key="' + key + '" data-val="nice" aria-pressed="' + (isMust ? 'false' : 'true') + '">Nice</button>' +
     '<button type="button" class="seg' + (isMust ? ' on' : '') + '" data-action="job-must" data-key="' + key + '" data-val="must" aria-pressed="' + (isMust ? 'true' : 'false') + '">Must</button></span>';
-  const row = (label, input, ctl, hint) => '<div class="crit-row"><div class="crit-l"><span class="label">' + label + '</span>' + (ctl || '') + '</div><div class="crit-in">' + input + (hint ? '<p class="field-hint">' + hint + '</p>' : '') + '</div></div>';
+  const row = (label, input, ctl, hint) => '<div class="crit-row"><div class="crit-l"><span class="label">' + label + (hint ? APP.hintHtml(hint) : '') + '</span>' + (ctl || '') + '</div><div class="crit-in">' + input + '</div></div>';
   const langMust = (d.languages || []).length > 0 || !!d.langMust;
   const specSel = (d.preferredSpecialties || []).length;
   const lvlIn = '<select name="level" class="input">' + APP.opt([['', 'Any level']].concat(APP.levels.map(l => [l, l])), d.level) + '</select>';
@@ -596,18 +596,20 @@ APP.jobFormView = function (mode) {
     '<div class="crit-table">' +
     row('Seniority', lvlIn, sw('level', !!d.mustLevel)) +
     row('Minimum experience (years)', expIn, sw('exp', !!d.mustExp)) +
-    row('SAP certification', certIn, '', d.certification === 'required' ? 'Professionals without a certification in these modules are flagged and rank lower.' : '') +
+    row('SAP certification', certIn, '', 'Must have: professionals without a certification in these modules are flagged and rank lower.') +
     row('Languages', langIn, sw('lang', langMust)) +
-    row('Specialties', specIn, sw('spec', !!d.mustSpec), d.mustSpec ? 'A professional needs at least one of the selected specialties.' : '') +
+    row('Specialties', specIn, sw('spec', !!d.mustSpec), 'If you make specialties a must, a professional needs at least one of the selected ones.') +
     (leadJ ? row('Minimum ' + APP.h(progLbl.toLowerCase()), progIn, '') : '') +
-    (leadJ ? '' : row('Industries', indIn, '', 'Nice to have only: ranks higher, never flags.')) +
+    (leadJ ? '' : row('Industries', indIn, '', 'Nice to have only: ranks the role higher, never flags it.')) +
     '</div>';
-  const mustBox =
-    '<p class="field-hint">' + APP.icon('spark', 14) + ' Professionals who miss a must-have are flagged and cannot rank as a strong match. Keep this list short.</p>' +
-    reqPart;
-  const niceBox =
-    '<div class="skill-rows req-list nice-list">' + APP.jobReqRowsHtml(d.requires, 'nice') + '</div>' +
-    '<button type="button" class="btn btn-outline btn-sm" data-action="add-req" data-nice="1">' + APP.icon('plus', 14) + ' Add a nice-to-have product</button>';
+  const mustBox = reqPart;
+  const hasNice = (d.requires || []).some(r => r.nice);
+  const addNice = '<button type="button" class="add-row" data-action="add-req" data-nice="1">' + APP.icon('plus', 14) + ' Add a nice-to-have product</button>';
+  const niceBox = hasNice ? '<div class="skill-rows req-list nice-list">' + APP.jobReqRowsHtml(d.requires, 'nice') + '</div>' + addNice : '';
+  const tag = (k) => '<span class="box-tag ' + k + '">' + (k === 'must' ? 'MUST' : 'NICE') + '</span>';
+  const MUST_HINT = 'Professionals who miss a must-have are flagged and cannot rank as a strong match. Keep this list short. The first product is the most important part: it decides who sees your role.';
+  const NICE_HINT = 'Never hides the role. Having these adds points; missing them costs nothing.';
+  const CRIT_HINT = 'For each item choose Nice (ranks higher) or Must (flagged if missing). Skip what you are unsure about.';
 
   const pay =
     '<div class="pay-row">' +
@@ -628,9 +630,10 @@ APP.jobFormView = function (mode) {
       '<p class="muted">Changes are visible to professionals right away. Applicants stay on the role.</p>' +
       '<form data-form="job-post" id="f-job-post">' +
       sec(1, 'The role', 'What it is and where.', basics) +
-      (leadJ ? sec(2, 'Expertise', 'Specialties, programmes and industries.', expertise) + sec(3, 'Must have: SAP products <span class="req-star">*</span>', 'At least one SAP product; modules only if essential.', mustBox) + sec(4, 'Nice to have: SAP products <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points.', niceBox)
-        : sec(2, 'Must have: SAP products <span class="req-star">*</span>', 'The most important part — it decides who sees your role.', mustBox) + sec(3, 'Nice to have: SAP products <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points.', niceBox)) +
-      sec(leadJ ? 5 : 4, 'About the candidate', 'For each item choose Nice (ranks higher) or Must (flagged if missing).', crit) +
+      (leadJ ? sec(2, 'Expertise', 'Specialties and industries rank the role higher for professionals who have them.', expertise) : '') +
+      sec(leadJ ? 3 : 2, 'Must have: SAP products ' + tag('must') + ' <span class="req-star">*</span>', MUST_HINT, mustBox, 'box-must') +
+      (hasNice ? sec(leadJ ? 4 : 3, 'Nice to have: SAP products ' + tag('nice'), NICE_HINT, niceBox, 'box-nice') : '<div class="add-nice-wrap">' + addNice + '</div>') +
+      sec(leadJ ? 5 : 4, 'About the candidate', CRIT_HINT, crit) +
       (APP.SHOW_RATES ? sec(leadJ ? 6 : 5, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
       sec((APP.SHOW_RATES ? 6 : 5) + (leadJ ? 1 : 0), 'Description', 'Optional — scope, team and what success looks like.', desc) +
       APP.editFootHtml() +
@@ -645,13 +648,14 @@ APP.jobFormView = function (mode) {
     return '<li class="' + (n === step ? 'cur' : n < step ? 'done' : '') + '"' + (n === step ? ' aria-current="step"' : '') + '>' +
       '<button type="button" data-action="job-step" data-step="' + n + '"><span class="wn">' + (n < step ? APP.icon('check', 13) : n) + '</span><span class="wl">' + l + '</span></button></li>';
   }).join('') + '</ol>';
-  const card = (title, sub, body) => '<section class="card form-sec"><div class="sec-h"><div><h3>' + title + '</h3>' + (sub ? '<p class="muted small">' + sub + '</p>' : '') + '</div></div>' + body + '</section>';
+  const card = (title, sub, body, cls) => '<section class="card form-sec' + (cls ? ' ' + cls : '') + '"><div class="sec-h"><div><h3>' + title + (sub ? APP.hintHtml(sub) : '') + '</h3></div></div>' + body + '</section>';
   const pl = APP.rtProductLevel(d.roleType);
   const pv = APP.jobPreviewObj(d, co);
-  const s1 = card('The role', 'What it is and where.', basics) + (!APP.SHOW_RATES ? '' : card('Pay <span class="muted">(optional)</span>', 'Roles with a pay range get noticeably more applications.', pay));
-  const s2 = (leadJ ? card('What expertise do you need?', 'Specialties, programmes and industries — what sets a strong candidate apart for this role.', expertise) : '') + card(pl ? 'Must have: which SAP products?' : 'Must have: what SAP experience?', pl ? 'For this role the product matters more than individual modules — pick modules only if they are essential. Start with one product.' : 'The most important part — it decides who sees your role. Start with one; add more only if you need them.', mustBox) +
-    card('Nice to have <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points; missing them costs nothing.', niceBox) +
-    card('About the candidate', 'For each item choose Nice (ranks higher) or Must (flagged if missing). Skip what you are unsure about.', crit);
+  const s1 = card('The role', '', basics) + (!APP.SHOW_RATES ? '' : card('Pay <span class="muted">(optional)</span>', 'Roles with a pay range get noticeably more applications.', pay));
+  const s2 = (leadJ ? card('What expertise do you need?', 'Specialties and industries rank the role higher for professionals who have them — they never hide it.', expertise) : '') +
+    card((pl ? 'Must have: which SAP products?' : 'Must have: what SAP experience?') + ' ' + tag('must'), MUST_HINT + (pl ? ' For this role the product matters more than individual modules: pick modules only if they are essential.' : ''), mustBox, 'box-must') +
+    (hasNice ? card('Nice to have: SAP products ' + tag('nice'), NICE_HINT, niceBox, 'box-nice') : '<div class="add-nice-wrap">' + addNice + '</div>') +
+    card('About the candidate', CRIT_HINT, crit);
   const s3 = card('Description <span class="muted">(optional)</span>', 'Scope, team and what success looks like.', desc) +
     '<div class="preview-h"><h3>This is how professionals will see your role</h3><div id="req-summary-2">' + APP.jobReqSummary(d, true) + '</div></div>' +
     '<div class="job-preview" aria-label="Role preview" tabindex="-1">' + APP.asPublicHtml(() => APP.jobCard(pv, null, '', '')) + '</div>' +

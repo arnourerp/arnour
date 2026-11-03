@@ -2172,3 +2172,19 @@ a.sr-title:hover { text-decoration: underline; }
 .req-compact .req-card-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .req-compact .rc-sum { flex: 1 1 200px; min-width: 0; }
 @media (max-width: 640px) { .crit-row { grid-template-columns: 1fr; } }
+
+/* Release 43 UX: info bubbles, Must/Nice box colours, add rows */
+.hint-wrap{position:relative;display:inline-block;margin-left:6px;vertical-align:middle;font-weight:400}
+.hint-i{width:18px;height:18px;border-radius:50%;border:1px solid var(--line,#c9d1dc);background:#fff;color:#4a5b73;font:italic 700 11px/16px Georgia,serif;cursor:pointer;padding:0}
+.hint-i:hover,.hint-wrap.open .hint-i{background:#e8eef7;border-color:#8aa0bf}
+.hint-pop{display:none;position:absolute;left:-8px;top:24px;z-index:30;width:min(300px,78vw);background:#16233a;color:#fff;font:400 13px/1.45 inherit;font-family:inherit;padding:10px 12px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);text-transform:none;letter-spacing:0}
+.hint-wrap.open .hint-pop{display:block}
+.box-tag{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.06em;vertical-align:middle}
+.box-tag.must{background:#16233a;color:#fff}
+.box-tag.nice{background:#dfe8f3;color:#3b5273}
+.card.box-must{border-left:4px solid #16233a}
+.card.box-nice{background:#f3f6fa;border:1px dashed #9fb1c9}
+.add-row{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:10px;border:1px dashed #9fb1c9;border-radius:8px;background:transparent;color:#3b5273;font:inherit;font-weight:600;cursor:pointer}
+.add-row:hover{background:#eef3f9}
+.add-nice-wrap{margin:-4px 0 16px}
+.mn-sw .seg.on{background:#16233a;color:#fff}

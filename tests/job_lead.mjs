@@ -18,7 +18,7 @@ await ev(()=>APP.jobGoStep(1)); await p.waitForTimeout(150);
 await p.selectOption('[name=roleType]','architect'); await p.waitForTimeout(200);
 await ev(()=>APP.jobGoStep(2)); await p.waitForTimeout(200);
 const txt=await ev(()=>document.getElementById('main').innerText);
-t('architect: expertise card comes first',txt.indexOf('What expertise do you need')>-1&&txt.indexOf('What expertise do you need')<txt.indexOf('Which SAP products'),txt.slice(0,300));
+t('architect: expertise card comes first',txt.indexOf('What expertise do you need')>-1&&txt.indexOf('What expertise do you need')<txt.indexOf('which SAP products'),txt.slice(0,300));
 t('architect: stepper says Expertise & SAP',/Expertise & SAP/.test(await ev(()=>document.querySelector('.wiz-steps').innerText)));
 t('architect: minimum programs field',await ev(()=>!!document.querySelector('[name=minPrograms]')));
 t('architect: specialties shown once only',await ev(()=>document.querySelectorAll('.job-form .spec-panel, form[data-form=job-post] .spec-panel').length===1));

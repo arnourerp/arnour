@@ -34,7 +34,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
 { const p=await page('emp'); await go(p,'#/e/jobs/new'); await p.waitForSelector('form[data-form=job-post]');
   await p.fill('input[name=title]','SAP FICO Consultant'); await p.selectOption('select[name=roleType]','functional');
   await p.click('.publish-bar button[type=submit]'); await p.waitForTimeout(500);
-  t('step 2 shows a Must have box and a Nice to have box',await p.evaluate(()=>{ const h=[...document.querySelectorAll('.jw-step[data-step="2"] h3')].map(x=>x.textContent); return /Must have/.test(h[0]||'')&&/Nice to have/.test(h[1]||''); }));
+  t('step 2 shows the Must box, the Nice box stays hidden until asked',await p.evaluate(()=>{ const h=[...document.querySelectorAll('.jw-step[data-step="2"] h3')].map(x=>x.textContent); return /Must have/.test(h[0]||'')&&h.length===2&&!document.querySelector('.box-nice')&&!!document.querySelector('.add-nice-wrap [data-nice]'); }));
   t('the first requirement is in the Must box with no move link (it is the only one)',await p.evaluate(()=>document.querySelectorAll('.jw-step[data-step="2"] .req-list:not(.nice-list) .req-card').length===1&&!document.querySelector('.jw-step[data-step="2"] .req-list:not(.nice-list) [data-action=req-nice]')));
   /* pick FI in S/4HANA on-prem */
   await p.click('.jw-step[data-step="2"] .req-list:not(.nice-list) .mchip[data-mid=fi]'); await p.waitForTimeout(200);
@@ -52,7 +52,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
   t('Make it nice to have moves a card to the Nice box',await p.evaluate(()=>document.querySelectorAll('.nice-list .req-card').length===2&&document.querySelectorAll('.req-list:not(.nice-list) .req-card').length===1));
   t('the last must-have has no move link (at least one must stays)',await p.evaluate(()=>!document.querySelector('.req-list:not(.nice-list) [data-action=req-nice]')));
   /* the "About the candidate" table: Nice | Must per row */
-  t('the candidate table has the rows and no duplicate fields',await p.evaluate(()=>{ const r=[...document.querySelectorAll('.crit-row .crit-l .label')].map(x=>x.textContent); return ['Seniority','Minimum experience (years)','SAP certification','Languages','Specialties','Industries'].every(x=>r.includes(x))&&document.querySelectorAll('select[name=level]').length===1&&document.querySelectorAll('select[name=certification]').length===1; }));
+  t('the candidate table has the rows and no duplicate fields',await p.evaluate(()=>{ const r=[...document.querySelectorAll('.crit-row .crit-l .label')].map(x=>x.firstChild.textContent.trim()); return ['Seniority','Minimum experience (years)','SAP certification','Languages','Specialties','Industries'].every(x=>r.includes(x))&&document.querySelectorAll('select[name=level]').length===1&&document.querySelectorAll('select[name=certification]').length===1; }));
   await p.selectOption('select[name=level]','Senior');
   await p.click('.mn-sw [data-key=level][data-val=must]'); await p.waitForTimeout(300);
   t('Must switch is on for seniority and the value stays',await p.evaluate(()=>!!document.querySelector('.mn-sw [data-key=level][data-val=must].on')&&document.querySelector('select[name=level]').value==='Senior'));
