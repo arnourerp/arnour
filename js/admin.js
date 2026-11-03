@@ -95,7 +95,7 @@
   /* ---------- views ---------- */
   /* sidebar groups: [group title, [[tab id, label, one-line hint], ...]] */
   var GROUPS = [
-    ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['health', 'Health', 'Errors and email delivery']]],
+    ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['traffic', 'Traffic', 'Visitors, sign-ups and what people did'], ['health', 'Health', 'Errors and email delivery']]],
     ['People & roles', [['people', 'People', 'Professionals and companies'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
     ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages']]],
     ['Communicate', [['messages', 'Messages', 'Write to people as the Arnour team, and read their replies'], ['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
@@ -139,10 +139,12 @@
       st(o.signups7, 'Sign-ups, 7 days') + st(o.signups30, 'Sign-ups, 30 days') + st(o.openRoles, 'Open roles', '#/admin/roles') +
       st(o.applications7, 'Applications, 7 days') + st(o.conversations, 'Conversations') + st(o.messages7, 'Messages, 7 days') +
       st(o.posts7, 'Community posts, 7 days', '#/admin/community') + st(o.suspended, 'Suspended', '#/admin/people') + st(o.selfCertified, 'Self-declared certified') +
-      '</div><h2>Sign-ups, last 14 days</h2><div class="adm-bars">' + (o.series || []).map(function (s) {
-        return '<div class="adm-bar" title="' + h(s.d) + ': ' + s.n + '"><i style="height:' + Math.max(3, Math.round(s.n / max * 100)) + '%"></i><span>' + s.d.slice(8) + '</span></div>';
-      }).join('') + '</div>' +
-      (o.noProfile ? '<p class="muted small">' + o.noProfile + ' account(s) have signed up but not finished creating a profile.</p>' : '');
+      '</div><h2>Sign-ups, last 14 days</h2><div class="adm-bars adm-bars-n">' + (o.series || []).map(function (s) {
+        var p = typeof s.p === 'number' ? s.p : s.n, np = s.n - p;
+        return '<div class="adm-bar" title="' + h(s.d) + ': ' + s.n + ' sign-up(s), ' + p + ' with a profile, ' + np + ' with no profile yet"><b>' + (s.n || '') + '</b><div class="adm-bar-col" style="height:' + (s.n ? Math.max(6, Math.round(s.n / max * 90)) : 0) + 'px">' +
+          (np ? '<i class="adm-np" style="flex:' + np + '"></i>' : '') + (p ? '<i style="flex:' + p + '"></i>' : '') + '</div><span>' + s.d.slice(8) + '</span></div>';
+      }).join('') + '</div><p class="muted small adm-legend"><span class="adm-key"></span> Profile completed <span class="adm-key adm-np"></span> No profile yet. The number above each bar is that day\'s sign-ups. For visitors, sources and what people did, see <a class="link" href="#/admin/traffic">Traffic</a>.</p>' +
+      (o.noProfile ? '<p class="muted small">' + o.noProfile + ' account(s) in total have signed up but not finished creating a profile.</p>' : '');
   }
 
   function vReports() {
@@ -364,8 +366,77 @@
       errHistory() +
       '<h2>Usage (last 7 days)</h2><p class="muted small">Counts of page views by section (v:…), external-apply clicks and applications, new visitors from a link or campaign (lnd:facebook…) and completed profiles by source (conv:c: consultants, conv:e: companies). No cookies, no personal data.</p>' +
       (nl.length ? '<table class="adm-table"><thead><tr><th></th>' + dl.map(function (d) { return '<th>' + h(d.slice(5)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-        nl.map(function (n) { return '<tr><td>' + h(n) + '</td>' + dl.map(function (d) { return '<td>' + (names[n][d] || '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>'
+        nl.map(function (n) { return '<tr><td>' + h(usageLabel(n)) + '<div class="fb-meta">' + h(n) + '</div></td>' + dl.map(function (d) { return '<td>' + (names[n][d] || '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>'
         : '<div class="empty">No data yet.</div>');
+  }
+
+
+  /* plain-English names for the anonymous counters */
+  var VIEW_LABEL = { home: 'Home page', job: 'Role pages', jobs: 'Role list', c: 'Professional area (signed in)', e: 'Company area (signed in)', login: 'Sign-in page', register: 'Sign-up page', onboard: 'Profile steps, professional', 'onboard-e': 'Profile steps, company', 'check-email': '“Confirm your email” screen', community: 'Community', company: 'Company pages', talent: 'Talent page', partners: 'Partners page', partner: 'Partner pages', account: 'Account settings', search: 'Search', start: 'Start page', admin: 'Admin (your own visits)' };
+  function usageLabel(n) {
+    var m;
+    if ((m = /^v:(.+)$/.exec(n))) return (VIEW_LABEL[m[1]] || m[1]) + ' — views';
+    if (n === 'apply') return 'Applied to a role on Arnour';
+    if (n === 'ext_apply') return 'Clicked an external apply link';
+    if ((m = /^lnd:(.+)$/.exec(n))) return 'New visitors from ' + m[1];
+    if ((m = /^conv:c:(.+)$/.exec(n))) return 'Professional profiles completed, from ' + m[1];
+    if ((m = /^conv:e:(.+)$/.exec(n))) return 'Company profiles completed, from ' + m[1];
+    return n;
+  }
+  APP.adminUsageLabel = usageLabel;
+
+  function vTraffic() {
+    var days = A.trafficDays || 14;
+    var w = need('traffic:' + days, 'admin_traffic', { p_days: days }); if (w) return w;
+    var T = A.data['traffic:' + days], use = T.usage || [], acc = T.accounts || [];
+    var by = {}, tot = {};
+    use.forEach(function (u) { (by[u.d] = by[u.d] || {})[u.name] = u.n; tot[u.name] = (tot[u.name] || 0) + u.n; });
+    function sumPrefix(o, re) { var t = 0; Object.keys(o).forEach(function (k) { if (re.test(k)) t += o[k]; }); return t; }
+    var dayList = acc.map(function (a) { return a.d; });
+    function rowOf(d, a) {
+      var o = by[d] || {};
+      return { d: d, visitors: sumPrefix(o, /^lnd:/), views: sumPrefix(o, /^v:/) - (o['v:admin'] || 0), home: o['v:home'] || 0, jobs: o['v:job'] || 0, reg: o['v:register'] || 0,
+        acc: a.n, prof: a.p, applied: (o.apply || 0), ext: (o.ext_apply || 0) };
+    }
+    var rows = acc.map(function (a) { return rowOf(a.d, a); });
+    var T0 = { visitors: 0, views: 0, home: 0, jobs: 0, reg: 0, acc: 0, prof: 0, applied: 0, ext: 0 };
+    rows.forEach(function (r) { Object.keys(T0).forEach(function (k) { T0[k] += r[k]; }); });
+    var chips = [7, 14, 30].map(function (n) { return '<button type="button" class="chip' + (days === n ? ' chip-on' : '') + '" data-action="adm-traffic-days" data-n="' + n + '">' + n + ' days</button>'; }).join('');
+    function pct(a, b) { return b ? Math.round(a / b * 100) + '%' : '—'; }
+    var steps = [
+      ['New visitors', T0.visitors, 'People who arrived for the first time on this browser (counted once per browser).'],
+      ['Views of the sign-up page', T0.reg, 'Page views, not people: one person can count more than once.'],
+      ['Accounts created', T0.acc, 'Real accounts, from the database.'],
+      ['Profile completed', T0.prof, 'Accounts created in this period that now have a profile.'],
+      ['Applied or clicked apply', T0.applied + T0.ext, 'Applications on Arnour plus clicks on external apply links.']
+    ];
+    var funnel = '<table class="adm-table"><thead><tr><th>Step</th><th>Total</th><th></th></tr></thead><tbody>' + steps.map(function (s) {
+      return '<tr><td>' + h(s[0]) + '<div class="fb-meta">' + h(s[2]) + '</div></td><td><strong>' + s[1] + '</strong></td><td></td></tr>';
+    }).join('') + '</tbody></table><p class="muted small">Of the accounts created: ' + pct(T0.prof, T0.acc) + ' have a profile.</p>';
+    var dayTable = '<div class="adm-scroll"><table class="adm-table adm-table-num"><thead><tr><th>Day</th><th>New visitors</th><th>Page views</th><th>Home</th><th>Role pages</th><th>Sign-up page</th><th>Accounts</th><th>Profile done</th><th>Applied</th><th>External apply</th></tr></thead><tbody>' +
+      '<tr class="adm-total"><td><strong>Total</strong></td><td>' + T0.visitors + '</td><td>' + T0.views + '</td><td>' + T0.home + '</td><td>' + T0.jobs + '</td><td>' + T0.reg + '</td><td>' + T0.acc + '</td><td>' + T0.prof + '</td><td>' + T0.applied + '</td><td>' + T0.ext + '</td></tr>' +
+      rows.slice().reverse().map(function (r) {
+        return '<tr><td>' + h(r.d.slice(5)) + '</td><td>' + (r.visitors || '') + '</td><td>' + (r.views || '') + '</td><td>' + (r.home || '') + '</td><td>' + (r.jobs || '') + '</td><td>' + (r.reg || '') + '</td><td>' + (r.acc || '') + '</td><td>' + (r.prof || '') + '</td><td>' + (r.applied || '') + '</td><td>' + (r.ext || '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    var src = {};
+    Object.keys(tot).forEach(function (k) {
+      var m = /^(lnd|conv:c|conv:e):(.+)$/.exec(k); if (!m) return;
+      var o = src[m[2]] = src[m[2]] || { v: 0, c: 0, e: 0 };
+      if (m[1] === 'lnd') o.v += tot[k]; else if (m[1] === 'conv:c') o.c += tot[k]; else o.e += tot[k];
+    });
+    var sl = Object.keys(src).sort(function (a, b) { return (src[b].v + src[b].c + src[b].e) - (src[a].v + src[a].c + src[a].e); });
+    var srcTable = sl.length ? '<table class="adm-table adm-table-num"><thead><tr><th>Where they came from</th><th>New visitors</th><th>Professional profiles done</th><th>Company profiles done</th></tr></thead><tbody>' + sl.map(function (k) {
+      return '<tr><td>' + h(k === 'direct' ? 'direct (no link or tag found)' : k) + '</td><td>' + (src[k].v || '') + '</td><td>' + (src[k].c || '') + '</td><td>' + (src[k].e || '') + '</td></tr>';
+    }).join('') + '</tbody></table>' : '<div class="empty">No tagged visits yet.</div>';
+    var pv = Object.keys(tot).filter(function (k) { return /^v:/.test(k) && k !== 'v:admin'; }).sort(function (a, b) { return tot[b] - tot[a]; });
+    var pvTable = pv.length ? '<table class="adm-table adm-table-num"><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody>' + pv.map(function (k) { return '<tr><td>' + h(usageLabel(k).replace(/ — views$/, '')) + '</td><td>' + tot[k] + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty">No data yet.</div>';
+    return '<h1>Traffic</h1><div class="chip-wrap mb16">' + chips + '</div>' +
+      '<p class="muted small">Anonymous counters: no cookies, no names. Days are counted in UTC (Dubai is 4 hours ahead). A “page view” is one page opened, so one person can add several. Your own visits stop being counted from this release; earlier days still include them (except the Admin row, which is hidden here).</p>' +
+      '<h2>From visit to profile</h2>' + funnel +
+      '<h2>Day by day</h2>' + dayTable +
+      '<h2>Where people came from</h2>' + srcTable +
+      '<h2>Pages people opened</h2>' + pvTable +
+      '<p class="muted small">For real visitor totals, search impressions and clicks, see Netlify Analytics and Google Search Console.</p>';
   }
 
   function vCommunity() {
@@ -792,7 +863,7 @@
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
     if (A.data.staffN === undefined && !A.err.staffN) load('staffN', 'admin_staff_unread');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -813,6 +884,7 @@
       case 'report': reportDialog(d.kind, d.id); break;
       case 'adm-retry': delete A.err[d.key]; APP.render(); break;
       case 'adm-rstatus': A.rstatus = d.s; APP.render(); break;
+      case 'adm-traffic-days': A.trafficDays = Number(d.n) || 14; APP.render(); break;
       case 'adm-close-conv': A.conv = null; APP.render(); break;
       case 'adm-read-conv':
         B.rpc('admin_conversation', { p_conv: d.id }).then(function (c) { A.conv = c; reload('log'); APP.render(); }, function () { APP.toast('Could not open the conversation'); });

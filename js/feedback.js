@@ -43,14 +43,16 @@
 
   /* ---------- usage counts: page views by section, no cookies, no identity ---------- */
   var lastSeen = '';
-  function track(name) { if (name && name !== lastSeen) { lastSeen = name; quiet('track_usage', { p_name: name }); } }
+  function track(name) { if (APP.isAdminSession && APP.isAdminSession()) return; if (name && name !== lastSeen) { lastSeen = name; quiet('track_usage', { p_name: name }); } }
   function trackRoute() {
     var seg = String(location.hash || '#/').replace(/^#\/?/, '').split(/[/?]/)[0].toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24) || 'home';
     track('v:' + seg);
   }
-  window.addEventListener('hashchange', trackRoute); trackRoute();
+  window.addEventListener('hashchange', trackRoute);
+  /* the first page view waits until the site knows who is signed in, so the admin's own visits are not counted (gives up after 8 s) */
+  var waited = 0; (function firstView() { if (APP.backend && !APP.backend.ready && waited < 8000) { waited += 250; setTimeout(firstView, 250); return; } trackRoute(); })();
   /* anonymous counts per source (facebook, linkedin, …): new visitors from a tagged link, and completed profiles (see js/attribution.js) */
-  APP.trackEvent = function (name) { if (/^[a-z0-9_:-]{1,40}$/.test(String(name))) quiet('track_usage', { p_name: String(name) }); };
+  APP.trackEvent = function (name) { if (APP.isAdminSession && APP.isAdminSession()) return; if (/^[a-z0-9_:-]{1,40}$/.test(String(name))) quiet('track_usage', { p_name: String(name) }); };
   try { if (window.ArnourFT && ArnourFT.takeLandingCount()) APP.trackEvent('lnd:' + ArnourFT.bucket()); } catch (e) { /* ignore */ }
   var oExt = APP.openExternalApply; if (oExt) APP.openExternalApply = function () { track('ext_apply'); lastSeen = ''; return oExt.apply(this, arguments); };
   var oApply = APP.applyToJob; if (oApply) APP.applyToJob = function () { track('apply'); lastSeen = ''; return oApply.apply(this, arguments); };

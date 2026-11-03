@@ -35,7 +35,10 @@ await p.click('.dlg-foot [data-action=fb-close]'); t('closed and nothing blocks 
 await p.evaluate(()=>{ setTimeout(()=>{ throw new Error('Test boom'); },0); }); await p.waitForTimeout(300);
 t('uncaught error logged',await p.evaluate(()=>window.__calls.some(c=>c[0]==='log_client_error'&&/Test boom/.test(c[1].p_message))));
 // usage
-t('page view tracked',await p.evaluate(()=>window.__calls.some(c=>c[0]==='track_usage'&&/^v:/.test(c[1].p_name))));
+t('the admin\'s own page views are not tracked',await p.evaluate(()=>!window.__calls.some(c=>c[0]==='track_usage')));
+await p.evaluate(()=>{ APP.backend.ready=true; APP.backend.isAdmin=false; location.hash='#/jobs'; }); await p.waitForTimeout(500);
+t('page view tracked for everyone else',await p.evaluate(()=>window.__calls.some(c=>c[0]==='track_usage'&&/^v:/.test(c[1].p_name))));
+await p.evaluate(()=>{ APP.backend.isAdmin=true; });
 
 // floating button
 t('fab exists and visible',await p.locator('#fb-fab').isVisible());

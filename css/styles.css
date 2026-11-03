@@ -2135,3 +2135,17 @@ a.sr-title:hover { text-decoration: underline; }
 .adm-bub { max-width: 82%; padding: 8px 12px; border-radius: 12px; background: var(--bg-subtle); align-self: flex-start; }
 .adm-bub.me { align-self: flex-end; background: var(--blue-soft, #E8F0FE); }
 .adm-bub-t { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* admin: sign-up bars with numbers and a profile / no-profile split; traffic tables */
+.adm-bars-n { height: 150px; }
+.adm-bars-n .adm-bar { justify-content: flex-end; }
+.adm-bars-n .adm-bar b { font-size: 11px; font-weight: 600; color: var(--text-primary); min-height: 14px; }
+.adm-bars-n .adm-bar-col { width: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.adm-bars-n .adm-bar-col i { border-radius: 0; min-height: 3px; }
+.adm-bars-n .adm-bar-col i:first-child { border-radius: 4px 4px 0 0; }
+.adm-bars-n .adm-np, .adm-key.adm-np { background: var(--border-strong, #b8c0cc); }
+.adm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.adm-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--accent-blue); }
+.adm-scroll { overflow-x: auto; }
+.adm-table-num td:not(:first-child), .adm-table-num th:not(:first-child) { text-align: right; }
+.adm-total td { background: var(--bg-surface); }
