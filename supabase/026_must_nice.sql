@@ -200,6 +200,8 @@ begin
     if not sp_ok then capd := true; end if;
   end if;
 
+  if (j->>'mustInd') in ('true','1') and cardinality(ind) > 0 and not (ind && public._m_arr(c->'industries')) then capd := true; end if;
+
   f := greatest(0, least(100, floor(core * rf * ready * ctxf * 100 + bonus + 0.5)));
   if capd then f := least(f, 74); end if;
   return f::int;
@@ -217,8 +219,8 @@ begin
   elsif old.status is distinct from 'open' then
     insert into public.match_queue(job_id) values (new.id) on conflict (job_id) do nothing;
   else
-    sig_old := jsonb_build_array(old.data->'requires', old.data->'country', old.data->'city', old.data->'remote', old.data->'languages', old.data->'certification', old.data->'roleType', old.data->'minExp', old.data->'level', old.data->'mustLevel', old.data->'mustExp');
-    sig_new := jsonb_build_array(new.data->'requires', new.data->'country', new.data->'city', new.data->'remote', new.data->'languages', new.data->'certification', new.data->'roleType', new.data->'minExp', new.data->'level', new.data->'mustLevel', new.data->'mustExp');
+    sig_old := jsonb_build_array(old.data->'requires', old.data->'country', old.data->'city', old.data->'remote', old.data->'languages', old.data->'certification', old.data->'roleType', old.data->'minExp', old.data->'level', old.data->'mustLevel', old.data->'mustExp', old.data->'mustSpec', old.data->'mustInd', old.data->'industries');
+    sig_new := jsonb_build_array(new.data->'requires', new.data->'country', new.data->'city', new.data->'remote', new.data->'languages', new.data->'certification', new.data->'roleType', new.data->'minExp', new.data->'level', new.data->'mustLevel', new.data->'mustExp', new.data->'mustSpec', new.data->'mustInd', new.data->'industries');
     if sig_old is distinct from sig_new then
       insert into public.match_queue(job_id) values (new.id) on conflict (job_id) do nothing;
     end if;

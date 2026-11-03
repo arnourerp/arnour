@@ -42,6 +42,8 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
   await p.click('[data-action=add-req][data-nice="1"]'); await p.waitForTimeout(300);
   t('Add a nice-to-have product creates a card in the Nice box only',await p.evaluate(()=>document.querySelectorAll('.nice-list .req-card').length===1&&document.querySelectorAll('.req-list:not(.nice-list) .req-card').length===1));
   await p.click('.nice-list .mchip[data-mid=co]'); await p.waitForTimeout(200);
+  await p.click('.nice-list .mchip[data-mid=mm]'); await p.waitForTimeout(200);
+  t('a second module picked in a Nice card stays in the Nice box, with the Any/All switch',await p.evaluate(()=>document.querySelectorAll('.nice-list .mchip.on').length>=2&&document.querySelectorAll('.nice-list .req-anyall').length===1&&document.querySelectorAll('.req-list:not(.nice-list) .req-card').length===1));
   /* add a second must requirement: goes above the nice one */
   await p.click('[data-action=add-req]:not([data-nice])'); await p.waitForTimeout(300);
   t('a new must requirement lands in the Must box',await p.evaluate(()=>document.querySelectorAll('.req-list:not(.nice-list) .req-card').length===2&&document.querySelectorAll('.nice-list .req-card').length===1));
@@ -74,7 +76,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
   const row=(await sql(`select data from jobs where data->>'title'='SAP FICO Consultant'`))[0];
   t('the role was saved',!!row);
   const d=row&&row.data;
-  t('saved: one must row, nice rows flagged, seniority flagged as must',d&&d.requires.filter(r=>!r.nice).length===1&&d.requires.filter(r=>r.nice).length===2&&d.mustLevel===true&&!d.mustExp&&d.certification==='required'&&d.mustSpec===true&&(d.languages||[]).length===1&&!(d.preferredLangs||[]).length,d&&{r:d.requires,ml:d.mustLevel,l:d.languages});
+  t('saved: one must row, nice rows flagged, seniority flagged as must',d&&d.requires.filter(r=>!r.nice).length===1&&d.requires.filter(r=>r.nice).length===3&&d.requires.filter(r=>r.nice&&r.cid===2).length===2&&d.mustLevel===true&&!d.mustExp&&d.certification==='required'&&d.mustSpec===true&&(d.languages||[]).length===1&&!(d.preferredLangs||[]).length,d&&{r:d.requires,ml:d.mustLevel,l:d.languages});
   t('saved: the must row comes first',d&&!d.requires[0].nice&&d.requires[0].moduleId==='fi');
   t('no page errors (employer)',p.errors.length===0,p.errors); await p.context().close(); }
 

@@ -1619,6 +1619,10 @@ APP.matchDetail = function (c, job) {
     const mineS = c.specialties || [];
     if (!job.preferredSpecialties.some(id => mineS.indexOf(id) !== -1 || mineS.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id))) mustMiss.push('Specialty: ' + job.preferredSpecialties.map(APP.specialtyName).join(' / '));
   }
+  if (job.mustInd) {
+    const indJ = APP.jobIndustries(job), mineI = c.industries || [];
+    if (indJ.length && !indJ.some(i => mineI.indexOf(i) !== -1)) mustMiss.push('Industry: ' + indJ.join(' / '));
+  }
   mustMiss.forEach(t => gaps.push('Must have, not met - ' + t));
 
   const raw = core * rf.f * ready * ctxFactor * 100 + bonus;
@@ -2916,14 +2920,12 @@ APP.jobReqRowsHtml = function (rows, box) {
       return join + '<div class="req-card req-compact' + (c.alt ? ' is-alt' : '') + '" data-req-card="' + c.cid + '"><div class="req-card-h"><span class="req-n">' + (c.alt ? 'Alternative' : (nice ? 'Nice to have ' : 'Requirement ') + g) + '</span>' +
         '<span class="rc-sum"><b>' + APP.h(APP.productShort(c.productId)) + '</b> · ' + APP.h(mods) + (c.min ? ' · ' + c.min + '+ projects' : '') + '</span>' +
         '<button type="button" class="link" data-action="req-shut" data-cid="' + c.cid + '" data-open="1">Edit</button>' +
-        (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? 'Make it a must' : 'Make it nice to have') + '</button>' : '') +
+        (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? '↑ Must have' : '↓ Nice to have') + '</button>' : '') +
         ((nice || cards.length > 1) ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div></div>';
     }
     return join +
       '<div class="req-card' + (c.alt ? ' is-alt' : '') + (err ? ' has-err' : '') + '" data-req-card="' + c.cid + '">' +
       '<div class="req-card-h"><span class="req-n">' + (c.alt ? 'Alternative' : (nice ? 'Nice to have ' : 'Requirement ') + g) + '</span>' +
-      (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? 'Make it a must' : 'Make it nice to have') + '</button>' : '') +
-      (sel.length ? '<button type="button" class="link" data-action="req-shut" data-cid="' + c.cid + '">Done</button>' : '') +
       ((nice || cards.length > 1) ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div>' +
       '<div class="req-fields">' +
       '<label class="field"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="jobNew" data-idx="' + c.start + '">' + APP.productOptions(c.productId) + '</select></label>' +
@@ -2936,6 +2938,9 @@ APP.jobReqRowsHtml = function (rows, box) {
         '<span class="muted small">The professional needs</span>' +
         '<span class="req-join"><button type="button" class="seg' + (c.all ? '' : ' on') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="any" aria-pressed="' + (c.all ? 'false' : 'true') + '">Any one of these</button>' +
         '<button type="button" class="seg' + (c.all ? ' on' : '') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="all" aria-pressed="' + (c.all ? 'true' : 'false') + '">All of these</button></span></div>' : '') +
+      ((!c.alt && (nice || nMust > 1)) || sel.length ? '<div class="req-foot">' +
+        (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? '↑ Move to Must have' : '↓ Move to Nice to have') + '</button>' : '<span></span>') +
+        (sel.length ? '<button type="button" class="btn btn-outline btn-sm" data-action="req-shut" data-cid="' + c.cid + '">Done</button>' : '') + '</div>' : '') +
       '</div>';
   }).join('');
 };
@@ -4095,6 +4100,7 @@ APP.onClick = function (el, e) {
         if (d.key === 'level') dr.mustLevel = must;
         else if (d.key === 'exp') dr.mustExp = must;
         else if (d.key === 'spec') dr.mustSpec = must;
+        else if (d.key === 'ind') dr.mustInd = must;
         else if (d.key === 'lang') {
           const a = dr.languages || [], b = dr.preferredLangs || [], all = Array.from(new Set(a.concat(b)));
           dr.languages = must ? all : []; dr.preferredLangs = must ? [] : all; dr.langMust = must;
@@ -4107,6 +4113,7 @@ APP.onClick = function (el, e) {
       const w = el.closest('.hint-wrap'); if (!w) break;
       document.querySelectorAll('.hint-wrap.open').forEach(x => { if (x !== w) { x.classList.remove('open'); const b = x.querySelector('.hint-i'); if (b) b.setAttribute('aria-expanded', 'false'); } });
       const on = w.classList.toggle('open'); el.setAttribute('aria-expanded', on ? 'true' : 'false');
+      const pop = w.querySelector('.hint-pop'); if (pop) { pop.style.left = ''; if (on) { const r = pop.getBoundingClientRect(); const vw = document.documentElement.clientWidth; if (r.right > vw - 8) pop.style.left = (-8 - (r.right - (vw - 8))) + 'px'; } }
       break;
     }
 
@@ -4155,7 +4162,7 @@ APP.onClick = function (el, e) {
               else {
                 const ph = c.rows.findIndex(r => !r.moduleId);
                 if (ph !== -1) rows[c.start + ph].moduleId = d.mid;
-                else rows.splice(c.end + 1, 0, { productId: c.productId, moduleId: d.mid, minProjects: c.min, orPrev: !c.all, cid: c.cid, projects: 0 });
+                else rows.splice(c.end + 1, 0, Object.assign({ productId: c.productId, moduleId: d.mid, minProjects: c.min, orPrev: !c.all, cid: c.cid, projects: 0 }, c.rows[0].nice ? { nice: true } : {}));
               }
             }
           }
@@ -5173,7 +5180,7 @@ APP.onSubmit = function (f) {
         const orig = APP.db.jobs[d.editId];
         if (!orig || orig.companyId !== APP.db.session.companyId) { APP.toast('Role not found'); return; }
         const before = JSON.parse(JSON.stringify(orig));
-        const sig = j => JSON.stringify([(j.requires || []).map(r => [r.productId, r.moduleId, r.minProjects, !!r.orPrev, !!r.nice]), j.country, j.city, !!j.remote, j.languages, j.certification, j.level, j.minExp, !!j.mustLevel, !!j.mustExp]);
+        const sig = j => JSON.stringify([(j.requires || []).map(r => [r.productId, r.moduleId, r.minProjects, !!r.orPrev, !!r.nice]), j.country, j.city, !!j.remote, j.languages, j.certification, j.level, j.minExp, !!j.mustLevel, !!j.mustExp, !!j.mustSpec, !!j.mustInd, j.industries]);
         const keep = { id: orig.id, companyId: orig.companyId, applicants: orig.applicants || [], invited: orig.invited || [], postedTs: orig.postedTs, status: orig.status };
         const upd = Object.assign({}, d, { requires: reqRows.map(r => Object.assign({}, r)) }, keep, { editedTs: Date.now() });
         delete upd.editId; delete upd.maxExp;

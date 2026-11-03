@@ -40,7 +40,7 @@ function mkCons(){ const c={skills:mkSkills()};
   if(rnd()<0.9) c.country=pick(countryIds); if(rnd()<0.6) c.city=pick(cities); return c; }
 function mkJob(){ const j={title:pick(titles)}; if(rnd()<0.6) j.roleType=pick(RTS);
   const n=Math.floor(rnd()*5), rows=[]; for(let i=0;i<n;i++){ const p=rnd()<0.8?pick(core):pick(products); const r={productId:p.id,moduleId:rnd()<0.1?'*':pick(p.mods)}; if(rnd()<0.5) r.minProjects=1+Math.floor(rnd()*6); if(i>0&&rnd()<0.4) r.orPrev=true; if(rnd()<0.3) r.nice=true; rows.push(r);} j.requires=rows;
-  if(rnd()<0.7) j.minExp=1+Math.floor(rnd()*14); if(rnd()<0.7) j.level=pick(['Junior','Mid','Senior']); if(rnd()<0.35) j.mustLevel=true; if(rnd()<0.35) j.mustExp=true; if(rnd()<0.3) j.mustSpec=true; if(rnd()<0.3) j.minPrograms=1+Math.floor(rnd()*6);
+  if(rnd()<0.7) j.minExp=1+Math.floor(rnd()*14); if(rnd()<0.7) j.level=pick(['Junior','Mid','Senior']); if(rnd()<0.35) j.mustLevel=true; if(rnd()<0.35) j.mustExp=true; if(rnd()<0.3) j.mustSpec=true; if(rnd()<0.3) j.mustInd=true; if(rnd()<0.3) j.minPrograms=1+Math.floor(rnd()*6);
   if(rnd()<0.6) j.industries=some(inds,1+Math.floor(rnd()*4)); else if(rnd()<0.4) j.industry=pick(inds);
   if(rnd()<0.5) j.preferredSpecialties=some(specIds,1+Math.floor(rnd()*3)); if(rnd()<0.4) j.languages=some(langs,1+Math.floor(rnd()*2)); if(rnd()<0.3) j.preferredLangs=some(langs,1+Math.floor(rnd()*2));
   if(rnd()<0.4) j.certification=pick(['required','preferred']); if(rnd()<0.3) j.remote=true; if(rnd()<0.8) j.country=pick(countryIds); if(rnd()<0.5) j.city=pick(cities); return j; }

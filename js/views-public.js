@@ -608,7 +608,7 @@ APP.jobSections = function (job, me, opts) {
     const has = mySpec.indexOf(id) !== -1 || mySpec.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id);
     (job.mustSpec ? must : nice).push(lineHtml('<b>Specialty</b> ' + E(APP.specialtyName(id)), me ? (has ? { cls: 'ok', t: 'On your profile' } : { cls: job.mustSpec ? 'mid' : 'na', t: 'Not on your profile' }) : null));
   });
-  APP.jobIndustries(job).forEach(i => nice.push(lineHtml('<b>Industry</b> ' + E(i), me ? ((me.industries || []).includes(i) ? { cls: 'ok', t: 'In your industries' } : { cls: 'na', t: 'Not on your profile' }) : null)));
+  APP.jobIndustries(job).forEach(i => (job.mustInd ? must : nice).push(lineHtml('<b>Industry</b> ' + E(i), me ? ((me.industries || []).includes(i) ? { cls: 'ok', t: 'In your industries' } : { cls: job.mustInd ? 'mid' : 'na', t: 'Not on your profile' }) : null)));
 
   const reqSection = (must.length || nice.length)
     ? '<section class="jd-sec"><h2>' + E(opts.heading || 'Requirements') + '</h2>' +

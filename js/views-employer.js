@@ -600,7 +600,7 @@ APP.jobFormView = function (mode) {
     row('Languages', langIn, sw('lang', langMust)) +
     row('Specialties', specIn, sw('spec', !!d.mustSpec), 'If you make specialties a must, a professional needs at least one of the selected ones.') +
     (leadJ ? row('Minimum ' + APP.h(progLbl.toLowerCase()), progIn, '') : '') +
-    (leadJ ? '' : row('Industries', indIn, '', 'Nice to have only: ranks the role higher, never flags it.')) +
+    (leadJ ? '' : row('Industries', indIn, sw('ind', !!d.mustInd), 'Must: a professional needs at least one of the selected industries, otherwise the role is flagged and ranks lower. Nice: ranks higher.')) +
     '</div>';
   const mustBox = reqPart;
   const hasNice = (d.requires || []).some(r => r.nice);
