@@ -2157,3 +2157,18 @@ a.sr-title:hover { text-decoration: underline; }
 .req-move { font-size: 13px; white-space: nowrap; }
 .req-card-h .req-move { margin-left: auto; margin-right: 8px; }
 .nice-list .req-card { border-style: dashed; }
+
+/* compact "who they are" table */
+.crit-table { display: grid; gap: 0; border: 1px solid var(--line, #e3e8ef); border-radius: 12px; overflow: hidden; }
+.crit-row { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 12px 16px; padding: 12px 14px; border-top: 1px solid var(--line, #e3e8ef); align-items: start; }
+.crit-row:first-child { border-top: 0; }
+.crit-l { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.crit-l .label { margin: 0; }
+.crit-in .field-hint { margin: 6px 0 0; }
+.crit-in .opt-box { margin: 0; }
+.mn-sw { display: inline-flex; border: 1px solid var(--line, #d6dde8); border-radius: 999px; overflow: hidden; }
+.mn-sw .seg { border: 0; background: transparent; padding: 3px 12px; font-size: 12.5px; cursor: pointer; }
+.mn-sw .seg.on { background: var(--ink, #0f1729); color: #fff; }
+.req-compact .req-card-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.req-compact .rc-sum { flex: 1 1 200px; min-width: 0; }
+@media (max-width: 640px) { .crit-row { grid-template-columns: 1fr; } }

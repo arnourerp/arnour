@@ -606,7 +606,7 @@ APP.jobSections = function (job, me, opts) {
   const mySpec = me ? (me.specialties || []) : [];
   (job.preferredSpecialties || []).forEach(id => {
     const has = mySpec.indexOf(id) !== -1 || mySpec.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id);
-    nice.push(lineHtml('<b>Specialty</b> ' + E(APP.specialtyName(id)), me ? (has ? { cls: 'ok', t: 'On your profile' } : { cls: 'na', t: 'Not on your profile' }) : null));
+    (job.mustSpec ? must : nice).push(lineHtml('<b>Specialty</b> ' + E(APP.specialtyName(id)), me ? (has ? { cls: 'ok', t: 'On your profile' } : { cls: job.mustSpec ? 'mid' : 'na', t: 'Not on your profile' }) : null));
   });
   APP.jobIndustries(job).forEach(i => nice.push(lineHtml('<b>Industry</b> ' + E(i), me ? ((me.industries || []).includes(i) ? { cls: 'ok', t: 'In your industries' } : { cls: 'na', t: 'Not on your profile' }) : null)));
 

@@ -531,7 +531,7 @@ APP.jobFormView = function (mode) {
   const co = APP.company(APP.db.session.companyId);
   if (!co) return '<div class="empty">Company not found.</div>';
   const editing = mode === 'edit';
-  if (!editing && (!APP.jobNewDraft || APP.jobNewDraft.editId)) { APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), { country: co.country, city: co.city, confidential: co.confidentialDefault === true }); APP.state.jobStep = 1; APP.state.jobErr = null; }
+  if (!editing && (!APP.jobNewDraft || APP.jobNewDraft.editId)) { APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), { country: co.country, city: co.city, confidential: co.confidentialDefault === true }); APP.state.jobStep = 1; APP.state.jobErr = null; APP.state.reqShut = {}; }
   const d = APP.jobNewDraft;
 
   const st = APP.state.jobDet || {};
@@ -571,36 +571,43 @@ APP.jobFormView = function (mode) {
   const leadJ = APP.LEAD_RTS.includes(d.roleType);
   const progLbl = leadJ ? ((APP.ROLE_PROFILE[d.roleType] || {}).prog || 'Programs delivered') : '';
   const expertise =
-    '<p class="field-hint">' + APP.icon('spark', 14) + ' For this role, expertise matters most. Preferred specialties rank the role higher for professionals who have them — they never hide it.</p>' +
-    '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties', { roles: d.roleType ? [d.roleType] : [], sugLabel: 'Common for this role type' }) + '</div>' +
-    '<label class="field"><span class="label">Minimum ' + APP.h(progLbl.toLowerCase()) + ' <span class="muted">(optional)</span></span><input name="minPrograms" type="number" inputmode="numeric" min="0" max="100" class="input narrow-in" value="' + (d.minPrograms ? Number(d.minPrograms) : '') + '" placeholder="e.g. 3"></label>' +
+    '<p class="field-hint">' + APP.icon('spark', 14) + ' For this role, expertise matters most. Pick the specialties in the table below (Nice or Must). Industries rank the role higher for professionals who have them — they never hide it.</p>' +
     '<div class="field"><span class="label">Industries <span class="muted">(optional)</span></span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div></div>';
   const skills = '<p class="field-hint">' + APP.icon('spark', 14) + ' These drive matching — professionals whose product + module fits rank at the top of their feed.</p>' + reqPart + (leadJ ? '' : specPart);
 
-  /* Two boxes: "Must have" and "Nice to have". Each item sits in the box that matches its strength and has a small link to move it. */
-  const mvLink = (key, toMust) => '<button type="button" class="link req-move" data-action="job-must" data-key="' + key + '">' + (toMust ? 'Make it a must' : 'Make it nice to have') + '</button>';
-  const itemRow = (key, label, input, isMust, hint) => '<div class="must-item" data-item="' + key + '"><div class="mi-h"><span class="label">' + label + '</span>' + mvLink(key, !isMust) + '</div>' + input + (hint ? '<p class="field-hint">' + hint + '</p>' : '') + '</div>';
+  /* Products: two boxes ("Must have" / "Nice to have"). Everything about the person is one compact table with a Nice | Must switch per row. */
+  const sw = (key, isMust) => '<span class="mn-sw" role="group" aria-label="How strict">' +
+    '<button type="button" class="seg' + (isMust ? '' : ' on') + '" data-action="job-must" data-key="' + key + '" data-val="nice" aria-pressed="' + (isMust ? 'false' : 'true') + '">Nice</button>' +
+    '<button type="button" class="seg' + (isMust ? ' on' : '') + '" data-action="job-must" data-key="' + key + '" data-val="must" aria-pressed="' + (isMust ? 'true' : 'false') + '">Must</button></span>';
+  const row = (label, input, ctl, hint) => '<div class="crit-row"><div class="crit-l"><span class="label">' + label + '</span>' + (ctl || '') + '</div><div class="crit-in">' + input + (hint ? '<p class="field-hint">' + hint + '</p>' : '') + '</div></div>';
+  const langMust = (d.languages || []).length > 0 || !!d.langMust;
+  const specSel = (d.preferredSpecialties || []).length;
   const lvlIn = '<select name="level" class="input">' + APP.opt([['', 'Any level']].concat(APP.levels.map(l => [l, l])), d.level) + '</select>';
-  const expIn = '<input name="minExp" type="number" inputmode="numeric" min="0" max="40" class="input narrow-in" value="' + APP.h(d.minExp) + '" placeholder="5">';
-  const certMust = d.certification === 'required';
-  const certIn = '<select name="certification" class="input">' + APP.opt(certMust ? [['required', 'Required']] : [['', 'Not needed'], ['preferred', 'Preferred']], d.certification) + '</select>';
+  const expIn = '<input name="minExp" type="number" inputmode="numeric" min="0" max="40" class="input narrow-in" value="' + APP.h(d.minExp) + '" placeholder="e.g. 5">';
+  const certIn = '<select name="certification" class="input">' + APP.opt([['', 'Not needed'], ['preferred', 'Nice to have'], ['required', 'Must have']], d.certification) + '</select>';
+  const langIn = '<div class="chip-wrap">' + (langMust
+    ? APP.chipGroup('jobNew', 'languages', APP.withSelected(APP.languages, d.languages), d.languages)
+    : APP.chipGroup('jobNew', 'preferredLangs', APP.languages, d.preferredLangs)) + '</div>';
+  const specIn = '<details class="opt-box" data-det="spec"' + (openSpec || leadJ ? ' open' : '') + '><summary>' + (specSel ? specSel + ' selected' : 'Choose specialties') + '</summary>' +
+    '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties', { roles: d.roleType ? [d.roleType] : [], sugLabel: 'Common for this role type' }) + '</div></details>';
+  const indIn = '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>' + (nMore ? nMore + ' selected' : 'Choose industries') + '</summary><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div></details>';
+  const progIn = '<input name="minPrograms" type="number" inputmode="numeric" min="0" max="100" class="input narrow-in" value="' + (d.minPrograms ? Number(d.minPrograms) : '') + '" placeholder="e.g. 3">';
+  const crit =
+    '<div class="crit-table">' +
+    row('Seniority', lvlIn, sw('level', !!d.mustLevel)) +
+    row('Minimum experience (years)', expIn, sw('exp', !!d.mustExp)) +
+    row('SAP certification', certIn, '', d.certification === 'required' ? 'Professionals without a certification in these modules are flagged and rank lower.' : '') +
+    row('Languages', langIn, sw('lang', langMust)) +
+    row('Specialties', specIn, sw('spec', !!d.mustSpec), d.mustSpec ? 'A professional needs at least one of the selected specialties.' : '') +
+    (leadJ ? row('Minimum ' + APP.h(progLbl.toLowerCase()), progIn, '') : '') +
+    (leadJ ? '' : row('Industries', indIn, '', 'Nice to have only: ranks higher, never flags.')) +
+    '</div>';
   const mustBox =
     '<p class="field-hint">' + APP.icon('spark', 14) + ' Professionals who miss a must-have are flagged and cannot rank as a strong match. Keep this list short.</p>' +
-    reqPart +
-    (d.mustLevel ? itemRow('level', 'Seniority', lvlIn, true) : '') +
-    (d.mustExp ? itemRow('exp', 'Minimum experience (years)', expIn, true) : '') +
-    (certMust ? itemRow('cert', 'SAP certification', certIn, true, 'Professionals without a certification in these modules will not see this role.') : '') +
-    '<div class="field"><span class="label">Required languages <span class="muted">(optional)</span></span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'languages', APP.withSelected(APP.languages, d.languages), d.languages) + '</div><p class="field-hint">Professionals who don\'t speak every required language won\'t see this role in their feed.</p></div>';
+    reqPart;
   const niceBox =
     '<div class="skill-rows req-list nice-list">' + APP.jobReqRowsHtml(d.requires, 'nice') + '</div>' +
-    '<button type="button" class="btn btn-outline btn-sm" data-action="add-req" data-nice="1">' + APP.icon('plus', 14) + ' Add a nice-to-have product</button>' +
-    (d.mustLevel ? '' : itemRow('level', 'Seniority', lvlIn, false)) +
-    (d.mustExp ? '' : itemRow('exp', 'Minimum experience (years)', expIn, false)) +
-    (certMust ? '' : itemRow('cert', 'SAP certification', certIn, false)) +
-    '<div class="field"><span class="label">Preferred languages</span><div class="chip-wrap">' + APP.chipGroup('jobNew', 'preferredLangs', APP.languages.filter(l => (d.languages || []).indexOf(l) === -1), d.preferredLangs) + '</div></div>' +
-    (leadJ ? '' : specPart +
-      '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>Industries <span class="muted">(optional)</span>' + (nMore ? ' <span class="count-pill">' + nMore + ' selected</span>' : '') + '</summary>' +
-      '<div class="field"><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div><p class="field-hint">Ranks the role higher for professionals with that background — never hides it.</p></div></details>');
+    '<button type="button" class="btn btn-outline btn-sm" data-action="add-req" data-nice="1">' + APP.icon('plus', 14) + ' Add a nice-to-have product</button>';
 
   const pay =
     '<div class="pay-row">' +
@@ -621,10 +628,11 @@ APP.jobFormView = function (mode) {
       '<p class="muted">Changes are visible to professionals right away. Applicants stay on the role.</p>' +
       '<form data-form="job-post" id="f-job-post">' +
       sec(1, 'The role', 'What it is and where.', basics) +
-      (leadJ ? sec(2, 'Expertise', 'Specialties, programmes and industries.', expertise) + sec(3, 'Must have <span class="req-star">*</span>', 'At least one SAP product; modules only if essential.', mustBox) + sec(4, 'Nice to have <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points.', niceBox)
-        : sec(2, 'Must have <span class="req-star">*</span>', 'The most important part — it decides who sees your role.', mustBox) + sec(3, 'Nice to have <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points.', niceBox)) +
-      (APP.SHOW_RATES ? sec(leadJ ? 5 : 4, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
-      sec((APP.SHOW_RATES ? 5 : 4) + (leadJ ? 1 : 0), 'Description', 'Optional — scope, team and what success looks like.', desc) +
+      (leadJ ? sec(2, 'Expertise', 'Specialties, programmes and industries.', expertise) + sec(3, 'Must have: SAP products <span class="req-star">*</span>', 'At least one SAP product; modules only if essential.', mustBox) + sec(4, 'Nice to have: SAP products <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points.', niceBox)
+        : sec(2, 'Must have: SAP products <span class="req-star">*</span>', 'The most important part — it decides who sees your role.', mustBox) + sec(3, 'Nice to have: SAP products <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points.', niceBox)) +
+      sec(leadJ ? 5 : 4, 'About the candidate', 'For each item choose Nice (ranks higher) or Must (flagged if missing).', crit) +
+      (APP.SHOW_RATES ? sec(leadJ ? 6 : 5, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
+      sec((APP.SHOW_RATES ? 6 : 5) + (leadJ ? 1 : 0), 'Description', 'Optional — scope, team and what success looks like.', desc) +
       APP.editFootHtml() +
       '</form></div>';
   }
@@ -642,7 +650,8 @@ APP.jobFormView = function (mode) {
   const pv = APP.jobPreviewObj(d, co);
   const s1 = card('The role', 'What it is and where.', basics) + (!APP.SHOW_RATES ? '' : card('Pay <span class="muted">(optional)</span>', 'Roles with a pay range get noticeably more applications.', pay));
   const s2 = (leadJ ? card('What expertise do you need?', 'Specialties, programmes and industries — what sets a strong candidate apart for this role.', expertise) : '') + card(pl ? 'Must have: which SAP products?' : 'Must have: what SAP experience?', pl ? 'For this role the product matters more than individual modules — pick modules only if they are essential. Start with one product.' : 'The most important part — it decides who sees your role. Start with one; add more only if you need them.', mustBox) +
-    card('Nice to have <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points; missing them costs nothing. Skip this if you are unsure.', niceBox);
+    card('Nice to have <span class="muted">(optional)</span>', 'Never hides the role. Having these adds points; missing them costs nothing.', niceBox) +
+    card('About the candidate', 'For each item choose Nice (ranks higher) or Must (flagged if missing). Skip what you are unsure about.', crit);
   const s3 = card('Description <span class="muted">(optional)</span>', 'Scope, team and what success looks like.', desc) +
     '<div class="preview-h"><h3>This is how professionals will see your role</h3><div id="req-summary-2">' + APP.jobReqSummary(d, true) + '</div></div>' +
     '<div class="job-preview" aria-label="Role preview" tabindex="-1">' + APP.asPublicHtml(() => APP.jobCard(pv, null, '', '')) + '</div>' +

@@ -1610,6 +1610,15 @@ APP.matchDetail = function (c, job) {
     const known = c.yearsExp != null && c.yearsExp !== '';
     if (!known || (+c.yearsExp || 0) < +job.minExp) mustMiss.push('Experience: ' + job.minExp + '+ years' + (known ? ' (profile: ' + (+c.yearsExp || 0) + ')' : ' (not on the profile)'));
   }
+  /* must-have languages / certification / specialties: same rule - flagged, and the score stays below Strong (the role is never hidden) */
+  const hasLangs = c.languages || [];
+  const missL = (job.languages || []).filter(l => hasLangs.indexOf(l) === -1);
+  if (missL.length) mustMiss.push('Language: ' + missL.join(' / '));
+  if (job.certification === 'required' && !APP.consultantCertInJob(c, job)) mustMiss.push('SAP certification');
+  if (job.mustSpec && (job.preferredSpecialties || []).length) {
+    const mineS = c.specialties || [];
+    if (!job.preferredSpecialties.some(id => mineS.indexOf(id) !== -1 || mineS.some(x => ((APP.SPECIAL_IDX[x] || {}).categoryId) === id))) mustMiss.push('Specialty: ' + job.preferredSpecialties.map(APP.specialtyName).join(' / '));
+  }
   mustMiss.forEach(t => gaps.push('Must have, not met - ' + t));
 
   const raw = core * rf.f * ready * ctxFactor * 100 + bonus;
@@ -1683,13 +1692,11 @@ APP.consultantCertInJob = function (c, job) {
 };
 /** Hard gate for "required" certification; vacuously true otherwise. */
 APP.certOkForJob = function (c, job) {
-  if (!job || job.certification !== 'required') return true;
-  return APP.consultantCertInJob(c, job);
+  return true; /* since release 43 a required certification no longer hides the role: it is flagged and capped in the score */
 };
 /** Hard gate for "required" languages: consultant must speak every one listed. */
 APP.langOkForJob = function (c, job) {
-  if (!(c.languages || []).length) return true; /* no languages declared yet: show the role rather than hiding every job */
-  return (job && job.languages ? job.languages : []).every(l => (c.languages || []).indexOf(l) !== -1);
+  return true; /* since release 43 required languages no longer hide the role: flagged and capped in the score */
 };
 /** Should the job appear in this consultant's feed? Applied jobs always stay visible; otherwise gated on cert + required languages. */
 APP.jobVisibleToConsultant = function (c, job) {
@@ -2894,10 +2901,20 @@ APP.jobReqRowsHtml = function (rows, box) {
       '<div class="req-join" role="group" aria-label="How this relates to the requirement above">' +
       '<button type="button" class="seg' + (c.alt ? '' : ' on') + '" data-action="req-mode" data-idx="' + c.start + '" data-mode="and" aria-pressed="' + (c.alt ? 'false' : 'true') + '">And also</button>' +
       '<button type="button" class="seg' + (c.alt ? ' on' : '') + '" data-action="req-mode" data-idx="' + c.start + '" data-mode="or" aria-pressed="' + (c.alt ? 'true' : 'false') + '">Or instead</button></div>';
+    const shut = !!(APP.state.reqShut && APP.state.reqShut[c.cid]) && sel.length > 0 && !err;
+    if (shut) {
+      const mods = sel.map(m => m === '*' ? 'any module' : APP.moduleShort(APP.skillName(c.productId, m))).join(', ');
+      return join + '<div class="req-card req-compact' + (c.alt ? ' is-alt' : '') + '" data-req-card="' + c.cid + '"><div class="req-card-h"><span class="req-n">' + (c.alt ? 'Alternative' : (nice ? 'Nice to have ' : 'Requirement ') + g) + '</span>' +
+        '<span class="rc-sum"><b>' + APP.h(APP.productShort(c.productId)) + '</b> · ' + APP.h(mods) + (c.min ? ' · ' + c.min + '+ projects' : '') + '</span>' +
+        '<button type="button" class="link" data-action="req-shut" data-cid="' + c.cid + '" data-open="1">Edit</button>' +
+        (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? 'Make it a must' : 'Make it nice to have') + '</button>' : '') +
+        ((nice || cards.length > 1) ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div></div>';
+    }
     return join +
       '<div class="req-card' + (c.alt ? ' is-alt' : '') + (err ? ' has-err' : '') + '" data-req-card="' + c.cid + '">' +
       '<div class="req-card-h"><span class="req-n">' + (c.alt ? 'Alternative' : (nice ? 'Nice to have ' : 'Requirement ') + g) + '</span>' +
       (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? 'Make it a must' : 'Make it nice to have') + '</button>' : '') +
+      (sel.length ? '<button type="button" class="link" data-action="req-shut" data-cid="' + c.cid + '">Done</button>' : '') +
       ((nice || cards.length > 1) ? '<button type="button" class="icon-btn" data-action="req-rm" data-idx="' + c.start + '" title="Remove this requirement" aria-label="Remove this requirement">' + APP.icon('x', 15) + '</button>' : '') + '</div>' +
       '<div class="req-fields">' +
       '<label class="field"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="jobNew" data-idx="' + c.start + '">' + APP.productOptions(c.productId) + '</select></label>' +
@@ -4061,13 +4078,26 @@ APP.onClick = function (el, e) {
       break;
     }
 
-    case 'job-must': { /* seniority / minimum years / certification: move between "Must have" and "Nice to have" */
+    case 'job-must': { /* Nice | Must switch for seniority, years, languages and specialties */
       const dr = APP.jobNewDraft;
       if (!dr) break;
       APP.skillMutate(el, function () {
-        if (d.key === 'level') dr.mustLevel = !dr.mustLevel;
-        else if (d.key === 'exp') dr.mustExp = !dr.mustExp;
-        else if (d.key === 'cert') dr.certification = dr.certification === 'required' ? 'preferred' : 'required';
+        const must = d.val === 'must';
+        if (d.key === 'level') dr.mustLevel = must;
+        else if (d.key === 'exp') dr.mustExp = must;
+        else if (d.key === 'spec') dr.mustSpec = must;
+        else if (d.key === 'lang') {
+          const a = dr.languages || [], b = dr.preferredLangs || [], all = Array.from(new Set(a.concat(b)));
+          dr.languages = must ? all : []; dr.preferredLangs = must ? [] : all; dr.langMust = must;
+        }
+      });
+      break;
+    }
+
+    case 'req-shut': { /* collapse / expand a requirement card to one line */
+      APP.skillMutate(el, function () {
+        APP.state.reqShut = APP.state.reqShut || {};
+        if (d.open) delete APP.state.reqShut[d.cid]; else APP.state.reqShut[d.cid] = true;
       });
       break;
     }
@@ -5098,7 +5128,7 @@ APP.onSubmit = function (f) {
       if (d.applyUrl && !APP.safeApplyUrl(d)) { APP.toast('The apply link looks invalid — use a full link such as https://careers.yourcompany.com/job/123'); return; }
       if (!d.applyUrl) delete d.applyUrl;
       d.minExp = +g('minExp') || 0;
-      delete d.maxExp;
+      delete d.maxExp; delete d.langMust;
       if (fd.has('minPrograms')) { d.minPrograms = Math.max(0, +g('minPrograms') || 0); if (!d.minPrograms || !APP.LEAD_RTS.includes(d.roleType)) delete d.minPrograms; }
       d.level = g('level');
       d.industries = (d.industries || []).filter(Boolean);

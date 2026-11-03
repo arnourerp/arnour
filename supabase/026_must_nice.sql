@@ -1,6 +1,7 @@
 -- Release 43: "Must have" / "Nice to have" requirements.
 --  * Nice-to-have products (requires rows with nice = true) add up to 10 points, never subtract.
 --  * A must-have seniority / minimum years (job.mustLevel / job.mustExp) that is not met keeps the score at 74 or below.
+-- Required languages and required certification no longer hide a role: not met -> flagged and capped (like seniority / years / specialties).
 -- Same rules as APP.matchDetail in js/core.js (proved equal by tests/match_alerts_test.mjs). Existing roles score exactly as before.
 create or replace function public.match_score(c jsonb, j jsonb) returns integer
 language plpgsql stable security definer set search_path = public as
@@ -16,6 +17,7 @@ declare
   jc text; cc text; jreg text; creg text; cityj text; cityc text; x text; adj boolean; ev_tech boolean; ev_mod boolean; lv double precision; jl text; cl text; it text;
   adjmap jsonb := '{"functional":["keyuser","support","junior"],"keyuser":["functional"],"support":["functional","technical","basis"],"technical":["basis","support","architect"],"basis":["technical","support"],"architect":["delivery","functional","technical"],"delivery":["architect"],"junior":["functional","technical"]}';
   m_ text;
+  mi_ text[]; ask_ text[]; sp_ok boolean; id_ text;
   ngroups jsonb := '[]'::jsonb; nn int; nacc double precision := 0; nfit double precision := 0; bonus double precision := 0; capd boolean := false; lord double precision; jord double precision;
 begin
   -- are project counts recorded for this person? (only Functional / Technical record them; nobody-set counts as yes)
@@ -187,6 +189,17 @@ begin
     if not known or public._m_num(c->'yearsExp') < mn then capd := true; end if;
   end if;
 
+  -- must-have languages / certification / specialties: not met -> flagged, score stays below Strong (the role is never hidden)
+  if cardinality(public._m_arr(j->'languages')) > 0 and not (public._m_arr(j->'languages') <@ public._m_arr(c->'languages')) then capd := true; end if;
+  if coalesce(j->>'certification','') = 'required' and not public._m_cert_in_job(c, j) then capd := true; end if;
+  if (j->>'mustSpec') in ('true','1') and cardinality(public._m_arr(j->'preferredSpecialties')) > 0 then
+    mi_ := public._m_arr(c->'specialties'); sp_ok := false;
+    foreach id_ in array public._m_arr(j->'preferredSpecialties') loop
+      if id_ = any (mi_) or exists (select 1 from public.catalog_specs sp where sp.id = any (mi_) and sp.area_id = id_) then sp_ok := true; end if;
+    end loop;
+    if not sp_ok then capd := true; end if;
+  end if;
+
   f := greatest(0, least(100, floor(core * rf * ready * ctxf * 100 + bonus + 0.5)));
   if capd then f := least(f, 74); end if;
   return f::int;
@@ -216,5 +229,10 @@ drop trigger if exists jobs_match_queue on public.jobs;
 create trigger jobs_match_queue after insert or update on public.jobs for each row execute function public._match_job_changed();
 
 revoke execute on function public.match_score(jsonb, jsonb), public._match_job_changed() from public, anon, authenticated;
+
+create or replace function public._m_visible(c jsonb, j jsonb) returns boolean
+language sql immutable as
+$$ select true $$;
+revoke execute on function public._m_visible(jsonb, jsonb) from public, anon, authenticated;
 
 select 'ok' as release43;
