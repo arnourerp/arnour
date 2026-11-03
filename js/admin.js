@@ -98,18 +98,18 @@
     ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['traffic', 'Traffic', 'Visitors, sign-ups and what people did'], ['health', 'Health', 'Errors and email delivery']]],
     ['People & roles', [['people', 'People', 'Professionals and companies'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
     ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages']]],
-    ['Communicate', [['messages', 'Messages', 'Write to people as the Arnour team, and read their replies'], ['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
+    ['Communicate', [['messages', 'Messages', 'Write to people as the Arnour team, and read their replies'], ['reminders', 'Reminders', 'Follow-up e-mails to people who did not finish their profile, waiting for your approval'], ['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
     ['Settings', [['settings', 'Site settings', 'Sample content on or off'], ['log', 'Activity log', 'Everything admins did']]]
   ];
   var TABS = []; GROUPS.forEach(function (g) { g[1].forEach(function (t) { TABS.push(t); }); });
 
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0, fb = A.data.health && A.data.health.openFeedback ? A.data.health.openFeedback : 0;
-    var mn = typeof A.data.staffN === 'number' ? A.data.staffN : 0;
+    var mn = typeof A.data.staffN === 'number' ? A.data.staffN : 0, rn = typeof A.data.remN === 'number' ? A.data.remN : 0;
     var menuOpen = !!A.menuOpen; A.menuOpen = false; /* the phone menu closes on the next page or refresh */
     var cur = TABS.filter(function (t) { return t[0] === tab; })[0];
-    var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : id === 'messages' ? mn : 0; return n ? ' <em>' + n + '</em>' : ''; };
-    var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : t[0] === 'messages' ? mn : 0; }); return n; };
+    var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : id === 'messages' ? mn : id === 'reminders' ? rn : 0; return n ? ' <em>' + n + '</em>' : ''; };
+    var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : t[0] === 'messages' ? mn : t[0] === 'reminders' ? rn : 0; }); return n; };
     return '<div class="adm' + (menuOpen ? ' adm-menu-open' : '') + '"><header class="adm-top"><a class="brand-logo" href="#/admin" aria-label="Arnour admin">A</a><strong>Arnour admin</strong>' +
       '<button type="button" class="btn btn-outline btn-sm adm-menu-btn" data-action="adm-menu" aria-expanded="' + menuOpen + '">☰ ' + h(cur ? cur[1] : 'Menu') + '</button><span class="grow"></span>' +
       '<a class="btn btn-ghost btn-sm" href="#/home">← View the site</a></header>' +
@@ -437,6 +437,36 @@
       '<h2>Where people came from</h2>' + srcTable +
       '<h2>Pages people opened</h2>' + pvTable +
       '<p class="muted small">For real visitor totals, search impressions and clicks, see Netlify Analytics and Google Search Console.</p>';
+  }
+
+
+  /* ---------- reminders: follow-up e-mails to people who did not finish their profile (you approve each one) ---------- */
+  var REM_ROLE = { consultant: 'Professional', employer: 'Company', any: 'Not chosen yet' };
+  var REM_STATUS = { sent: 'Sent', skipped: 'Skipped', expired: 'Expired (not approved in time)', done: 'Finished the profile first', failed: 'Failed to send', approved: 'Sending…' };
+  var REM_TEXT = { consultant1: 'Professional · 1st reminder', consultant2: 'Professional · 2nd (last) reminder', employer1: 'Company · 1st reminder', employer2: 'Company · 2nd (last) reminder', any1: 'Role not chosen · 1st reminder', any2: 'Role not chosen · 2nd (last) reminder' };
+  function vReminders() {
+    var w = need('reminders', 'admin_reminders'); if (w) return w;
+    var R = A.data.reminders, pend = R.pending || [], rec = R.recent || [], texts = R.texts || [];
+    var table = pend.length ? '<div class="adm-actions" style="margin-top:0"><button type="button" class="btn btn-primary btn-sm" data-action="adm-rem-all">Send all (' + pend.length + ')</button></div>' +
+      '<div class="adm-scroll"><table class="adm-table"><thead><tr><th>E-mail</th><th>Signed up as</th><th>Came from</th><th>Confirmed</th><th>Reminder</th><th></th></tr></thead><tbody>' + pend.map(function (r) {
+        return '<tr><td>' + h(r.email) + '</td><td>' + h(REM_ROLE[r.role] || r.role) + '</td><td>' + h(r.src) + '</td><td>' + whenT(r.confirmedTs) + '</td><td>' + (r.step === 2 ? '2nd (last)' : '1st') + '</td>' +
+          '<td class="adm-err-acts"><button type="button" class="btn btn-outline btn-sm" data-action="adm-rem-send" data-id="' + r.id + '">Send</button> <button type="button" class="btn btn-ghost btn-sm" data-action="adm-rem-skip" data-id="' + r.id + '">Skip</button></td></tr>';
+      }).join('') + '</tbody></table></div>'
+      : '<div class="empty">Nobody is waiting. 🎉 People appear here about 2 hours after they confirm their e-mail, if they still have no profile.</div>';
+    var hist = rec.length ? '<table class="adm-table"><thead><tr><th>E-mail</th><th>Reminder</th><th>What happened</th><th>When</th></tr></thead><tbody>' + rec.map(function (r) {
+      return '<tr><td>' + h(r.email) + '</td><td>' + (r.step === 2 ? '2nd' : '1st') + '</td><td>' + h(REM_STATUS[r.status] || r.status) + '</td><td>' + whenT(r.ts) + '</td></tr>';
+    }).join('') + '</tbody></table>' : '<div class="empty">Nothing yet.</div>';
+    var edit = texts.map(function (t) {
+      return '<form class="adm-card" data-form="adm-rem-text" data-key="' + h(t.key) + '"><strong>' + h(REM_TEXT[t.key] || t.key) + '</strong>' +
+        '<label class="field"><span class="label">Subject</span><input class="input" name="subject" maxlength="120" value="' + h(t.subject) + '"></label>' +
+        '<label class="field"><span class="label">Text <span class="muted">(blank line = new paragraph)</span></span><textarea class="input" name="body" rows="6" maxlength="1500">' + h(t.body) + '</textarea></label>' +
+        '<div class="adm-actions"><button class="btn btn-outline btn-sm" type="submit">Save wording</button></div></form>';
+    }).join('');
+    return '<h1>Reminders</h1><p class="muted small">People who confirmed their e-mail but have no profile after 2 hours. Nothing is sent until you press Send. Each person gets at most one reminder, plus one more about 3 days after the first (also needs your approval). Waiting items expire after 3 days. People who finished their profile or unsubscribed are never sent one.</p>' +
+      (R.ready ? '' : '<div class="adm-card sus"><strong>E-mail sending is not set up</strong><p class="muted small">The Resend key is missing, so approved reminders will wait.</p></div>') +
+      '<h2>Waiting for your approval</h2>' + table +
+      '<h2>Sent and decided</h2>' + hist +
+      '<h2>The wording</h2><p class="muted small">Every e-mail has an “Arnour” header, a button (“Finish my profile”) and an unsubscribe link added automatically. Check the text before you send the first one.</p>' + edit;
   }
 
   function vCommunity() {
@@ -863,7 +893,8 @@
     if (!A.data.overview && tab !== 'overview') load('overview', 'admin_overview');
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
     if (A.data.staffN === undefined && !A.err.staffN) load('staffN', 'admin_staff_unread');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
+    if (A.data.remN === undefined && !A.err.remN) load('remN', 'admin_reminders_count');
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'reminders' ? vReminders() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -884,6 +915,13 @@
       case 'report': reportDialog(d.kind, d.id); break;
       case 'adm-retry': delete A.err[d.key]; APP.render(); break;
       case 'adm-rstatus': A.rstatus = d.s; APP.render(); break;
+      case 'adm-rem-send': act('admin_reminder_decide', { p_ids: [Number(d.id)], p_action: 'approve' }, 'Sent ✓', ['reminders', 'remN']); break;
+      case 'adm-rem-skip': act('admin_reminder_decide', { p_ids: [Number(d.id)], p_action: 'skip' }, 'Skipped', ['reminders', 'remN']); break;
+      case 'adm-rem-all': {
+        var ids = ((A.data.reminders && A.data.reminders.pending) || []).map(function (r) { return r.id; }); if (!ids.length) break;
+        APP.openDialog({ title: 'Send ' + ids.length + ' reminder' + (ids.length === 1 ? '' : 's') + '?', sub: 'Each person gets the reminder e-mail now.', confirmLabel: 'Send all', body: '', onConfirm: function () { act('admin_reminder_decide', { p_ids: ids, p_action: 'approve' }, 'Sent ✓', ['reminders', 'remN']); } });
+        break;
+      }
       case 'adm-traffic-days': A.trafficDays = Number(d.n) || 14; APP.render(); break;
       case 'adm-close-conv': A.conv = null; APP.render(); break;
       case 'adm-read-conv':
@@ -1148,6 +1186,12 @@
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'adm-del') window.__admDel = e.target.value.trim(); });
 
   APP.onSubmit = function (f) {
+    if (f.dataset.form === 'adm-rem-text') {
+      var sj = f.querySelector('[name="subject"]'), bd = f.querySelector('[name="body"]');
+      if (!sj || !bd || !String(sj.value).trim() || !String(bd.value).trim()) { APP.toast('The subject and the text cannot be empty'); return; }
+      B.rpc('admin_reminder_text_save', { p_key: f.dataset.key, p_subject: sj.value, p_body: bd.value }).then(function () { reload('reminders'); reload('log'); APP.toast('Wording saved ✓'); APP.render(); }, function (e) { APP.toast('Could not save: ' + String((e && e.message) || 'error')); });
+      return;
+    }
     if (f.dataset.form === 'adm-msg-send') {
       var M = A.msg, ta = f.querySelector('textarea[name="t"]'), txt = ta ? String(ta.value || '').trim() : '';
       if (M.busy || !M.thread) return;
