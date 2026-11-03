@@ -2934,10 +2934,10 @@ APP.jobReqRowsHtml = function (rows, box) {
       '<div class="field"><span class="label">Modules <span class="muted">— tick one or more</span></span>' +
       APP.moduleChipsHtml(c.productId, sel, 'data-target="jobNew" data-idx="' + c.start + '"', 'jobNew:' + c.cid, true) + '</div>' +
       (c.rows.length > 1 && !c.alt ?
-        '<div class="req-anyall" role="group" aria-label="How many of the selected modules the professional needs">' +
-        '<span class="ra-q">With more than one module selected, the professional needs:</span>' +
-        '<span class="ra-opts"><button type="button" class="ra-opt' + (c.all ? '' : ' on') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="any" aria-pressed="' + (c.all ? 'false' : 'true') + '"><i></i>Any one of them</button>' +
-        '<button type="button" class="ra-opt' + (c.all ? ' on' : '') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="all" aria-pressed="' + (c.all ? 'true' : 'false') + '"><i></i>All of them</button></span></div>' : '') +
+        '<div class="req-anyall" role="group" aria-label="How many of these modules the professional needs">' +
+        '<span class="muted small">The professional needs</span>' +
+        '<span class="req-join"><button type="button" class="seg' + (c.all ? '' : ' on') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="any" aria-pressed="' + (c.all ? 'false' : 'true') + '">Any one of these</button>' +
+        '<button type="button" class="seg' + (c.all ? ' on' : '') + '" data-action="req-all" data-idx="' + c.start + '" data-mode="all" aria-pressed="' + (c.all ? 'true' : 'false') + '">All of these</button></span></div>' : '') +
       ((!c.alt && (nice || nMust > 1)) || sel.length ? '<div class="req-foot">' +
         (!c.alt && (nice || nMust > 1) ? '<button type="button" class="link req-move" data-action="req-nice" data-idx="' + c.start + '">' + (nice ? '↑ Move to Must have' : '↓ Move to Nice to have') + '</button>' : '<span></span>') +
         (sel.length ? '<button type="button" class="btn btn-outline btn-sm" data-action="req-shut" data-cid="' + c.cid + '">Done</button>' : '') + '</div>' : '') +
