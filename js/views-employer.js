@@ -590,7 +590,7 @@ APP.jobFormView = function (mode) {
     : APP.chipGroup('jobNew', 'preferredLangs', APP.languages, d.preferredLangs)) + '</div>';
   const specIn = '<details class="opt-box" data-det="spec"' + (openSpec || leadJ ? ' open' : '') + '><summary>' + (specSel ? specSel + ' selected' : 'Choose specialties') + '</summary>' +
     '<div class="spec-panel">' + APP.specialtyChipsHtml('jobNew', d.preferredSpecialties || [], 'preferredSpecialties', { roles: d.roleType ? [d.roleType] : [], sugLabel: 'Common for this role type' }) + '</div></details>';
-  const indIn = '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>' + (nMore ? nMore + ' selected' : 'Choose industries') + '</summary><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div></details>';
+  const indIn = '<details class="opt-box" data-det="more"' + (openMore ? ' open' : '') + '><summary>' + (nMore ? nMore + ' selected' : 'Industries Knowledge') + '</summary><div class="chip-wrap">' + APP.chipGroup('jobNew', 'industries', APP.industries, d.industries) + '</div></details>';
   const progIn = '<input name="minPrograms" type="number" inputmode="numeric" min="0" max="100" class="input narrow-in" value="' + (d.minPrograms ? Number(d.minPrograms) : '') + '" placeholder="e.g. 3">';
   const crit =
     '<div class="crit-table">' +

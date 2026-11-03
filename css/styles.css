@@ -2193,3 +2193,4 @@ a.sr-title:hover { text-decoration: underline; }
 .req-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line,#d6dde8)}
 .req-card-h{gap:12px}
 .req-compact .req-move{margin-left:auto}
+.req-anyall { justify-content: center; }
