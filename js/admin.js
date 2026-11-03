@@ -336,6 +336,19 @@
           '<button class="btn btn-outline btn-sm" data-action="adm-fb-set" data-id="' + f.id + '" data-s="' + (f.status === 'open' ? 'done' : 'open') + '">' + (f.status === 'open' ? 'Mark done' : 'Reopen') + '</button></div></article>';
       }).join('') : '<div class="empty">Nothing here.</div>');
   }
+  var OUTCOME_LABEL = { fixed: 'Fixed', noise: 'Not a bug', cleared: 'Cleared' };
+  function errHistory() {
+    var open = !!A.errHistOpen;
+    var head = '<h2>Error history</h2><div class="adm-actions" style="margin-top:0"><button type="button" class="btn btn-outline btn-sm" data-action="adm-err-history">' + (open ? 'Hide the history' : 'Show the history') + '</button></div>';
+    if (!open) return head;
+    var w = need('errhist', 'admin_error_history', { p_limit: 300 }); if (w) return head + w;
+    var L = A.data.errhist || [];
+    return head + (L.length ? '<table class="adm-table"><thead><tr><th>Dealt with</th><th>Error</th><th>Times</th><th>What was done</th></tr></thead><tbody>' +
+      L.map(function (x) {
+        return '<tr><td>' + h(when(+x.resolved_ts)) + '<div class="fb-meta"><span class="pill ' + (x.outcome === 'fixed' ? 'inv' : 'muted-pill') + '">' + h(OUTCOME_LABEL[x.outcome] || x.outcome) + '</span></div></td>' +
+          '<td>' + h(x.message) + '<div class="fb-meta">' + h(x.src) + ' · ' + h(x.page) + ' · ' + h(shortUa(x.ua)) + '</div></td><td>' + x.n + '</td><td>' + h(x.note || '') + '</td></tr>';
+      }).join('') + '</tbody></table>' : '<div class="empty">Nothing in the history yet.</div>');
+  }
   function vHealth() {
     var w = need('health', 'admin_health'); if (w) return w;
     var H = A.data.health, errs = H.errors || [], use = H.usage || [];
@@ -343,9 +356,12 @@
     use.forEach(function (u) { names[u.name] = names[u.name] || {}; names[u.name][u.d] = u.n; days[u.d] = 1; });
     var dl = Object.keys(days).sort().reverse().slice(0, 7), nl = Object.keys(names).sort();
     return '<h1>Health</h1><h2>Errors from users\' browsers</h2><p class="muted small">Recorded automatically, grouped by message. No names or typed text are stored.</p>' +
-      (errs.length ? '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-clear-errors">Clear all</button></div><table class="adm-table"><thead><tr><th>Error</th><th>Times</th><th>Last seen</th><th>Where</th></tr></thead><tbody>' +
-        errs.map(function (e) { return '<tr><td>' + h(e.message) + '<div class="fb-meta">' + h(e.src) + '</div></td><td>' + e.n + '</td><td>' + whenT(e.last_ts) + '</td><td>' + h(e.page) + '<div class="fb-meta">' + h(shortUa(e.ua)) + '</div></td></tr>'; }).join('') + '</tbody></table>'
+      (errs.length ? '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-clear-errors">Clear all</button></div><table class="adm-table"><thead><tr><th>Error</th><th>Times</th><th>Last seen</th><th>Where</th><th></th></tr></thead><tbody>' +
+        errs.map(function (e) { return '<tr><td>' + h(e.message) + (e.returned ? ' <span class="pill warn-pill" title="This one was marked fixed or not a bug before">Came back</span>' : '') + '<div class="fb-meta">' + h(e.src) + '</div></td><td>' + e.n + '</td><td>' + whenT(e.last_ts) + '</td><td>' + h(e.page) + '<div class="fb-meta">' + h(shortUa(e.ua)) + '</div></td>' +
+          '<td class="adm-err-acts"><button type="button" class="btn btn-outline btn-sm" data-action="adm-err-resolve" data-fp="' + h(e.fp) + '" data-o="fixed">Fixed</button> <button type="button" class="btn btn-ghost btn-sm" data-action="adm-err-resolve" data-fp="' + h(e.fp) + '" data-o="noise">Not a bug</button></td></tr>'; }).join('') + '</tbody></table>'
         : '<div class="empty">No errors recorded. 🎉</div>') +
+      '<p class="muted small">“Fixed” and “Not a bug” move an error to the history below, with a note, so it is never lost. If the same error appears again it is marked “Came back”.</p>' +
+      errHistory() +
       '<h2>Usage (last 7 days)</h2><p class="muted small">Counts of page views by section (v:…), external-apply clicks and applications, new visitors from a link or campaign (lnd:facebook…) and completed profiles by source (conv:c: consultants, conv:e: companies). No cookies, no personal data.</p>' +
       (nl.length ? '<table class="adm-table"><thead><tr><th></th>' + dl.map(function (d) { return '<th>' + h(d.slice(5)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
         nl.map(function (n) { return '<tr><td>' + h(n) + '</td>' + dl.map(function (d) { return '<td>' + (names[n][d] || '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>'
@@ -985,7 +1001,18 @@
       case 'adm-fb-shot':
         B.sb.storage.from('feedback').createSignedUrl(d.p, 300).then(function (r) { if (r.error || !r.data) APP.toast('Could not open the screenshot'); else window.open(r.data.signedUrl, '_blank', 'noopener'); });
         break;
-      case 'adm-clear-errors': act('admin_clear_errors', {}, 'Cleared', ['health']); break;
+      case 'adm-clear-errors': act('admin_clear_errors', {}, 'Cleared. A copy is kept in the history.', ['health', 'errhist']); break;
+      case 'adm-err-history': A.errHistOpen = !A.errHistOpen; if (A.errHistOpen) reload('errhist'); APP.render(); break;
+      case 'adm-err-resolve': {
+        var fixed = d.o === 'fixed';
+        reasonDialog({
+          title: fixed ? 'Mark this error as fixed?' : 'Mark this as not a bug?',
+          sub: 'It moves to the history with your note. If it appears again it is shown as “Came back”.',
+          label: fixed ? 'What was wrong and what was done' : 'Why it is not a bug', confirmLabel: fixed ? 'Mark fixed' : 'Not a bug',
+          run: function (note) { act('admin_error_resolve', { p_fp: d.fp, p_outcome: d.o, p_note: note }, fixed ? 'Moved to the history ✓' : 'Moved to the history ✓', ['health', 'errhist']); }
+        });
+        break;
+      }
       case 'adm-samples': act('admin_set_hide_samples', { p_on: d.on === '1' }, d.on === '1' ? 'Sample content hidden' : 'Sample content showing', ['settings'].concat(allKeys())).then(function () {
           /* the admin's own view of jobs, companies, people and community follows right away */
           if (B.refreshPublicNow) B.refreshPublicNow().then(function () { if (B.profile && B.fetchPrivate) return B.fetchPrivate().then(function (p) { B._lastPrivate = p; B.applyPrivate(APP.db, p); if (p.consultants && B.applyDirectory) B.applyDirectory(APP.db, p.consultants); }); }).then(function () { APP.render(); }, function () { APP.render(); });

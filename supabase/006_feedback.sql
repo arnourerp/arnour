@@ -134,7 +134,7 @@ end $$;
 
 create or replace function public.admin_clear_errors() returns void
 language plpgsql security definer set search_path = public as
-$$ begin perform public._require_admin(); delete from public.client_errors; perform public._audit('clear errors', '', ''); end $$;
+$$ begin perform public._require_admin(); delete from public.client_errors where fp is not null; perform public._audit('clear errors', '', ''); end $$;
 
 -- ---------- who may call what ------------------------------------------------
 revoke all on function public.submit_feedback(text,text,text,text,text,jsonb,text), public.log_client_error(text,text,text,text), public.track_usage(text),

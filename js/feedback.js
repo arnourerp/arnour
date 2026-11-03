@@ -29,7 +29,9 @@
     noteError(e && e.message, (e && e.filename ? String(e.filename).replace(/^.*\//, '') : '') + (e && e.lineno ? ':' + e.lineno : ''));
   });
   window.addEventListener('unhandledrejection', function (e) {
-    var r = e && e.reason; noteError('Unhandled: ' + ((r && (r.message || r.code)) || r), 'promise');
+    var r = e && e.reason, m = String((r && (r.message || r.code)) || r);
+    if (/^(load failed|failed to fetch|networkerror when attempting to fetch resource\.?|the network connection was lost\.?|the internet connection appears to be offline\.?)$/i.test(m.trim())) return; /* the browser's plain "could not reach the server": a network problem on that device, not a site bug */
+    noteError('Unhandled: ' + m, 'promise');
   });
   /* failed saves / loads (not the plain "please fix this" messages the server sends on purpose) */
   B.onRpcError = function (fn, err) {
