@@ -2194,3 +2194,10 @@ a.sr-title:hover { text-decoration: underline; }
 .req-card-h{gap:12px}
 .req-compact .req-move{margin-left:auto}
 .req-anyall { justify-content: center; }
+
+.req-anyall{justify-content:flex-start !important;flex-direction:column;align-items:stretch;gap:8px;margin-top:16px;padding:12px 14px;background:#f1f4f8;border:1px solid #e1e7ef;border-radius:8px}
+.req-anyall .ra-q{font-size:13px;color:#4a5b73}
+.req-anyall .ra-opts{display:flex;flex-wrap:wrap;gap:6px 22px}
+.ra-opt{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;padding:2px 0;font:inherit;font-size:14px;font-weight:600;color:#16233a;cursor:pointer}
+.ra-opt i{width:16px;height:16px;border-radius:50%;border:2px solid #8aa0bf;background:#fff;box-sizing:border-box}
+.ra-opt.on i{border-color:#16233a;background:radial-gradient(#16233a 0 4px,#fff 5px)}

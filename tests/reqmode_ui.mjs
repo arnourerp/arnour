@@ -16,10 +16,10 @@ const pick=async(mid)=>{ await p.evaluate((m)=>{ const c=APP.jobReqCards(APP.job
 await pick('fi');
 t('one module: no switch yet',await p.evaluate(()=>!document.querySelector('.req-anyall')));
 await pick('co'); await pick('mm');
-t('three modules: the switch shows, default is Any one',await p.evaluate(()=>!!document.querySelector('.req-anyall .seg.on[data-mode=any]')));
+t('three modules: the switch shows, default is Any one',await p.evaluate(()=>!!document.querySelector('.req-anyall .ra-opt.on[data-mode=any]')));
 t('Any one = a single group of three',JSON.stringify(await groups())===JSON.stringify([['fi','co','mm']]),await groups());
 await p.click('.req-anyall [data-mode=all]'); await p.waitForTimeout(250);
-t('All of these is selected and stays one card',await p.evaluate(()=>!!document.querySelector('.req-anyall .seg.on[data-mode=all]')&&document.querySelectorAll('[data-req-card]').length===1));
+t('All of these is selected and stays one card',await p.evaluate(()=>!!document.querySelector('.req-anyall .ra-opt.on[data-mode=all]')&&document.querySelectorAll('[data-req-card]').length===1));
 t('All = three required groups',JSON.stringify(await groups())===JSON.stringify([['fi'],['co'],['mm']]),await groups());
 await pick('sd');
 t('a module added in All mode is required too',JSON.stringify(await groups())===JSON.stringify([['fi'],['co'],['mm'],['sd']]),await groups());
