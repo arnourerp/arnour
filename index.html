@@ -23,7 +23,9 @@
   <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://arnour.com/#organization", "name": "Arnour", "alternateName": ["Arnour SAP Network", "Arnour Talent Platform"], "url": "https://arnour.com", "logo": "https://arnour.com/assets/logo-192.png", "description": "Dedicated professional network and recruiting marketplace for SAP consultants, architects, and enterprise employers.", "sameAs": ["https://www.linkedin.com/company/arnour", "https://x.com/xarnour", "https://www.facebook.com/arnourpage"]}, {"@type": "WebSite", "@id": "https://arnour.com/#website", "name": "Arnour", "alternateName": ["Arnour SAP Network", "Arnour Talent Platform"], "url": "https://arnour.com/", "description": "Dedicated professional network and recruiting marketplace for SAP consultants, architects, and enterprise employers.", "inLanguage": "en", "publisher": {"@id": "https://arnour.com/#organization"}}]}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <!-- the font file loads without holding up the first paint (text shows in the system font, then switches to Inter) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
   <link rel="stylesheet" href="css/styles.css" />
   <style>/* the first-paint logo screen floats above the page, so removing it moves nothing (it used to push the app down 590 px and cause a 0.7 layout shift) */
   #boot-splash{position:fixed;top:0;left:0;right:0}
