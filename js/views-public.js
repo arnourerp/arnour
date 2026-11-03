@@ -653,7 +653,8 @@ APP.views['job-detail'] = function (ctx) {
   const sess = APP.db.session;
   const isC = sess && sess.role === 'consultant';
   const me = isC ? APP.consultant(sess.consultantId) : null;
-  const open = job.status === 'open';
+  const isDraft = job.status === 'draft';
+  const open = job.status === 'open' || (isDraft && !!APP.state.previewPublic); /* an owner previewing a draft sees it as an open role */
   document.title = job.title + (co ? ' at ' + co.name : '') + ' — Arnour';
   const E = APP.h;
 
@@ -732,7 +733,7 @@ APP.views['job-detail'] = function (ctx) {
     '<header class="jd-head card">' +
     (isExt ? '<span class="jd-co">' + APP.avatarHtml(job.extEmployer || 'Jobs', 'sm') + '<span>' + E(job.extEmployer || '') + '</span><span class="pill ext-badge">External listing' + (job.extSource ? ' · via ' + E(job.extSource) : '') + '</span></span>' : co ? (co._anon ? '<span class="jd-co">' + APP.avatarHtml(co.name, 'sm') + '<span>Confidential company</span></span>' : '<a class="jd-co" href="' + E(coHref) + '">' + APP.avatarHtml(co.name, 'sm', false, co.logo) + '<span>' + E(co.name) + '</span></a>') : '') +
     (APP.jobPosterType(job) ? '<p class="jd-poster">' + APP.coTypeBadgeOf(APP.jobPosterType(job)) + ' <span class="muted small">' + APP.h(APP.coTypeById[APP.jobPosterType(job)].hint) + '</span></p>' : '') +
-    '<h1 class="jd-title">' + E(job.title) + APP.samplePill(job) + (!open ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h1>' +
+    '<h1 class="jd-title">' + E(job.title) + APP.samplePill(job) + (isDraft ? ' <span class="pill muted-pill">Draft</span>' : !open ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h1>' +
     (APP.LIVE && job.sample ? '<p class="sample-note">Sample role, for illustration. Applications to sample roles are not sent to a real company.</p>' : '') +
     (APP.modTools ? APP.modTools('job', job.id, !!(job.mine || (APP.db.session && job.companyId === APP.db.session.companyId)), true) : '') +
     '<div class="job-meta">' +

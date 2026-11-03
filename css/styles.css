@@ -2199,3 +2199,12 @@ a.sr-title:hover { text-decoration: underline; }
 .req-anyall .req-join { background: #e6eefb; border-color: #b9cbe6; }
 .req-anyall .seg { color: #2c4a7a; }
 .req-anyall .seg.on { background: #3566b0; color: #fff; }
+
+/* Drafts */
+.publish-bar .bar-acts{display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.draft-box{margin:0 0 22px}
+.draft-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-size:16px}
+.draft-card{border-style:dashed;background:#f7f9fc}
+.draft-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.draft-note{display:flex;gap:8px;align-items:flex-start;margin:10px 0;padding:10px 12px;background:#eef3f9;border:1px dashed #9fb1c9;border-radius:8px;font-size:14px}
+.jd-del{color:#a12b2b}

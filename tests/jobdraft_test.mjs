@@ -1,0 +1,41 @@
+/* Draft roles in the database: only the owner sees a draft, nobody is matched while it is a draft, publishing restarts the posted time, delete works */
+import {PGlite} from '@electric-sql/pglite';
+import fs from 'fs';
+const db=new PGlite();
+await db.exec(`
+create role anon nologin; create role authenticated nologin;
+create schema auth; create table auth.users(id uuid primary key, email text, created_at timestamptz default now(), last_sign_in_at timestamptz, email_confirmed_at timestamptz default now());
+create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+grant usage on schema public, auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant execute on functions to anon, authenticated, public;
+create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]); create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text,owner uuid,metadata jsonb);
+create function storage.foldername(name text) returns text[] language sql as $$ select string_to_array(name,'/') $$;`);
+for(const f of ['001_schema','002_seed_samples','003_community','004_seed_community','005_admin']) await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f+'.sql','utf8'));
+const U={e:'11111111-1111-1111-1111-111111111111',c:'22222222-2222-2222-2222-222222222222'};
+for(const k in U) await db.query(`insert into auth.users(id,email) values ($1,$2)`,[U[k],k+'@x.com']);
+async function as(who,sql,params){ await db.exec(`reset role; select set_config('request.jwt.claim.sub','${who?U[who]:''}',false); set role ${who?'authenticated':'anon'};`);
+  try{ const r=await db.query(sql,params); await db.exec('reset role'); return r.rows;}catch(e){await db.exec('reset role'); return {err:e.message};} }
+let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,JSON.stringify(x).slice(0,300));} else console.log('ok  ',n); };
+await as('e',`select claim_profile('employer','{"name":"Acme"}'::jsonb) x`);
+await as('c',`select claim_profile('consultant',$1::jsonb) x`,[JSON.stringify({firstName:'A',lastName:'B',headline:'H'})]);
+await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/027_job_drafts.sql','utf8'));
+const id=(await as('e',`select save_job('', $1::jsonb) x`,[JSON.stringify({title:'Draft role',status:'draft',requires:[]})]))[0].x;
+let l=await as('c',`select list_jobs() x`); t('a draft is invisible to professionals',!l.some(q=>q.x.id===id),l.length);
+l=await as(null,`select list_jobs() x`); t('a draft is invisible to visitors',!l.some(q=>q.x.id===id),0);
+l=await as('e',`select list_jobs() x`); const mine=l.find(q=>q.x.id===id); t('the owner sees the draft with status draft',mine&&mine.x.status==='draft',mine);
+let r=await as('c',`select apply_to_job($1,'hi') x`,[id]); t('nobody can apply to a draft',r.err&&/not open/.test(r.err),r);
+await db.exec(`update public.jobs set posted_ts = 1000 where id='${id}'`);
+const upd=await as('e',`select save_job($1, $2::jsonb) x`,[id,JSON.stringify({title:'Draft role',status:'open',requires:[]})]);
+const row=(await db.query(`select status, posted_ts from public.jobs where id=$1`,[id])).rows[0];
+t('publishing a draft opens it and restarts the posted time',row.status==='open'&&Number(row.posted_ts)>Date.now()-60000,row);
+l=await as('c',`select list_jobs() x`); t('after publishing professionals see it',l.some(q=>q.x.id===id),0);
+const keep=(await as('e',`select save_job($1, $2::jsonb) x`,[id,JSON.stringify({title:'Draft role 2',status:'open',requires:[]})]));
+const row2=(await db.query(`select posted_ts from public.jobs where id=$1`,[id])).rows[0];
+t('editing an open role does not touch the posted time',Number(row2.posted_ts)===Number(row.posted_ts),[row,row2]);
+const d2=(await as('e',`select save_job('', $1::jsonb) x`,[JSON.stringify({title:'To delete',status:'draft',requires:[]})]))[0].x;
+r=await as('c',`select delete_job($1)`,[d2]); t('another user cannot delete it',(await db.query(`select 1 from public.jobs where id=$1`,[d2])).rows.length===1,r);
+await as('e',`select delete_job($1)`,[d2]); t('the owner can delete a draft',(await db.query(`select 1 from public.jobs where id=$1`,[d2])).rows.length===0);
+await as('c',`select apply_to_job($1,'hello') x`,[id]);
+await as('e',`select delete_job($1)`,[id]); t('the owner can delete an open role with applicants (applications go with it)',(await db.query(`select 1 from public.jobs where id=$1`,[id])).rows.length===0&&(await db.query(`select 1 from public.applications where job_id=$1`,[id])).rows.length===0);
+console.log(fails?'FAILED '+fails:'ALL OK'); process.exit(fails?1:0);

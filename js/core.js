@@ -1987,7 +1987,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
     '<div class="card-id">' +
     '<p class="card-sub">' + (coHref ? '<a class="co-link" href="' + APP.h(coHref) + '">' + APP.h(coName) + '</a>' : APP.h(coName)) + APP.coTypeBadgeOf(APP.jobPosterType(job)) + '</p>' +
     '<h3 class="card-title">' + (link ? '<a href="' + APP.h(link) + '">' : '') + APP.h(job.title) + (link ? '</a>' : '') + APP.samplePill(job) +
-    (job.status !== 'open' ? ' <span class="pill muted-pill">Closed</span>' : '') +
+    (job.status !== 'open' ? ' <span class="pill muted-pill">' + (job.status === 'draft' ? 'Draft' : 'Closed') + '</span>' : '') +
     (isExt ? ' <span class="pill ext-badge" title="Listed by Arnour. You apply on the employer\'s own site.">External listing</span>' : '') +
     (!isExt && co && co._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Confidential</span>' : '') +
     (invited ? ' <span class="pill inv">' + APP.icon('check', 12) + ' Invited</span>' : '') + '</h3>' +
@@ -3199,10 +3199,10 @@ APP.requireOwner = function (kind, id) {
   return false;
 };
 APP.ACTION_RULES = {
-  employer: ['job-post', 'close-job', 'reopen-job', 'invite', 'app-stage', 'company-edit', 'co-edit-on', 'co-edit-off'],
+  employer: ['job-post', 'job-draft', 'job-publish', 'job-delete', 'close-job', 'reopen-job', 'invite', 'app-stage', 'company-edit', 'co-edit-on', 'co-edit-off'],
   /* cert-toggle is shared by professionals' and SI/Partners' skill cards, so it has no role rule */
   consultant: ['apply', 'withdraw', 'attach-cv', 'send-cv', 'clear-cv', 'cv-clear', 'profile-edit'],
-  ownJob: { 'close-job': 'id', 'reopen-job': 'id', 'invite': 'jid', 'app-stage': 'jid' }
+  ownJob: { 'job-publish': 'id', 'job-delete': 'id', 'close-job': 'id', 'reopen-job': 'id', 'invite': 'jid', 'app-stage': 'jid' }
 };
 APP.guardAction = function (name, d) {
   if (!name) return true;
@@ -4593,6 +4593,47 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'job-draft': { /* Save as draft: runs the normal form save with the draft flag */
+      const fm = document.querySelector('form[data-form="job-post"]');
+      if (!fm) break;
+      APP.state.draftSave = true;
+      if (fm.requestSubmit) fm.requestSubmit(); else fm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      break;
+    }
+
+    case 'job-publish': { /* publish a saved draft */
+      const j = APP.job(d.id);
+      if (!j || j.status !== 'draft') break;
+      const chk = Object.assign({}, j, { requires: (j.requires || []).map(r => Object.assign({}, r)) });
+      let bad = null;
+      for (let st = 1; st <= 2 && !bad; st++) { const er = APP.jobStepErrors(chk, st); const k = Object.keys(er).filter(x => x !== 'rows')[0]; if (k) bad = er[k]; }
+      if (bad) { APP.toast('Not ready to publish: ' + bad); APP.go('#/e/jobs/' + j.id + '/edit'); break; }
+      j.requires = chk.requires.filter(r => r.productId && r.moduleId);
+      j.status = 'open'; j.postedTs = Date.now();
+      const nn = APP.notifyMatches(j);
+      if (nn) APP.addNotif(j.companyId, 'app', nn + ' professional' + (nn > 1 ? 's' : '') + ' match "' + j.title + '" at 70%+ and ' + (nn > 1 ? 'have' : 'has') + ' been notified', '#/e/jobs/' + j.id);
+      APP.save(); APP.render(); APP.toast('Role published ✓ — professionals can see it now');
+      break;
+    }
+
+    case 'job-delete': {
+      const j = APP.job(d.id);
+      if (!j) break;
+      const nApp = (j.applicants || []).length;
+      const draft = j.status === 'draft';
+      APP.openDialog({
+        title: 'Delete ' + APP.h(j.title || 'this role') + '?',
+        sub: draft ? 'This draft is removed for good.' : 'The role is removed for good' + (nApp ? ', together with its ' + nApp + ' application' + (nApp > 1 ? 's' : '') + ' and their notes' : '') + '. This cannot be undone. To keep the history, close the role instead.',
+        confirmLabel: 'Delete', danger: true,
+        onConfirm: function () {
+          delete APP.db.jobs[j.id];
+          APP.save(); APP.toast(draft ? 'Draft deleted' : 'Role deleted');
+          APP.go('#/e/jobs');
+        }
+      });
+      break;
+    }
+
     case 'reopen-job': {
       const j = APP.job(d.id);
       if (j && j.companyId === APP.db.session.companyId) { j.status = 'open'; APP.save(); APP.render(); APP.toast('Role reopened ✓'); }
@@ -5131,8 +5172,11 @@ APP.onSubmit = function (f) {
     case 'job-post': {
       if (!APP.jobNewDraft) return;
       const d = APP.jobNewDraft;
+      const asDraft = !!APP.state.draftSave; APP.state.draftSave = false; /* "Save as draft": only a title is needed */
+      const origJ = d.editId ? APP.db.jobs[d.editId] : null;
+      const editingDraft = !!(origJ && origJ.status === 'draft');
       /* wizard: Enter / Continue on steps 1–2 moves forward; only step 3 publishes */
-      if (!d.editId && (APP.state.jobStep || 1) < 3) { APP.jobGoStep((APP.state.jobStep || 1) + 1); return; }
+      if (!d.editId && !asDraft && (APP.state.jobStep || 1) < 3) { APP.jobGoStep((APP.state.jobStep || 1) + 1); return; }
       d.title = g('title');
       d.roleType = g('roleType') || d.roleType;
       APP.jobRowsAnyModule(d);
@@ -5163,7 +5207,27 @@ APP.onSubmit = function (f) {
       d.languages = (d.languages || []).filter(Boolean);
       d.preferredLangs = (d.preferredLangs || []).filter(l => l && (d.languages || []).indexOf(l) === -1);
       d.preferredSpecialties = (d.preferredSpecialties || []).filter(Boolean);
-      if (!d.editId) {
+      if (asDraft) {
+        if (!d.title) { APP.toast('Give the draft a title first'); return; }
+        const dRows = (d.requires || []).filter(r => r.productId && r.moduleId).map(r => Object.assign({}, r));
+        let dj;
+        if (d.editId) {
+          const keepD = { id: origJ.id, companyId: origJ.companyId, applicants: origJ.applicants || [], invited: origJ.invited || [], postedTs: origJ.postedTs, status: origJ.status };
+          dj = Object.assign({}, d, { requires: dRows }, keepD, { editedTs: Date.now() });
+          delete dj.editId; delete dj.maxExp;
+          APP.db.jobs[origJ.id] = dj;
+        } else {
+          dj = Object.assign({}, d, { requires: dRows, id: 'j' + Date.now(), companyId: APP.db.session.companyId, applicants: [], postedTs: Date.now(), status: 'draft' });
+          delete dj.editId;
+          APP.db.jobs[dj.id] = dj;
+        }
+        APP.jobNewDraft = null; APP.state.jobStep = 1; APP.state.jobErr = null;
+        APP.save();
+        APP.toast('Draft saved ✓ — it is only visible to you');
+        APP.go('#/e/jobs/' + dj.id);
+        break;
+      }
+      if (!d.editId || editingDraft) {
         for (let st = 1; st <= 2; st++) {
           const er = APP.jobStepErrors(d, st);
           if (Object.keys(er).length) { APP.state.jobStep = st; APP.state.jobErr = er; APP.render(); APP.jobFocusError(); return; }
@@ -5189,6 +5253,12 @@ APP.onSubmit = function (f) {
         if (upd.status === 'open' && sig(before) !== sig(upd)) {
           const nn = APP.notifyMatches(upd, before);
           if (nn) msg += ' · ' + nn + ' new match' + (nn > 1 ? 'es' : '') + ' notified';
+        }
+        if (editingDraft) { /* publishing a draft: it goes live now, like a new role */
+          upd.status = 'open'; upd.postedTs = Date.now(); delete upd.editedTs;
+          msg = 'Role published ✓';
+          const nn2 = APP.notifyMatches(upd);
+          if (nn2) APP.addNotif(upd.companyId, 'app', nn2 + ' professional' + (nn2 > 1 ? 's' : '') + ' match "' + upd.title + '" at 70%+ and ' + (nn2 > 1 ? 'have' : 'has') + ' been notified', '#/e/jobs/' + upd.id);
         }
         APP.jobNewDraft = null;
         APP.save();

@@ -36,7 +36,7 @@ APP.views['e-dash'] = function () {
 
   const jobsMini = jobs.slice(0, 5).map(j =>
     '<a class="app-item" href="#/e/jobs/' + j.id + '">' +
-    '<div class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + (j.applicants || []).length + ' applicant(s) · ' + j.employmentType + ' · ' + APP.h(APP.locText(j)) + (j.status !== 'open' ? ' · Closed' : '') + '</small></div>' +
+    '<div class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + (j.applicants || []).length + ' applicant(s) · ' + j.employmentType + ' · ' + APP.h(APP.locText(j)) + (j.status === 'draft' ? ' · Draft' : j.status !== 'open' ? ' · Closed' : '') + '</small></div>' +
     APP.icon('check', 16) + '</a>'
   ).join('');
 
@@ -488,7 +488,17 @@ APP.views['e-talent-detail'] = function (ctx) {
 APP.views['e-jobs'] = function () {
   const co = APP.company(APP.db.session.companyId);
   if (!co) return '<div class="empty">Company not found.</div>';
-  const jobs = APP.companyJobs(co.id).sort((a, b) => b.postedTs - a.postedTs);
+  const allJobs = APP.companyJobs(co.id).sort((a, b) => b.postedTs - a.postedTs);
+  const jobs = allJobs.filter(j => j.status !== 'draft');
+  const draftJobs = allJobs.filter(j => j.status === 'draft');
+  const draftList = draftJobs.length ? '<section class="draft-box"><h3 class="draft-h">Drafts <span class="seg-n">' + draftJobs.length + '</span> <span class="muted small">Only you can see these</span></h3>' +
+    draftJobs.map(j =>
+      '<div class="card job-card draft-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer">' +
+      '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title || 'Untitled') + ' <span class="pill muted-pill">Draft</span></h3>' +
+      '<p class="muted">' + APP.h(APP.locText(j) || 'No location yet') + ' · Saved ' + APP.timeAgo(j.editedTs || j.postedTs) + '</p></div></div>' +
+      '<div class="job-foot draft-acts"><button type="button" class="btn btn-primary btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Continue editing</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="job-publish" data-id="' + j.id + '">Publish</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-action="job-delete" data-id="' + j.id + '">Delete</button></div></div>').join('') + '</section>' : '';
   const list = jobs.map(j =>
     '<div class="card job-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer">' +
     '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title) + (j.status !== 'open' ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h3>' +
@@ -513,7 +523,7 @@ APP.views['e-jobs'] = function () {
     '<div class="page-head"><h2>My roles</h2>' +
     '<button class="btn btn-primary" data-action="go" data-href="#/e/jobs/new">' + APP.icon('plus', 15) + ' Post a job</button></div>' + tabs + attn +
     (tab === 'intros' ? APP.introsPageHtml(true)
-      : (list || '<div class="card empty">No roles posted yet — your first job takes about a minute.</div>')) +
+      : draftList + (list || (draftList ? '' : '<div class="card empty">No roles posted yet — your first job takes about a minute.</div>'))) +
     '</div>';
 };
 
@@ -625,9 +635,18 @@ APP.jobFormView = function (mode) {
   const crumb = '<div class="crumb"><a class="link" href="' + (editing ? '#/e/jobs/' + d.editId : '#/e/jobs') + '">' + (editing ? '← Back to the role' : '← Your roles') + '</a></div>';
 
   if (editing) {
+    const origE = APP.db.jobs[d.editId];
+    const isDraftE = !!(origE && origE.status === 'draft');
+    const draftBar = '<div class="edit-bar"><h2 class="page-title">' + APP.h('Editing draft: ' + (d.title || 'Untitled')) + '</h2><div class="edit-bar-acts">' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="edit-cancel">Cancel</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="job-draft">Save draft</button>' +
+      '<button type="submit" form="f-job-post" class="btn btn-primary btn-sm">' + APP.icon('check', 14) + ' Publish</button></div></div>';
+    const draftFoot = '<div class="publish-bar edit-foot"><button type="button" class="btn btn-outline" data-action="edit-cancel">Cancel</button><span class="bar-acts">' +
+      '<button type="button" class="btn btn-outline" data-action="job-draft">Save draft</button>' +
+      '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Publish role</button></span></div>';
     return '<div class="narrow job-form">' + crumb +
-      APP.editBarHtml('Editing role: ' + (d.title || 'Untitled'), 'f-job-post') +
-      '<p class="muted">Changes are visible to professionals right away. Applicants stay on the role.</p>' +
+      (isDraftE ? draftBar : APP.editBarHtml('Editing role: ' + (d.title || 'Untitled'), 'f-job-post')) +
+      '<p class="muted">' + (isDraftE ? 'This is a draft: only you can see it. Save it to keep working later, or publish when it is ready.' : 'Changes are visible to professionals right away. Applicants stay on the role.') + '</p>' +
       '<form data-form="job-post" id="f-job-post">' +
       sec(1, 'The role', 'What it is and where.', basics) +
       (leadJ ? sec(2, 'Expertise', 'Specialties and industries rank the role higher for professionals who have them.', expertise) : '') +
@@ -636,7 +655,7 @@ APP.jobFormView = function (mode) {
       sec(leadJ ? 5 : 4, 'About the candidate', CRIT_HINT, crit) +
       (APP.SHOW_RATES ? sec(leadJ ? 6 : 5, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
       sec((APP.SHOW_RATES ? 6 : 5) + (leadJ ? 1 : 0), 'Description', 'Optional — scope, team and what success looks like.', desc) +
-      APP.editFootHtml() +
+      (isDraftE ? draftFoot : APP.editFootHtml()) +
       '</form></div>';
   }
 
@@ -664,7 +683,8 @@ APP.jobFormView = function (mode) {
   const bar = '<div class="publish-bar">' +
     (step === 1 ? '<button type="button" class="btn btn-outline" data-action="edit-cancel">Cancel</button>' : '<button type="button" class="btn btn-ghost" data-action="job-step" data-step="' + (step - 1) + '">← Back</button>') +
     '<span class="muted small wiz-count">Step ' + step + ' of 3</span>' +
-    (step < 3 ? '<button type="submit" class="btn btn-primary">Continue →</button>' : '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Publish role</button>') + '</div>';
+    '<span class="bar-acts"><button type="button" class="btn btn-outline" data-action="job-draft">Save as draft</button>' +
+    (step < 3 ? '<button type="submit" class="btn btn-primary">Continue →</button>' : '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Publish role</button>') + '</span></div>';
 
   return '<div class="narrow job-form job-wizard">' + crumb + APP.coTypePromptHtml() +
     APP.editBarHtml('Post a new role', null) +
@@ -704,6 +724,7 @@ APP.views['e-job-edit'] = function (ctx) {
     copy.editId = job.id;
     copy.roleType = APP.jobRoleType(job);
     copy.requires = (copy.requires || []).map(r => Object.assign({ minProjects: 0, orPrev: false }, r));
+    if (!copy.requires.length) copy.requires = [{ productId: 's4onprem', moduleId: '', minProjects: 0, orPrev: false }];
     copy.industries = copy.industries && copy.industries.length ? copy.industries : (copy.industry ? [copy.industry] : []);
     copy.languages = copy.languages || []; copy.preferredLangs = copy.preferredLangs || []; copy.preferredSpecialties = copy.preferredSpecialties || [];
     copy.rateMin = copy.rateMin || ''; copy.rateMax = copy.rateMax || ''; copy.minExp = copy.minExp || '';
@@ -720,6 +741,7 @@ APP.views['e-job-detail'] = function (ctx) {
   const co = APP.company(job.companyId);
   const E = APP.h;
   const open = job.status === 'open';
+  const isDraft = job.status === 'draft';
   const applicants = (job.applicants || []).map(id => APP.consultant(id)).filter(Boolean);
   const unmet = (c) => !(APP.jobVisibleToConsultant(c, job) && APP.langOkForJob(c, job) && APP.certOkForJob(c, job));
   const scored = applicants.map(c => ({ c: c, score: APP.matchScore(c, job), unmet: unmet(c) })).sort((a, b) => b.score - a.score);
@@ -746,7 +768,7 @@ APP.views['e-job-detail'] = function (ctx) {
   /* ---- tabs ---- */
   APP.state.jobTab = APP.state.jobTab || {};
   APP.state.appFilter = APP.state.appFilter || {};
-  const tab = APP.state.jobTab[job.id] || 'applicants';
+  const tab = isDraft ? 'details' : (APP.state.jobTab[job.id] || 'applicants');
   const flt = APP.state.appFilter[job.id] || 'all';
   const tabBtn = (id, label, n) => '<button type="button" role="tab" aria-selected="' + (tab === id) + '" class="seg-tab' + (tab === id ? ' on' : '') + '" data-action="job-tab" data-jid="' + job.id + '" data-tab="' + id + '">' + label + (n != null ? ' <span class="seg-n">' + n + '</span>' : '') + '</button>';
   const tabs = '<div class="seg-tabs jd-tabs" role="tablist" aria-label="Role sections">' +
@@ -786,10 +808,12 @@ APP.views['e-job-detail'] = function (ctx) {
   const days = job.postedTs ? Math.max(1, Math.ceil((Date.now() - job.postedTs) / 864e5)) : null;
   const stat = (n, l) => '<div class="jd-stat"><b>' + n + '</b><span>' + l + '</span></div>';
   const side = '<aside class="jd-side"><div class="card jd-act">' +
-    '<a class="btn btn-primary jd-apply" href="#/e/jobs/' + job.id + '/edit">' + APP.icon('plus', 14) + ' Edit role</a>' +
+    (isDraft ? '<button type="button" class="btn btn-primary jd-apply" data-action="job-publish" data-id="' + job.id + '">' + APP.icon('check', 14) + ' Publish role</button>' : '') +
+    '<a class="btn ' + (isDraft ? 'btn-outline btn-sm' : 'btn-primary jd-apply') + '" href="#/e/jobs/' + job.id + '/edit">' + APP.icon('plus', 14) + ' ' + (isDraft ? 'Continue editing' : 'Edit role') + '</a>' +
     '<a class="btn btn-outline btn-sm" href="#/job/' + job.id + '" data-action="preview-public" data-href="#/job/' + job.id + '" data-back="#/e/jobs/' + job.id + '">' + APP.icon('ext', 14) + ' Preview as professional</a>' +
-    (open ? '<button type="button" class="btn btn-outline btn-sm jd-close" data-action="close-job" data-id="' + job.id + '">Close role</button>'
+    (isDraft ? '' : open ? '<button type="button" class="btn btn-outline btn-sm jd-close" data-action="close-job" data-id="' + job.id + '">Close role</button>'
       : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + job.id + '">Reopen role</button>') +
+    (job.external ? '' : '<button type="button" class="btn btn-ghost btn-sm jd-del" data-action="job-delete" data-id="' + job.id + '">' + APP.icon('x', 14) + ' Delete</button>') +
     '</div>' +
     '<div class="card"><h2 class="jd-side-h">At a glance</h2><div class="jd-stats">' +
     stat(applicants.length, 'Applicants') + stat(scored.filter(x => APP.appStage(job, x.c.id) === 'shortlisted').length, 'Shortlisted') + stat(nStrongApp(scored), 'Strong matches') + stat(invited.length, 'Invited') + stat(days != null ? days : '–', open ? 'Days open' : 'Days since posted') + '</div></div>' +
@@ -803,16 +827,17 @@ APP.views['e-job-detail'] = function (ctx) {
 
   return '<div class="jd">' +
     APP.crumbHtml('#/e/jobs', 'Your roles') +
-    '<header class="jd-head card"><h1 class="jd-title">' + E(job.title) + ' <span class="pill ' + (open ? 'inv' : 'muted-pill') + '">' + (open ? 'Open' : 'Closed') + '</span>' + (APP.coHidden(co, job) ? ' <span class="pill anon-pill">' + APP.icon('lock', 12) + ' Confidential</span>' : '') + '</h1>' +
+    '<header class="jd-head card"><h1 class="jd-title">' + E(job.title) + ' <span class="pill ' + (open ? 'inv' : 'muted-pill') + '">' + (open ? 'Open' : isDraft ? 'Draft' : 'Closed') + '</span>' + (APP.coHidden(co, job) ? ' <span class="pill anon-pill">' + APP.icon('lock', 12) + ' Confidential</span>' : '') + '</h1>' +
     '<div class="job-meta">' +
     '<span>' + APP.icon('briefcase') + E(job.employmentType) + '</span>' +
     '<span>' + APP.icon('pin') + E(APP.locText(job)) + (job.remote ? ' · Remote-friendly' : '') + '</span>' +
     (APP.SHOW_RATES ? '<span>' + APP.icon('file') + E(APP.fmtRange(job)) + '</span>' : '') +
     (job.duration ? '<span>' + APP.icon('check') + E(job.duration) + '</span>' : '') +
     '</div>' +
-    '<p class="muted small jd-posted">Posted ' + APP.timeAgo(job.postedTs) + (job.editedTs ? ' · Edited ' + APP.timeAgo(job.editedTs) : '') + '</p>' +
+    (isDraft ? '<p class="draft-note">' + APP.icon('lock', 14) + ' <span><b>Draft.</b> Only you can see this role. Professionals see it after you publish.</span></p>' : '') +
+    '<p class="muted small jd-posted">' + (isDraft ? 'Saved ' : 'Posted ') + APP.timeAgo(isDraft ? (job.editedTs || job.postedTs) : job.postedTs) + (job.editedTs ? ' · Edited ' + APP.timeAgo(job.editedTs) : '') + '</p>' +
     (APP.safeApplyUrl(job) ? '<p class="ext-note-e">' + APP.icon('ext', 14) + '<span>Candidates apply on <a class="ext-link" href="' + E(APP.safeApplyUrl(job)) + '" target="_blank" rel="noopener noreferrer">' + E(new URL(APP.safeApplyUrl(job)).hostname.replace(/^www\./, '')) + '</a>. Professionals who tell us they applied there appear below as applicants.</span></p>' : '') + '</header>' +
-    '<div class="jd-grid"><div class="jd-left">' + tabs + body + '</div>' + side + '</div></div>';
+    '<div class="jd-grid"><div class="jd-left">' + (isDraft ? '' : tabs) + body + '</div>' + side + '</div></div>';
 };
 
 /* ------------------------------ messaging ------------------------------ */
