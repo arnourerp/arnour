@@ -38,12 +38,13 @@ function system(L) {
     '- NEVER write email addresses, phone numbers or web links in any field.',
     '- title: clear and accurate, as in the ad (fix an obviously wrong or vague title using the body, for example add the key module).',
     '- role_type: the ONE id that matches the DUTIES, not only the title (hands-on configuration = functional; coding = technical; people or programme leadership = delivery; incident and run work = support).',
-    '- requires: the SAP skills the ad REQUIRES, one row per product + module. Put nice-to-have skills in the description only, not here. Modules listed after "e.g.", "such as" or "for example" are EXAMPLES, and "at least one of" / "any of" / "one or more" means any ONE is enough: put all of them in ONE group (first row normal, the others or_previous = true), never as separate must-haves. Separate rows (not or_previous) only for modules the ad clearly needs ALL of ("FI and MM experience"); put them one after another for the same product. A row that is an alternative to the row before it has or_previous = true ("FI or CO", "ECC or S/4HANA"). Set any_one_is_enough = true when the ad needs only ONE of the skills it lists ("at least one functional area (e.g. FI/CO, MM, SD)"); "FI/CO" is two modules, FI and CO, in the same group. Never turn general, soft or tool skills (ABAP awareness, middleware, BI tools, security, reporting) into requirement rows; keep a role with vague wording to a few rows. Use module_id "*" ONLY when the ad names a product but no module (for example "SAP Ariba consultant"); never use "*" for a product whose modules the ad names. If the ad does not say whether it is S/4HANA or ECC, use the S/4HANA rows only (matching already gives ECC experience partial credit); add an ECC alternative only when the ad names just one or two modules. min_projects only when the ad states a number of projects or implementations for that skill, else 0. At most 20 rows.',
+    '- requires: the SAP skills the ad REQUIRES, one row per product + module. Skills the ad calls preferred, a plus, an advantage, desirable or nice to have are ALSO rows, with nice = true (a different group from the required ones: never mix required and nice rows in one or_previous group). Required rows have nice = false. Only skills the ad actually names; do not invent nice-to-have skills. Modules listed after "e.g.", "such as" or "for example" are EXAMPLES, and "at least one of" / "any of" / "one or more" means any ONE is enough: put all of them in ONE group (first row normal, the others or_previous = true), never as separate must-haves. Separate rows (not or_previous) only for modules the ad clearly needs ALL of ("FI and MM experience"); put them one after another for the same product. A row that is an alternative to the row before it has or_previous = true ("FI or CO", "ECC or S/4HANA"). Set any_one_is_enough = true when the ad needs only ONE of the skills it lists ("at least one functional area (e.g. FI/CO, MM, SD)"); "FI/CO" is two modules, FI and CO, in the same group. Never turn general, soft or tool skills (ABAP awareness, middleware, BI tools, security, reporting) into requirement rows; keep a role with vague wording to a few rows. Use module_id "*" ONLY when the ad names a product but no module (for example "SAP Ariba consultant"); never use "*" for a product whose modules the ad names. If the ad does not say whether it is S/4HANA or ECC, use the S/4HANA rows only (matching already gives ECC experience partial credit); add an ECC alternative only when the ad names just one or two modules. min_projects only when the ad states a number of projects or implementations for that skill, else 0. At most 20 rows.',
     '- country: the country id of the job location (use "other" for a country that is not listed and for global roles). city: the city in English, only if stated.',
     '- remote: true only if the ad says remote or work from home; hybrid and on-site are false.',
     '- employment_type and duration: only what the ad states or clearly implies. Full-time = duration "Permanent". Contract or freelance with no stated length: leave duration empty.',
     '- level (Junior, Mid or Senior) and min_experience_years (the lower bound of a range): only when stated or clearly implied. Never guess numbers.',
     '- certification: "required" or "preferred" only if the ad asks for an SAP certification, else empty.',
+    '- must flags (default false, set true ONLY when the ad clearly makes it mandatory with words like must, required, mandatory, minimum, essential; wishes and "preferred" stay false): level_is_must for the seniority, experience_is_must for min_experience_years ("minimum 8 years" is a must; "8+ years preferred" is not), specialties_are_must for the specialties, industries_are_must for the industries ("must have banking experience"). Languages: put the ones the ad requires in languages and the ones it calls an advantage in preferred_languages.',
     '- languages: languages the ad REQUIRES. preferred_languages: ones it calls an advantage. industries: the client\'s sector when known. specialties: up to 8 ids the ad asks for (preferred). min_programs: only for architect or delivery roles when the ad states a number of programmes or large projects.',
     '- employer_name: the hiring company or agency name if the ad names it, else empty.',
     'Today is ' + new Date().toISOString().slice(0, 10) + '.',
@@ -74,7 +75,8 @@ const TOOL = {
       employment_type: { type: 'string' }, duration: { type: 'string' }, level: { type: 'string' }, min_experience_years: { type: 'integer' },
       certification: { type: 'string' }, employer_name: { type: 'string' },
       any_one_is_enough: { type: 'boolean', description: 'true when the ad only needs ONE of the SAP skills listed (examples after e.g., "at least one", "any of"), so every requires row is an alternative' },
-      requires: { type: 'array', items: { type: 'object', properties: { product_id: { type: 'string' }, module_id: { type: 'string' }, min_projects: { type: 'integer' }, or_previous: { type: 'boolean' } }, required: ['product_id', 'module_id'] } },
+      requires: { type: 'array', items: { type: 'object', properties: { product_id: { type: 'string' }, module_id: { type: 'string' }, min_projects: { type: 'integer' }, or_previous: { type: 'boolean' }, nice: { type: 'boolean' } }, required: ['product_id', 'module_id'] } },
+      level_is_must: { type: 'boolean' }, experience_is_must: { type: 'boolean' }, specialties_are_must: { type: 'boolean' }, industries_are_must: { type: 'boolean' },
       languages: { type: 'array', items: { type: 'string' } }, preferred_languages: { type: 'array', items: { type: 'string' } },
       industries: { type: 'array', items: { type: 'string' } }, specialties: { type: 'array', items: { type: 'string' } },
       min_programs: { type: 'integer' }
@@ -93,12 +95,17 @@ function sanitize(o, L) {
   const named = {}; /* products that have at least one real module row: a "*" row for them is dropped */
   arr(o.requires).forEach((r) => { const p = str(r && r.product_id, 60), m = str(r && r.module_id, 60); if (prod[p] && prod[p][m]) named[p] = 1; });
   const requires = []; const seen = {};
-  arr(o.requires).slice(0, 60).forEach((r) => {
-    const p = str(r && r.product_id, 60), m = str(r && r.module_id, 60);
-    if (!prod[p] || !(prod[p][m] || (m === '*' && !named[p])) || seen[p + '/' + m]) return;
-    if (requires.length >= 20) return;
-    seen[p + '/' + m] = 1;
-    requires.push({ productId: p, moduleId: m, minProjects: Math.max(0, Math.min(99, Math.round(+r.min_projects) || 0)), orPrev: requires.length > 0 && (r.or_previous === true || o.any_one_is_enough === true) });
+  const mk = (r) => ({ productId: str(r && r.product_id, 60), moduleId: str(r && r.module_id, 60), min: Math.max(0, Math.min(99, Math.round(+(r && r.min_projects)) || 0)), or: !!(r && r.or_previous), nice: !!(r && r.nice) });
+  let rows = arr(o.requires).slice(0, 60).map(mk).filter((r) => prod[r.productId] && (prod[r.productId][r.moduleId] || (r.moduleId === '*' && !named[r.productId])));
+  if (!rows.some((r) => !r.nice)) rows = rows.map((r) => Object.assign(r, { nice: false })); /* only "nice" skills found: the role still needs a Must box, so they all count as required */
+  rows = rows.filter((r) => !r.nice).concat(rows.filter((r) => r.nice)); /* required rows first, nice-to-have after */
+  rows.forEach((r) => {
+    const key = r.productId + '/' + r.moduleId;
+    if (seen[key] || requires.length >= 20) return; /* the same skill listed twice keeps the first (required) one */
+    seen[key] = 1;
+    const prev = requires[requires.length - 1];
+    const orPrev = !!prev && prev.nice === r.nice && (r.or || (o.any_one_is_enough === true && !r.nice));
+    requires.push({ productId: r.productId, moduleId: r.moduleId, minProjects: r.min, orPrev, nice: r.nice });
   });
   const roleType = L.roleTypes.some((r) => r.id === str(o.role_type, 40)) ? str(o.role_type, 40) : '';
   const country = L.countries.some((c) => c.id === str(o.country, 20)) ? str(o.country, 20) : '';
@@ -108,7 +115,7 @@ function sanitize(o, L) {
   const yrs = Math.round(+o.min_experience_years) || 0;
   const langs = pick(o.languages, L.languages);
   const progs = Math.round(+o.min_programs) || 0;
-  return {
+  const out = {
     title: noContact(str(o.title, 140)), roleType, country, city: noContact(str(o.city, 60)), remote: o.remote === true,
     employmentType: emp, duration: dur, level: one(o.level, L.levels), minExp: yrs >= 1 && yrs <= 40 ? yrs : 0,
     certification: str(o.certification, 12) === 'required' ? 'required' : str(o.certification, 12) === 'preferred' ? 'preferred' : '',
@@ -117,6 +124,11 @@ function sanitize(o, L) {
     minPrograms: (roleType === 'architect' || roleType === 'delivery') && progs >= 1 && progs <= 100 ? progs : 0,
     employerName: noContact(str(o.employer_name, 120))
   };
+  out.mustLevel = o.level_is_must === true && !!out.level;
+  out.mustExp = o.experience_is_must === true && out.minExp > 0;
+  out.mustSpec = o.specialties_are_must === true && out.specialties.length > 0;
+  out.mustInd = o.industries_are_must === true && out.industries.length > 0;
+  return out;
 }
 
 async function sb(fn, jwt, args) {

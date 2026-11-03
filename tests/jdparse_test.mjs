@@ -101,4 +101,16 @@ mock(); aiMode = 'text'; { const x = await fn.handler(EV({ text: AD, lists: LIST
 mock(); aiMode = 'ok'; aiOut = 'garbage'; { const x = await fn.handler(EV({ text: AD, lists: LISTS })); t('garbage answer → "not a job", failed, quota given back', x.statusCode === 422 && JSON.parse(x.body).error === 'not_a_job' && calls.sb[1].body.p_status === 'failed', x); }
 mock(); sbMode = 'ok'; aiMode = 'ok'; aiOut = { title: 'ERP Specialist', role_type: 'functional', country: 'ae', any_one_is_enough: true, requires: [{ product_id: 's4onprem', module_id: 'fi' }, { product_id: 's4onprem', module_id: 'co' }, { product_id: 'ecc', module_id: 'fi' }, { product_id: 'ecc', module_id: 'co' }] };
 { const x = await fn.handler(EV({ text: AD, lists: LISTS })); const j = JSON.parse(x.body).job; t('"only one is needed" makes every row an alternative (one group)', j.requires.length === 4 && j.requires.every((r, i) => r.orPrev === (i > 0)), j.requires); }
+
+/* release 43: nice-to-have rows and must flags */
+mock(); sbMode = 'ok'; aiMode = 'ok'; aiOut = { title: 'FICO Lead', role_type: 'functional', country: 'ae', level: 'Senior', level_is_must: true, min_experience_years: 8, experience_is_must: false, specialties: ['greenfield'], specialties_are_must: true, industries_are_must: true,
+  requires: [{ product_id: 's4onprem', module_id: 'fi' }, { product_id: 'ariba', module_id: 'sourcing', nice: true }, { product_id: 's4onprem', module_id: 'co', nice: true }, { product_id: 'ecc', module_id: 'co', nice: true, or_previous: true }, { product_id: 's4onprem', module_id: 'fi', nice: true }] };
+{ const x = await fn.handler(EV({ text: AD, lists: LISTS })); const j = JSON.parse(x.body).job;
+  t('nice rows are kept, required first, nice after', j.requires.length === 4 && !j.requires[0].nice && j.requires.slice(1).every(r => r.nice), j.requires);
+  t('the same skill as required and nice keeps the required one', j.requires.filter(r => r.moduleId === 'fi' && r.productId === 's4onprem').length === 1 && !j.requires[0].nice);
+  t('an alternative inside the nice group stays an alternative; the first nice row never is', j.requires[1].orPrev === false && j.requires[3].orPrev === true, j.requires);
+  t('must flags: seniority yes, years no, specialties yes, industries not without industries', j.mustLevel === true && j.mustExp === false && j.mustSpec === true && j.mustInd === false, [j.mustLevel, j.mustExp, j.mustSpec, j.mustInd]);
+  t('the prompt explains nice rows and must flags', /nice = true/.test(calls.ai[0].body.system) && /level_is_must/.test(calls.ai[0].body.system)); }
+mock(); aiOut = { title: 'X', role_type: 'functional', country: 'ae', requires: [{ product_id: 's4onprem', module_id: 'fi', nice: true }] };
+{ const x = await fn.handler(EV({ text: AD, lists: LISTS })); const j = JSON.parse(x.body).job; t('only nice skills found: they become required (a role needs a Must box)', j.requires.length === 1 && !j.requires[0].nice, j.requires); }
 console.log(fails ? 'FAILED ' + fails : 'ALL OK'); process.exit(fails ? 1 : 0);

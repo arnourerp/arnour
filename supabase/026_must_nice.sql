@@ -237,4 +237,45 @@ language sql immutable as
 $$ select true $$;
 revoke execute on function public._m_visible(jsonb, jsonb) from public, anon, authenticated;
 
+-- admin job-ad import: keep the new Must / Nice fields (nice product rows live inside `requires`)
+create or replace function public.admin_import_external_jobs(p_jobs jsonb) returns jsonb
+language plpgsql security definer set search_path = public, auth as
+$$
+declare
+  cid text := public._board_company(); uid uuid; it jsonb; n int := 0; skipped jsonb := '[]'::jsonb;
+  url text; nurl text; ttl text; emp text; now_ms bigint := (extract(epoch from now())*1000)::bigint;
+  posted bigint; d jsonb; k text;
+  allowed text[] := array['title','roleType','requires','country','city','remote','employmentType','duration','minExp','level',
+                          'industries','industry','description','languages','certification','extSource','extEmployer','applyUrl',
+                          'preferredLangs','preferredSpecialties','mustLevel','mustExp','mustSpec','mustInd'];
+begin
+  perform public._require_admin();
+  if cid is null then raise exception 'The Jobs on Arnour company does not exist yet. Sign up jobs@arnour.com and create its company profile first.'; end if;
+  if jsonb_typeof(p_jobs) <> 'array' then raise exception 'Expected a list of roles'; end if;
+  if jsonb_array_length(p_jobs) > 50 then raise exception 'Import at most 50 roles at a time'; end if;
+  select owner into uid from public.companies where id = cid;
+  for it in select * from jsonb_array_elements(p_jobs) loop
+    ttl := btrim(coalesce(it->>'title','')); emp := btrim(coalesce(it->>'extEmployer','')); url := btrim(coalesce(it->>'applyUrl',''));
+    if ttl = '' or emp = '' then skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'Missing title or employer name'); continue; end if;
+    if url !~* '^https://[^ ]+\.[^ ]+$' or length(url) > 500 then skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'Apply link must be a full https link'); continue; end if;
+    if jsonb_typeof(it->'requires') is distinct from 'array' or jsonb_array_length(it->'requires') = 0 then skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'No SAP skills mapped'); continue; end if;
+    nurl := regexp_replace(lower(url), '(/|#.*)$', '');
+    if exists (select 1 from public.jobs j where j.company_id = cid and regexp_replace(lower(coalesce(j.data->>'applyUrl','')), '(/|#.*)$', '') = nurl) then
+      skipped := skipped || jsonb_build_object('title', ttl, 'reason', 'Already imported (same link)'); continue;
+    end if;
+    d := '{}'::jsonb;
+    foreach k in array allowed loop if it ? k then d := d || jsonb_build_object(k, it->k); end if; end loop;
+    d := d || jsonb_build_object('title', left(ttl, 140), 'extEmployer', left(emp, 120), 'applyUrl', url, 'external', true,
+                                 'description', left(coalesce(it->>'description',''), 8000));
+    if d ? 'extSource' then d := d || jsonb_build_object('extSource', left(d->>'extSource', 80)); end if;
+    posted := now_ms;
+    d := d || jsonb_build_object('expiresTs', posted + 60::bigint*86400000);
+    insert into public.jobs(id, company_id, owner, status, confidential, data, posted_ts)
+    values ('x-' || substr(replace(gen_random_uuid()::text,'-',''),1,10), cid, uid, 'open', false, d, posted);
+    n := n + 1;
+  end loop;
+  perform public._audit('import external roles', cid, n || ' imported, ' || jsonb_array_length(skipped) || ' skipped');
+  return jsonb_build_object('imported', n, 'skipped', skipped);
+end $$;
+
 select 'ok' as release43;

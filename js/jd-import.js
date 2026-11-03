@@ -182,27 +182,29 @@
     var have = (d.requires || []).filter(function (r) { return r.productId && r.moduleId; }).length;
     if (!have && p.requires.length) {
       var counts = APP.rtCounts(d.roleType);
-      d.requires = p.requires.map(function (r, i) { return { productId: r.productId, moduleId: r.moduleId, minProjects: counts ? r.minProjects : 0, orPrev: i > 0 && r.orPrev }; });
+      d.requires = p.requires.map(function (r, i) { var o = { productId: r.productId, moduleId: r.moduleId, minProjects: counts ? r.minProjects : 0, orPrev: i > 0 && r.orPrev }; if (r.nice) o.nice = true; return o; });
       /* "all of these": consecutive same-product rows that are each required (no "or") become one card set to "All of these" */
       var cid = 0;
       for (var a = 0; a < d.requires.length;) {
         var b = a + 1;
-        while (b < d.requires.length && d.requires[b].productId === d.requires[a].productId && !d.requires[b].orPrev && !d.requires[a].orPrev) b++;
+        while (b < d.requires.length && d.requires[b].productId === d.requires[a].productId && !!d.requires[b].nice === !!d.requires[a].nice && !d.requires[b].orPrev && !d.requires[a].orPrev) b++;
         cid++;
         if (b - a > 1) for (var z = a; z < b; z++) d.requires[z].cid = cid;
         a = b;
       }
-      parts.push(plural(p.requires.length, 'SAP skill'));
+      var nNice = p.requires.filter(function (r) { return r.nice; }).length;
+      parts.push(plural(p.requires.length - nNice, 'required SAP skill') + (nNice ? ' and ' + plural(nNice, 'nice-to-have skill') : ''));
     }
-    if (blank(d.level) && p.level) { d.level = p.level; parts.push('seniority'); }
-    if (!(+d.minExp) && p.minExp) { d.minExp = p.minExp; parts.push('minimum experience'); }
+    if (blank(d.level) && p.level) { d.level = p.level; if (p.mustLevel) d.mustLevel = true; parts.push('seniority' + (p.mustLevel ? ' (must)' : '')); }
+    if (!(+d.minExp) && p.minExp) { d.minExp = p.minExp; if (p.mustExp) d.mustExp = true; parts.push('minimum experience' + (p.mustExp ? ' (must)' : '')); }
     if (blank(d.certification) && p.certification) d.certification = p.certification;
-    if (p.languages.length) { d.languages = (d.languages || []).concat(p.languages.filter(function (x) { return (d.languages || []).indexOf(x) === -1; })); parts.push('languages'); }
-    d.preferredLangs = (d.preferredLangs || []).concat(p.preferredLangs.filter(function (x) { return (d.preferredLangs || []).indexOf(x) === -1 && (d.languages || []).indexOf(x) === -1; }));
-    if (p.industries.length && blank(d.industries)) { d.industries = p.industries.slice(); d.industry = d.industries[0]; }
+    /* the form holds ONE language list: required languages make it a Must list, otherwise the advantages go in as Nice */
+    if (p.languages.length) { d.languages = (d.languages || []).concat(p.languages.filter(function (x) { return (d.languages || []).indexOf(x) === -1; })); d.preferredLangs = []; d.langMust = true; parts.push('languages (must)'); }
+    else if (p.preferredLangs.length && !(d.languages || []).length) { d.preferredLangs = (d.preferredLangs || []).concat(p.preferredLangs.filter(function (x) { return (d.preferredLangs || []).indexOf(x) === -1; })); parts.push('languages (nice)'); }
+    if (p.industries.length && blank(d.industries)) { d.industries = p.industries.slice(); d.industry = d.industries[0]; if (p.mustInd) d.mustInd = true; }
     var sp = (d.preferredSpecialties || []).slice();
     p.specialties.forEach(function (id) { if (sp.length < 8 && sp.indexOf(id) === -1 && APP.SPECIAL_IDX[id] && !APP.SPECIAL_IDX[id].hidden) sp.push(id); });
-    if (sp.length > (d.preferredSpecialties || []).length) d.preferredSpecialties = sp;
+    if (sp.length > (d.preferredSpecialties || []).length) { d.preferredSpecialties = sp; if (p.mustSpec) d.mustSpec = true; }
     if (p.minPrograms && !(+d.minPrograms) && APP.LEAD_RTS.indexOf(d.roleType) !== -1) d.minPrograms = p.minPrograms;
     if (blank(d.description) && desc.text) { d.description = desc.text; parts.push('the description'); }
     APP.jobRowsAnyModule(d);
@@ -220,7 +222,7 @@
     if (!emp) notes.push('the employer name (the list shows a fix hint)');
     var row = {
       title: p.title, extEmployer: emp || '', extSource: S.admin.source, applyUrl: u, roleType: p.roleType,
-      requires: p.requires.map(function (r) { var o = { productId: r.productId, moduleId: r.moduleId }; if (r.minProjects) o.minProjects = r.minProjects; if (r.orPrev) o.orPrev = true; return o; }),
+      requires: p.requires.map(function (r) { var o = { productId: r.productId, moduleId: r.moduleId }; if (r.minProjects) o.minProjects = r.minProjects; if (r.orPrev) o.orPrev = true; if (r.nice) o.nice = true; return o; }),
       country: p.country, remote: !!p.remote, description: description
     };
     var city = cityName(p.country, p.city); if (city) row.city = city;
@@ -229,7 +231,11 @@
     if (p.minExp) row.minExp = p.minExp;
     if (p.level) row.level = p.level;
     if (p.industries.length) row.industries = p.industries;
-    if (p.languages.length) row.languages = p.languages;
+    if (p.languages.length) row.languages = p.languages; else if (p.preferredLangs.length) row.preferredLangs = p.preferredLangs;
+    if (p.mustLevel) row.mustLevel = true;
+    if (p.mustExp) row.mustExp = true;
+    if (p.specialties.length) { row.preferredSpecialties = p.specialties; if (p.mustSpec) row.mustSpec = true; }
+    if (p.mustInd && p.industries.length) row.mustInd = true;
     if (p.certification) row.certification = p.certification;
     var res = APP.adminImpAdd ? APP.adminImpAdd(row) : { ok: false, msg: 'The import page is not open.' };
     if (!res.ok) return fail('', res.msg);
