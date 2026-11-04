@@ -1237,14 +1237,14 @@ APP.reqGroups = function (job, which) {
   }
   return groups;
 };
-/* Requirement labels for the role cards (company list and professional list): the product is written once.
-   - required rows of the same product join into one label: "Fiori / UI5 Development + ABAP / ABAP Cloud · S/4 Private" (all needed)
-   - an "any one of" group is one label: "Any of: FI / MM / SD / PP · S/4 Private or Ariba +7 more" (first 4 shown, the rest in the hover text)
-   Returns [{ text, title, anyOf }]. */
+/* Requirement labels for the role cards (company list and professional list): the product is written once, first, then its modules.
+   - required rows of the same product join into one label: "S/4 Private · Fiori / UI5 Development + ABAP / ABAP Cloud" (all needed)
+   - an "any one of" group is one label: "Any of: S/4 Private · FI / MM / SD / PP or Ariba +7 more" (first 4 shown, the rest in the hover text)
+   Minimum-project numbers are not shown on cards (they stay on the role page). Returns [{ text, title, anyOf }]. */
 APP.REQ_ANYOF_SHOW = 4;
 APP.reqPillLabels = function (job) {
-  const sk = r => APP.productShort(r.productId) + ': ' + APP.skillName(r.productId, r.moduleId) + (r.minProjects ? ' (' + r.minProjects + '+ projects)' : '');
-  const lbl = r => r.moduleId === '*' ? 'any module' : APP.reqLabel(r);
+  const sk = r => APP.productShort(r.productId) + ': ' + APP.skillName(r.productId, r.moduleId);
+  const lbl = r => APP.reqLabel(r);
   const byProduct = rows => { const out = []; rows.forEach(r => { let b = out.find(x => x.p === r.productId); if (!b) { b = { p: r.productId, r: [] }; out.push(b); } b.r.push(r); }); return out; };
   const out = []; const merged = {};
   APP.reqGroups(job).forEach(g => {
@@ -1255,13 +1255,13 @@ APP.reqPillLabels = function (job) {
       return;
     }
     const shown = g.slice(0, APP.REQ_ANYOF_SHOW), rest = g.length - shown.length;
-    const text = 'Any of: ' + byProduct(shown).map(b => (b.r.some(r => r.moduleId === '*') ? '' : b.r.map(lbl).join(' / ') + ' · ') + APP.productTiny(b.p)).join(' or ') + (rest > 0 ? ' +' + rest + ' more' : '');
+    const text = 'Any of: ' + byProduct(shown).map(b => APP.productTiny(b.p) + (b.r.some(r => r.moduleId === '*') ? '' : ' · ' + b.r.map(lbl).join(' / '))).join(' or ') + (rest > 0 ? ' +' + rest + ' more' : '');
     out.push({ text, title: 'Any one of: ' + g.map(sk).join(' or '), anyOf: true });
   });
   return out.map(o => {
     if (!o.m) return o;
     const m = o.m, specific = m.r.filter(r => r.moduleId !== '*');
-    return { text: (specific.length ? specific.map(r => lbl(r) + (r.minProjects ? ' (' + r.minProjects + '+)' : '')).join(' + ') + ' · ' : '') + APP.productTiny(m.p), title: m.t.join(' + ') };
+    return { text: APP.productTiny(m.p) + (specific.length ? ' · ' + specific.map(lbl).join(' + ') : ''), title: m.t.join(' + ') };
   });
 };
 /* ---- Skill matching: see Match v19 below. Core SAP products (a module learned in one can transfer to another). ---- */
@@ -1877,12 +1877,21 @@ APP.pillsHtml = function (labels, n, href) {
 APP.productTiny = function (id) {
   return APP.productShort(id).replace(/^S\/4HANA Private Cloud.*$/, 'S/4 Private').replace(/^S\/4HANA Public Cloud.*$/, 'S/4 Public').replace(/ \/ On-Prem$/, '');
 };
+/* A professional's skills for cards: the product once, first, then its modules ("S/4 Private · FI ✓ + CO ✓ + MM").
+   Products and modules most relevant to the role come first, then the ones with most projects. */
+APP.SKILL_PILL_MODS = 5;
 APP.skillPillLabels = function (skills, job) {
   const rel = (k) => (job && (job.requires || []).some(r => r.productId === k.productId && (r.moduleId === '*' || r.moduleId === k.moduleId))) ? 0 : 1;
-  return (skills || []).slice().sort((a, b) => rel(a) - rel(b) || (Number(b.projects) || 0) - (Number(a.projects) || 0)).map(k => ({
-    text: APP.moduleShort(APP.skillName(k.productId, k.moduleId)) + ' · ' + APP.productTiny(k.productId) + (k.certified ? ' ✓' : ''),
-    title: APP.skillLabel(k) + ' — ' + (Number(k.projects) || 0) + ' project' + ((Number(k.projects) || 0) === 1 ? '' : 's') + (k.certified ? ', certified' : '')
-  }));
+  const sorted = (skills || []).slice().sort((a, b) => rel(a) - rel(b) || (Number(b.projects) || 0) - (Number(a.projects) || 0));
+  const groups = [];
+  sorted.forEach(k => { let g = groups.find(x => x.p === k.productId); if (!g) { g = { p: k.productId, k: [] }; groups.push(g); } g.k.push(k); });
+  return groups.map(g => {
+    const shown = g.k.slice(0, APP.SKILL_PILL_MODS), rest = g.k.length - shown.length;
+    return {
+      text: APP.productTiny(g.p) + ' · ' + shown.map(k => APP.moduleShort(APP.skillName(k.productId, k.moduleId)) + (k.certified ? ' ✓' : '')).join(' + ') + (rest > 0 ? ' +' + rest + ' more' : ''),
+      title: g.k.map(k => APP.skillLabel(k) + ' — ' + (Number(k.projects) || 0) + ' project' + ((Number(k.projects) || 0) === 1 ? '' : 's') + (k.certified ? ', certified' : '')).join('\n')
+    };
+  });
 };
 
 /* ---- pictures: professional photo (data.photo) and company logo (data.logo) ----
