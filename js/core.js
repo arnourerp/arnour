@@ -1237,13 +1237,32 @@ APP.reqGroups = function (job, which) {
   }
   return groups;
 };
-/* "FI in S/4HANA  or  FI in ECC" chips for cards and detail pages. style 'em' → "<em>3+ projects</em>", 'paren' → " (3+ projects)". */
-APP.reqChipsHtml = function (job, style) {
-  const one = (r) => APP.h(APP.productShort(r.productId)) + ': ' + APP.h(APP.skillName(r.productId, r.moduleId)) +
-    (r.minProjects ? (style === 'em' ? ' <em>' + r.minProjects + '+ projects</em>' : style === 'paren' ? ' (' + r.minProjects + '+ projects)' : '') : '');
-  return APP.reqGroups(job).map(g =>
-    '<span class="chip req' + (g.length > 1 ? ' req-or' : '') + '">' + g.map(one).join(' <b class="or-sep">or</b> ') + '</span>'
-  ).join('');
+/* Requirement labels for the role cards (company list and professional list): the product is written once.
+   - required rows of the same product join into one label: "Fiori / UI5 Development + ABAP / ABAP Cloud · S/4 Private" (all needed)
+   - an "any one of" group is one label: "Any of: FI / MM / SD / PP · S/4 Private or Ariba +7 more" (first 4 shown, the rest in the hover text)
+   Returns [{ text, title, anyOf }]. */
+APP.REQ_ANYOF_SHOW = 4;
+APP.reqPillLabels = function (job) {
+  const sk = r => APP.productShort(r.productId) + ': ' + APP.skillName(r.productId, r.moduleId) + (r.minProjects ? ' (' + r.minProjects + '+ projects)' : '');
+  const lbl = r => r.moduleId === '*' ? 'any module' : APP.reqLabel(r);
+  const byProduct = rows => { const out = []; rows.forEach(r => { let b = out.find(x => x.p === r.productId); if (!b) { b = { p: r.productId, r: [] }; out.push(b); } b.r.push(r); }); return out; };
+  const out = []; const merged = {};
+  APP.reqGroups(job).forEach(g => {
+    if (g.length === 1) {
+      const r = g[0]; let m = merged[r.productId];
+      if (!m) { m = merged[r.productId] = { p: r.productId, r: [], t: [] }; out.push({ m }); }
+      m.r.push(r); m.t.push(sk(r));
+      return;
+    }
+    const shown = g.slice(0, APP.REQ_ANYOF_SHOW), rest = g.length - shown.length;
+    const text = 'Any of: ' + byProduct(shown).map(b => (b.r.some(r => r.moduleId === '*') ? '' : b.r.map(lbl).join(' / ') + ' · ') + APP.productTiny(b.p)).join(' or ') + (rest > 0 ? ' +' + rest + ' more' : '');
+    out.push({ text, title: 'Any one of: ' + g.map(sk).join(' or '), anyOf: true });
+  });
+  return out.map(o => {
+    if (!o.m) return o;
+    const m = o.m, specific = m.r.filter(r => r.moduleId !== '*');
+    return { text: (specific.length ? specific.map(r => lbl(r) + (r.minProjects ? ' (' + r.minProjects + '+)' : '')).join(' + ') + ' · ' : '') + APP.productTiny(m.p), title: m.t.join(' + ') };
+  });
 };
 /* ---- Skill matching: see Match v19 below. Core SAP products (a module learned in one can transfer to another). ---- */
 APP.CORE_PRODUCTS = { s4onprem: 1, ecc: 1, s4public: 1 };
@@ -1852,7 +1871,7 @@ APP.matchPillHtml = function (score) {
 APP.pillsHtml = function (labels, n, href) {
   if (!labels.length) return '<span class="muted small">No skills tagged yet</span>';
   const top = labels.slice(0, n || 4), rest = labels.length - top.length;
-  return top.map(l => '<span class="chip" title="' + APP.h(l.title || l.text) + '">' + APP.h(l.text) + '</span>').join('') +
+  return top.map(l => '<span class="chip' + (l.anyOf ? ' req-or' : '') + '" title="' + APP.h(l.title || l.text) + '">' + APP.h(l.text) + '</span>').join('') +
     (rest > 0 ? (href ? '<button type="button" class="more-link" data-action="go" data-href="' + APP.h(href) + '">+' + rest + ' more</button>' : '<span class="more-link">+' + rest + ' more</span>') : '');
 };
 APP.productTiny = function (id) {
@@ -1974,11 +1993,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
   const fitC = APP.db.session && APP.db.session.role === 'consultant' ? APP.consultant(APP.db.session.consultantId) : null;
   const invited = fitC && (job.invited || []).indexOf(fitC.id) !== -1;
   const canBreak = typeof score === 'number' && fitC;
-  const reqLabels = APP.reqGroups(job).map(g => {
-    const byP = []; g.forEach(r => { let b = byP.find(x => x.p === r.productId); if (!b) { b = { p: r.productId, r: [] }; byP.push(b); } b.r.push(r); });
-    const t = byP.map(b => b.r.some(r => r.moduleId === '*') ? APP.productTiny(b.p) : b.r.map(r => APP.reqLabel(r)).join(' / ') + ' · ' + APP.productTiny(b.p)).join(' or ');
-    return { text: t, title: g.map(r => APP.productShort(r.productId) + ': ' + APP.skillName(r.productId, r.moduleId) + (r.minProjects ? ' (' + r.minProjects + '+ projects)' : '')).join(' or ') };
-  });
+  const reqLabels = APP.reqPillLabels(job);
   const loc = APP.locText(job, job.remote ? 'Remote' : undefined) + (job.remote && (job.city || job.country) ? ' (remote ok)' : '');
   const meta = APP.metaBarHtml([APP.h(loc), APP.h(job.employmentType || ''), APP.expLabel(job) ? APP.h(APP.expLabel(job)) + ' exp' : (job.level ? APP.h(job.level) + ' level' : '')]);
   return '<article class="card job-card"' + (link ? ' data-card-href="' + APP.h(link) + '"' : '') + '>' +

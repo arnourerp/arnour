@@ -776,8 +776,8 @@ a.app-item:hover { border-color: var(--blue); }
 .skill-or { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; color: var(--blue-dark); cursor: pointer; }
 .skill-or input { margin: 0; }
 .skill-or-off { color: var(--line); cursor: default; justify-content: center; }
-.chip.req-or { border-style: dashed; }
-.or-sep { color: var(--blue); font-weight: 800; margin: 0 2px; }
+.chip.req-or { border-style: dashed; border-color: var(--border-strong, #b8c2d0); }
+.card-pills .chip, .job-reqs .chip { white-space: normal; text-align: left; max-width: 100%; border-radius: 14px; }
 
 @media (max-width: 600px) {
   .pay-row { grid-template-columns: 1fr 1fr; }
