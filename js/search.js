@@ -75,7 +75,7 @@
       const see = APP.canSeePerson(c), a = see ? c : APP.cv(c, true);
       const name = see ? (c.firstName + ' ' + c.lastName).trim() : APP.anonLabel(c);
       const sc = scoreOf([[see ? c.firstName + ' ' + c.lastName : '', 3], [see ? c.headline : a._title || '', 2], [skillText(c.skills), 2],
-        [(c.specialties || []).map(APP.specialtyName).join(' ') + ' ' + (c.otherSkills || []).join(' '), 1.5], [(c.industries || []).join(' '), 1], [APP.countryName ? APP.countryName(c.country) : '', 0.8]], ws);
+        [(c.specialties || []).map(APP.specialtyName).join(' ') + ' ' + (c.otherSkills || []).join(' ') + ' ' + (c.otherTools || []).join(' '), 1.5], [(c.industries || []).join(' '), 1], [APP.countryName ? APP.countryName(c.country) : '', 0.8]], ws);
       if (!sc) return;
       res.people.push({ kind: 'people', id: c.id, score: sc + ((APP.reputation(c.id).points || 0) / 500), title: name, anon: !see, sub: [a.headline, APP.countryName ? APP.countryName(c.country) : ''].filter(Boolean).join(' · '),
         skills: skillLabels(c.skills), href: (s && s.role === 'employer' ? '#/e/talent/' : '#/talent/') + c.id, products: (c.skills || []).map(k => k.productId), roleTypes: APP.rtList(c), country: c.country || '', obj: c });

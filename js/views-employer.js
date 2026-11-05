@@ -201,7 +201,7 @@ APP.applyTalentFilters = function (list) {
   return list.filter(c0 => {
     const c = APP.cv(c0);
     if (f.q) {
-      const hay = (APP.consultantFullName(c) + ' ' + c.headline + ' ' + (c.summary || '') + ' ' + APP.roleTypeLine(c) + ' ' + (c.skills || []).map(k => APP.productShort(k.productId) + ' ' + APP.skillName(k.productId, k.moduleId)).join(' ') + ' ' + APP.tagList(c.otherSkills || '').join(' ') + ' ' + (c.specialties || []).map(id => { const x = APP.SPECIAL_IDX[id] || {}; return APP.specialtyName(id) + ' ' + (x.name || '') + ' ' + (x.category || ''); }).join(' ')).toLowerCase();
+      const hay = (APP.consultantFullName(c) + ' ' + c.headline + ' ' + (c.summary || '') + ' ' + APP.roleTypeLine(c) + ' ' + (c.skills || []).map(k => APP.productShort(k.productId) + ' ' + APP.skillName(k.productId, k.moduleId)).join(' ') + ' ' + APP.tagList(c.otherSkills || '').join(' ') + ' ' + APP.tagList(c.otherTools || '').join(' ') + ' ' + (c.specialties || []).map(id => { const x = APP.SPECIAL_IDX[id] || {}; return APP.specialtyName(id) + ' ' + (x.name || '') + ' ' + (x.category || ''); }).join(' ')).toLowerCase();
       if (!hay.includes(f.q.toLowerCase())) return false;
     }
     if (f.product && !(c.skills || []).some(k => k.productId === f.product)) return false;
@@ -421,9 +421,9 @@ APP.views['e-talent-detail'] = function (ctx) {
   const chips = (arr) => arr.map(x => '<span class="chip">' + E(x) + '</span>').join('');
   const specs = (c.specialties || []).map(id => '<span class="chip" title="' + E(APP.specialtyLabel(id)) + '">' + E(APP.specialtyName(id)) + '</span>').join('') + chips(c.otherSkills || []);
   const detail = (title, body) => body ? '<div class="td-det"><h3>' + title + '</h3><div class="chip-wrap">' + body + '</div></div>' : '';
-  const detSec = (c.industries || []).length || specs || (c.languages || []).length
+  const detSec = (c.industries || []).length || specs || (c.otherTools || []).length || (c.languages || []).length
     ? '<section class="jd-sec"><h2>Profile details</h2>' +
-      detail('Industries', chips(c.industries || [])) + detail('Specialties', specs) + detail('Languages', chips(c.languages || [])) + '</section>' : '';
+      detail('Industries', chips(c.industries || [])) + detail('Specialties', specs) + detail('Other tools &amp; third-party solutions', chips(c.otherTools || [])) + detail('Languages', chips(c.languages || [])) + '</section>' : '';
 
   const aboutSec = c.summary ? '<section class="jd-sec"><h2>About</h2><div class="job-desc-full">' + E(c.summary) + '</div></section>' : '';
 

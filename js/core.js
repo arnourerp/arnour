@@ -1072,15 +1072,15 @@ APP.visibilityHtml = function (o) {
   const priv = !!o.priv, kind = o.kind, h = APP.h;
   const T = {
     pro: { title: 'Who can see your name?', lead: 'Companies find you by your skills (product, module, projects), not by your name.',
-      a: ['Skills first, name hidden', 'Companies see your skills and experience. Your name, photo, LinkedIn and CV are shared only when you accept their request.'],
+      a: ['Hide my identity', 'Companies see your skills and experience. Your name, photo, LinkedIn and CV are shared only when you accept their request.'],
       b: ['Show my name', 'Companies see your full profile, with your name and photo, straight away.'],
       hid: 'Hidden until you accept: name, photo, LinkedIn, summary, city, nationality and CV.' },
     co: { title: 'Should your company name show on new roles?', lead: 'This is the starting choice for every role you post. You can still change it on each role.',
-      a: ['Confidential, name hidden', 'Professionals see the role and the industry, not which company is hiring, until you accept their interest.'],
+      a: ['Hide our identity', 'Professionals see the role and the industry, not which company is hiring, until you accept their interest.'],
       b: ['Show our company name', 'Professionals see your company name and logo on your roles.'],
       hid: 'Hidden until you accept: company name, logo, website and contact.' },
     pt: { title: 'Who can see your company name?', lead: 'Customers find you by what your team delivers, not by your name.',
-      a: ['Skills first, name hidden', 'Customers see your products, modules and reach. Your name, contact person and the text about your team are shared only when you accept a request.'],
+      a: ['Hide our identity', 'Customers see your products, modules and reach. Your name, contact person and the text about your team are shared only when you accept a request.'],
       b: ['Show our name', 'Customers see your company name and profile on Find partners.'],
       hid: 'Hidden until you accept: company name, contact person and the text about your team.' }
   }[kind];
@@ -3007,7 +3007,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
     '<option value="">Choose your SAP product…</option>' + APP.opt(CATALOG.products.map(p => [p.id, p.name]), '') + '</select></label></div>' +
     '<p class="muted small prod-empty-h">Pick a product to see its modules.</p></div>';
   return '<div class="prod-cards">' + cards + emptyCard + '</div>' +
-    (unused.length && (nMods || (leadT && order.length)) ? '<button type="button" class="prod-add-card" data-action="prod-add" data-target="' + target + '"><span class="pa-ico">' + APP.icon('plus', 18) + '</span><span class="pa-t"><b>Add another SAP product</b><small>e.g. BTP, SuccessFactors, Ariba</small></span></button>' : '') +
+    (unused.length && (nMods || (leadT && order.length)) ? '<div class="prod-add-box"><button type="button" class="prod-add-card" data-action="prod-add" data-target="' + target + '"><span class="pa-ico">' + APP.icon('plus', 18) + '</span><span class="pa-t"><b>Add another SAP product</b><small>e.g. BTP, SuccessFactors, Ariba</small></span></button></div>' : '') +
     (nMods ? '<p class="muted small prod-count">' + nMods + ' module' + (nMods === 1 ? '' : 's') + ' across ' + order.length + ' product' + (order.length === 1 ? '' : 's') + '</p>' : '');
 };
 /* Products only (Basis, Project / Delivery Manager, Junior): tick the SAP products you work with — no modules, no counts. */
@@ -4960,7 +4960,7 @@ APP.onSubmit = function (f) {
         if (!d.headline) er.headline = 'Add your title or headline';
         if (!APP.genders.some(x => x[0] === d.gender)) er.gender = 'Select Male or Female';
         if (!d.nationality) er.nationality = 'Select your nationality';
-        if (!d.country) er.country = 'Select your country';
+        if (!d.country) er.country = 'Select your current location';
         if (!(d.languages || []).length) er.languages = 'Choose at least one language you speak';
         if (Object.keys(er).length) {
           APP.wizC.err = er;
@@ -4987,6 +4987,7 @@ APP.onSubmit = function (f) {
           return;
         }
         if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
+        if (f.querySelector('[name="otherTools"]')) d.otherTools = g('otherTools');
       } else if (step === 4) {
         if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
         if (f.querySelector('[name="otherSkills"]')) d.otherSkills = g('otherSkills');
@@ -5011,6 +5012,7 @@ APP.onSubmit = function (f) {
         c.workPrefs = (Array.isArray(d.workPrefs) ? d.workPrefs : APP.tagList(d.workPrefs)).filter(Boolean);
         c.specialties = (Array.isArray(d.specialties) ? d.specialties : APP.tagList(d.specialties)).filter(Boolean);
         c.otherSkills = APP.tagList(d.otherSkills);
+        c.otherTools = APP.tagList(d.otherTools);
         c.savedJobIds = [];
         if (APP.LIVE) { APP.backend.finishWizard('consultant', c); return; }
         APP.db.consultants[c.id] = c;
@@ -5080,7 +5082,7 @@ APP.onSubmit = function (f) {
       d.headline = g('headline'); d.nationality = g('nationality');
       d.linkedin = g('linkedin'); /* optional — plain assignment so it can be cleared */
       d.country = g('country'); d.city = d.country ? g('city') : '';
-      if (!d.country) { APP.toast('Please select your country'); APP.peJump('basics'); return; }
+      if (!d.country) { APP.toast('Please select your current location'); APP.peJump('basics'); return; }
       d.yearsExp = +g('yearsExp') || user.yearsExp;
       d.gender = g('gender') || user.gender || '';
       if (!d.gender) delete d.gender;
@@ -5101,6 +5103,7 @@ APP.onSubmit = function (f) {
       d.workPrefs = (APP.profileDraft && Array.isArray(APP.profileDraft.workPrefs) ? APP.profileDraft.workPrefs : user.workPrefs) || [];
       d.specialties = (APP.profileDraft && Array.isArray(APP.profileDraft.specialties) ? APP.profileDraft.specialties : user.specialties) || [];
       d.otherSkills = APP.tagList(g('otherSkills') || ((APP.profileDraft || user).otherSkills || ''));
+      d.otherTools = APP.tagList(fd.has('otherTools') ? g('otherTools') : ((APP.profileDraft || user).otherTools || ''));
       Object.assign(user, d);
       APP.state.profileEdit = false;
       APP.profileDraft = null;

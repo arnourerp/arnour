@@ -37,10 +37,12 @@
       '<p class="field-hint">Upload your CV and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.</p>' +
       (busy
         ? '<p class="live-note cv-reading" role="status"><span class="cv-spin" aria-hidden="true"></span> Reading your CV…</p>'
-        : '<div class="cv-import-row"><label class="cv-drop">' + APP.icon('file', 18) + '<span>Upload your CV (PDF or Word .docx)</span><input type="file" accept=".pdf,.docx" data-cv-import hidden></label>' +
-          '<button type="button" class="link-btn" data-cv-act="dismiss">No thanks, I will fill it in myself</button></div>') +
+        : '<label class="cv-zone" data-cv-zone><span class="cv-zone-ico" aria-hidden="true">' + APP.icon('file', 30) + '</span>' +
+          '<span class="cv-zone-t"><b>Drop your CV here, or click to choose a file</b><small>PDF or Word (.docx) · up to 5 MB</small></span>' +
+          '<span class="cv-zone-btn">Choose file</span><input type="file" accept=".pdf,.docx" data-cv-import hidden></label>' +
+          '<p class="cv-skip"><button type="button" class="link-btn" data-cv-act="dismiss">No thanks, I will fill it in myself</button></p>') +
       (S.state === 'error' && S.msg ? '<p class="field-error" role="alert">' + esc(S.msg) + '</p>' : '') +
-      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' We read your CV once with AI (Anthropic\'s Claude) to fill in this form. Email addresses and phone numbers are removed on your device first. The text of your CV is not stored, not used to train AI and not shown to anyone. Your CV file is saved privately on your profile, like any CV you upload, and you can remove it on the last step. <a href="#/privacy" target="_blank" rel="noopener">Privacy</a></p>' +
+      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' Read once by AI to fill this form. <a href="#/privacy" target="_blank" rel="noopener">Privacy</a></p>' +
       '</section>';
   };
 
@@ -51,7 +53,7 @@
     if (!d.headline) need.push('your title');
     if (!d.gender) need.push('your gender');
     if (!d.nationality) need.push('your nationality');
-    if (!d.country) need.push('your country');
+    if (!d.country) need.push('your current location');
     if (!(d.languages || []).length) need.push('your languages');
     return '<section class="wiz-sec cv-import cv-found" data-sec="cvimp">' +
       '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('check', 18) + '</span><h2>We read your CV</h2></div>' +
@@ -66,6 +68,15 @@
     var t = e.target;
     if (!t || !t.matches || !t.matches('input[data-cv-import]')) return;
     var file = t.files && t.files[0]; t.value = '';
+    if (file) run(file);
+  });
+  function zoneOf(e) { return e.target && e.target.closest && e.target.closest('[data-cv-zone]'); }
+  document.addEventListener('dragover', function (e) { var z = zoneOf(e); if (z) { e.preventDefault(); z.classList.add('drag'); } });
+  document.addEventListener('dragleave', function (e) { var z = zoneOf(e); if (z) z.classList.remove('drag'); });
+  document.addEventListener('drop', function (e) {
+    var z = zoneOf(e); if (!z) return;
+    e.preventDefault(); z.classList.remove('drag');
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (file) run(file);
   });
   document.addEventListener('click', function (e) {

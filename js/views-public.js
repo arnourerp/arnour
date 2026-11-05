@@ -186,7 +186,7 @@ APP.wizCDefaults = function () {
     workPrefs: [],
     currency: 'USD', dailyRate: '', summary: '', cv: null,
     skills: [], /* no product preselected: the person chooses their own */
-    industries: [], specialties: [], otherSkills: '',
+    industries: [], specialties: [], otherSkills: '', otherTools: '',
     anon: true /* private by default: Mutual Reveal */
   };
 };
@@ -209,7 +209,7 @@ APP.views['wiz-c'] = function () {
   const rp = APP.roleProfile(d);
   const vis = APP.wizVisible();
   const progress = vis.map((n, i) =>
-    '<div class="wiz-step ' + (n === step ? 'active' : '') + (i < vis.indexOf(step) ? 'done' : '') + '"><span class="wiz-dot">' + (i < vis.indexOf(step) ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + APP.wizStepTitle(n, d) + '</small></div>'
+    '<div role="listitem"' + (n === step ? ' aria-current="step"' : '') + ' class="wiz-step ' + (n === step ? 'active' : '') + (i < vis.indexOf(step) ? 'done' : '') + '"><span class="wiz-dot">' + (i < vis.indexOf(step) ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + APP.wizStepTitle(n, d) + '</small></div>'
   ).join('');
 
   let body = '';
@@ -242,7 +242,7 @@ APP.views['wiz-c'] = function () {
       sec('where', 'pin', 'Where you are',
         '<div class="form-grid g3">' +
         '<label class="field"><span class="label">Nationality <span class="req-star">*</span></span><select name="nationality" class="input"' + inv('nationality') + '><option value=""' + (d.nationality ? '' : ' selected') + '>Select your nationality…</option>' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select>' + E('nationality') + '</label>' +
-        '<label class="field"><span class="label">Country <span class="req-star">*</span></span><select name="country" data-wizard="c" class="input" id="wiz-country"' + inv('country') + '>' + APP.countryOptions(d.country) + '</select>' + E('country') + '</label>' +
+        '<label class="field"><span class="label">Current location <span class="req-star">*</span></span><select name="country" data-wizard="c" class="input" id="wiz-country"' + inv('country') + '>' + APP.countryOptions(d.country) + '</select>' + E('country') + '</label>' +
         '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
         '</div>') +
       sec('languages', 'msg', 'Languages <span class="req-star">*</span>',
@@ -251,15 +251,14 @@ APP.views['wiz-c'] = function () {
       '</form>';
   } else if (step === 7) {
     body = '<form data-form="wiz-c" data-step="7">' +
-      '<p class="vis-intro">Arnour works <b>skills first, names second</b>: companies find you by what you can do. Choose what they see before you accept.</p>' +
       APP.visPro(d, 'wizC', { after: ' You can change this any time in Edit profile.' }) +
       APP.wizNav(7, 6) +
       '</form>';
   } else if (step === 2) {
     body = '<form data-form="wiz-c" data-step="2">' +
       sec('exp', 'briefcase', 'Your experience',
-        '<div class="range-row"><span class="label">Years of experience</span><output>' + d.yearsExp + '</output>' +
-        '<input type="range" class="range" min="1" max="30" value="' + d.yearsExp + '" data-slider-out data-wizard-years name="yearsExpR">' +
+        '<div class="range-row"><span class="label">Years of experience</span><output class="yrs-big">' + d.yearsExp + '</output>' +
+        '<input type="range" class="range" min="1" max="30" value="' + d.yearsExp + '" data-slider-out data-wizard-years name="yearsExpR" aria-label="Years of experience">' +
         '</div>' +
         '<input type="hidden" name="yearsExp" value="' + d.yearsExp + '">' +
         (rp.lvl ? '<div class="field"><span class="label">Experience level</span><div class="seg">' +
@@ -279,12 +278,14 @@ APP.views['wiz-c'] = function () {
     }[rp.skills];
     const lead = APP.isLeadRole(d);
     const hint3 = lead ? 'Pick the SAP products you have worked across. Ticking modules is optional — add them only where they matter. Companies search by product, so at least one is needed.' : hint;
-    const indLabel = { many: 'Industries you\'ve worked in', optional: 'Industries you\'ve worked in (optional)', one: 'Your industry' }[rp.ind];
+    const indLabel = { many: 'Industry Knowledge', optional: 'Industry Knowledge (optional)', one: 'Your industry' }[rp.ind];
     body = '<form data-form="wiz-c" data-step="3">' +
       sec('skills', 'spark', lead ? 'SAP products you have worked across' : 'Your SAP skills',
         '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint3 + '</p>' +
         '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>' +
         (er.skills ? '<p class="field-error" role="alert">' + APP.h(er.skills) + '</p>' : '')) +
+      sec('tools', 'plus', 'Other tools &amp; third-party solutions <span class="muted">(optional)</span>',
+        '<label class="field"><input name="otherTools" class="input" value="' + APP.h(Array.isArray(d.otherTools) ? d.otherTools.join(', ') : (d.otherTools || '')) + '" placeholder="e.g. Vertex, Blackline, Kinaxis, Celonis, OpenText — comma separated" aria-label="Other tools and third-party solutions"><p class="muted small">Anything that works with SAP but is not an SAP product. Companies can find you by these words in search; they do not change your match score.</p></label>') +
       (rp.prog && !lead ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
         '<label class="field"><input name="programs" type="number" inputmode="numeric" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       (rp.ind ? sec('ind', 'building', indLabel,
@@ -340,9 +341,10 @@ APP.views['wiz-c'] = function () {
   return '<div class="wizard-wrap wizard-wide">' +
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
     '<div class="card wizard-card wiz-flat">' +
-    '<div class="wiz-progress">' + progress + '</div>' +
+    '<div class="wiz-progress" role="list" aria-label="Sign-up steps">' + progress + '</div>' +
+    '<p class="wiz-eyebrow">Step ' + (vis.indexOf(step) + 1) + ' of ' + vis.length + ' · ' + APP.wizStepTitle(step, d) + '</p>' +
     '<h1 class="wiz-title">' + APP.wizStepTitle(step, d) + '</h1>' +
-    '<p class="muted small wiz-time">Step ' + (vis.indexOf(step) + 1) + ' of ' + vis.length + ' · about ' + Math.max(1, Math.ceil((vis.length - vis.indexOf(step)) * 0.4)) + ' min left · you can edit everything later</p>' +
+    '<p class="muted small wiz-time">About ' + Math.max(1, Math.ceil((vis.length - vis.indexOf(step)) * 0.4)) + ' min left · you can edit everything later</p>' +
     (step === 1 ? APP.cvSlotHtml() : '') + APP.cvBannerHtml(step) +
     body +
     '</div></div>';
@@ -351,6 +353,13 @@ APP.views['wiz-c'] = function () {
 /* "Start from your CV": the code (js/cv-import.js) is fetched only when the wizard opens on the live site.
    Until it has loaded, and whenever the feature is switched off, nothing shows. */
 APP.cvSlotHtml = function () {
+  /* practice copy (no backend): show the box so it can be judged, but it cannot read anything here */
+  if (!APP.LIVE && APP.wizC && APP.wizC.step === 1) return '<div id="cv-slot"><section class="wiz-sec cv-import cv-demo" data-sec="cvimp">' +
+    '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Start from your CV <span class="muted">(optional)</span></h2></div>' +
+    '<p class="field-hint">Upload your CV and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.</p>' +
+    '<div class="cv-zone"><span class="cv-zone-ico" aria-hidden="true">' + APP.icon('file', 30) + '</span><span class="cv-zone-t"><b>Drop your CV here, or click to choose a file</b><small>PDF or Word (.docx) · up to 5 MB</small></span><span class="cv-zone-btn">Choose file</span></div>' +
+    '<p class="live-note">Practice mode: reading a CV only works on the real site.</p>' +
+    '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' Read once by AI to fill this form. <a href="#/privacy" target="_blank" rel="noopener">Privacy</a></p></section></div>';
   if (!APP.LIVE || !APP.wizC) return '';
   if (!APP.cvImpLoaded) {
     if (!APP.cvImpLoading) {
@@ -397,7 +406,7 @@ APP.wizStepsE = ['Company', 'Privacy', 'SAP footprint', 'Finish'];
 /* an SI/Partner describes what its team delivers instead of the SAP systems it runs */
 APP.wizProgressHtml = function (names, step) {
   return names.map((label, i) =>
-    '<div class="wiz-step ' + (i + 1 === step ? 'active' : '') + (i + 1 < step ? 'done' : '') + '"><span class="wiz-dot">' + (i + 1 < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + label + '</small></div>'
+    '<div role="listitem"' + (i + 1 === step ? ' aria-current="step"' : '') + ' class="wiz-step ' + (i + 1 === step ? 'active' : '') + (i + 1 < step ? 'done' : '') + '"><span class="wiz-dot">' + (i + 1 < step ? APP.icon('check', 11) : (i + 1)) + '</span><small>' + label + '</small></div>'
   ).join('');
 };
 APP.wizStepsEFor = function (d) { return d && d.companyType === 'partner' ? ['Company', 'Team skills', 'About your team', 'Finish'] : APP.wizStepsE; };
@@ -445,7 +454,6 @@ APP.views['wiz-e'] = function () {
       '</form>';
   } else if (step === 2) {
     body = '<form data-form="wiz-e" data-step="2">' +
-      '<p class="vis-intro">Arnour works <b>skills first, names second</b>. Choose how your company appears when you post roles.</p>' +
       APP.visCo(d, 'wizE', { after: ' You can change this any time, and per role.' }) +
       APP.wizNav2(2, 4) +
       '</form>';
@@ -476,7 +484,8 @@ APP.views['wiz-e'] = function () {
   return '<div class="wizard-wrap">' +
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
     '<div class="card wizard-card">' +
-    '<div class="wiz-progress">' + progress + '</div>' +
+    '<div class="wiz-progress" role="list" aria-label="Sign-up steps">' + progress + '</div>' +
+    '<p class="wiz-eyebrow">Step ' + step + ' of ' + stepNames.length + ' · ' + stepNames[step - 1] + '</p>' +
     '<h1 class="wiz-title">' + stepNames[step - 1] + '</h1>' +
     body +
     '</div></div>';

@@ -11,9 +11,9 @@ t('switch is off',await ev(()=>APP.SHOW_RATES===false));
 await ev(()=>{ APP.wizC={step:4,data:Object.assign(APP.wizCDefaults(),{firstName:'A',lastName:'B',gender:'male',headline:'H',nationality:'Egypt',country:'ae',languages:['English'],roleType:'functional',roleTypes:['functional'],_rtFor:'functional',skills:[{productId:'s4onprem',moduleId:'fi',projects:2}]})}; APP._formSyncSkip=['wiz-c']; location.hash='#/onboard'; APP.render(); });
 await p.waitForTimeout(300);
 t('progress shows 6 steps, no rate',await ev(()=>document.querySelectorAll('.wiz-step').length===6&&!/\brate\b/i.test(document.querySelector('.wiz-progress').textContent)));
-t('counter says of 6',await ev(()=>/Step 5 of 6/.test(document.querySelector('.wiz-time').textContent)));
+t('counter says of 6',await ev(()=>/Step 5 of 6/.test(document.querySelector('.wiz-eyebrow').textContent)));
 await p.evaluate(()=>{APP._formSyncSkip=['wiz-c']; document.querySelector('form[data-form=wiz-c]').requestSubmit();}); await p.waitForTimeout(300);
-t('step 4 -> final (CV) skipping rate',await ev(()=>APP.wizC.step===6&&/CV/.test(document.querySelector('.wiz-title').textContent)&&/Step 6 of 6/.test(document.querySelector('.wiz-time').textContent)&&!/\brate\b/i.test(document.querySelector('form').textContent)));
+t('step 4 -> final (CV) skipping rate',await ev(()=>APP.wizC.step===6&&/CV/.test(document.querySelector('.wiz-title').textContent)&&/Step 6 of 6/.test(document.querySelector('.wiz-eyebrow').textContent)&&!/\brate\b/i.test(document.querySelector('form').textContent)));
 await p.click('[data-action=wiz-back]'); await p.waitForTimeout(200);
 t('back from final goes to step 4',await ev(()=>APP.wizC.step===4));
 // no rate text on cards/profile/job pages

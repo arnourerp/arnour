@@ -146,13 +146,13 @@ APP.consultantProfileHtml = function (c, o) {
         c.skills.map(k => '<tr><td>' + APP.h(APP.productShort(k.productId)) + '</td><td>' + APP.h(APP.skillName(k.productId, k.moduleId)) + '</td><td>' + Number(k.projects || 0) + '</td><td>' + (k.certified ? APP.icon('check', 13) + ' Yes' : '<span class="muted">—</span>') + '</td></tr>').join('') +
         '</tbody></table>'
       : '<div class="empty small">No skills tagged yet.</div>') +
-    '</div>') + (    '<div class="card"><div class="card-h">Industries</div><div class="chip-wrap">' + ((c.industries || []).length ? (c.industries || []).map(i => '<span class="chip">' + APP.h(i) + '</span>').join('') : '<span class="muted small">None listed' + (pub ? '.' : ' — add them in Edit profile.') + '</span>') + '</div></div>') : (    '<div class="card"><div class="card-h">SAP experience</div>' +
+    '</div>') + ((c.otherTools || []).length ? '<div class="card"><div class="card-h">Other tools &amp; third-party solutions</div><div class="chip-wrap">' + c.otherTools.map(t => '<span class="chip">' + APP.h(t) + '</span>').join('') + '</div></div>' : '') + (    '<div class="card"><div class="card-h">Industries</div><div class="chip-wrap">' + ((c.industries || []).length ? (c.industries || []).map(i => '<span class="chip">' + APP.h(i) + '</span>').join('') : '<span class="muted small">None listed' + (pub ? '.' : ' — add them in Edit profile.') + '</span>') + '</div></div>') : (    '<div class="card"><div class="card-h">SAP experience</div>' +
     (c.skills && c.skills.length
       ? '<table class="skill-table"><thead><tr><th>Product</th><th>Module</th><th>Projects delivered</th><th>Certified</th></tr></thead><tbody>' +
         c.skills.map(k => '<tr><td>' + APP.h(APP.productShort(k.productId)) + '</td><td>' + APP.h(APP.skillName(k.productId, k.moduleId)) + '</td><td>' + Number(k.projects || 0) + '</td><td>' + (k.certified ? APP.icon('check', 13) + ' Yes' : '<span class="muted">—</span>') + '</td></tr>').join('') +
         '</tbody></table>'
       : '<div class="empty small">No skills tagged yet.</div>') +
-    '</div>') + (    '<div class="card"><div class="card-h">Industries</div><div class="chip-wrap">' + ((c.industries || []).length ? (c.industries || []).map(i => '<span class="chip">' + APP.h(i) + '</span>').join('') : '<span class="muted small">None listed' + (pub ? '.' : ' — add them in Edit profile.') + '</span>') + '</div></div>') + (    ((c.specialties && c.specialties.length) || (c.otherSkills && c.otherSkills.length) ? '<div class="card"><div class="card-h">Specialties</div><div class="chip-wrap">' + (c.specialties || []).map(id => '<span class="chip" title="' + APP.h(APP.specialtyLabel(id)) + '">' + APP.h(APP.specialtyName(id)) + '</span>').join('') + (c.otherSkills || []).map(t => '<span class="chip">' + APP.h(t) + '</span>').join('') + '</div></div>' : ''))) +
+    '</div>') + ((c.otherTools || []).length ? '<div class="card"><div class="card-h">Other tools &amp; third-party solutions</div><div class="chip-wrap">' + c.otherTools.map(t => '<span class="chip">' + APP.h(t) + '</span>').join('') + '</div></div>' : '') + (    '<div class="card"><div class="card-h">Industries</div><div class="chip-wrap">' + ((c.industries || []).length ? (c.industries || []).map(i => '<span class="chip">' + APP.h(i) + '</span>').join('') : '<span class="muted small">None listed' + (pub ? '.' : ' — add them in Edit profile.') + '</span>') + '</div></div>') + (    ((c.specialties && c.specialties.length) || (c.otherSkills && c.otherSkills.length) ? '<div class="card"><div class="card-h">Specialties</div><div class="chip-wrap">' + (c.specialties || []).map(id => '<span class="chip" title="' + APP.h(APP.specialtyLabel(id)) + '">' + APP.h(APP.specialtyName(id)) + '</span>').join('') + (c.otherSkills || []).map(t => '<span class="chip">' + APP.h(t) + '</span>').join('') + '</div></div>' : ''))) +
 
     '<div class="grid-2">' +
     '<div class="card"><div class="card-h">Languages</div><div class="chip-wrap">' + ((c.languages || []).length ? (c.languages || []).map(l => '<span class="chip">' + APP.h(l) + '</span>').join('') : '<span class="muted small">None listed</span>') + '</div></div>' +
@@ -209,7 +209,7 @@ APP.views['c-profile'] = function () {
         '<div class="field"><span class="label">Role type(s) <span class="req-star">*</span></span>' + APP.roleTypePicker('profile', d) + addedNote + '</div>' +
         '<div class="form-grid">' +
         '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input">' + APP.opt(APP.withSelected(APP.nationalities, d.nationality).map(n => [n, n]), d.nationality) + '</select></label>' +
-        '<label class="field"><span class="label">Country *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
+        '<label class="field"><span class="label">Current location *</span><select name="country" class="input">' + APP.countryOptions(d.country) + '</select></label>' +
         '<label class="field"><span class="label">City <span class="muted">(optional)</span></span><select name="city" class="input">' + APP.cityOptions(d.country, d.city) + '</select></label>' +
         '</div>' +
         '<div class="field"><span class="label">Languages <span class="req-star">*</span></span><div class="chip-wrap">' + APP.chipGroup('profile', 'languages', APP.withSelected(APP.languages, d.languages), d.languages || []) + '</div></div>',
@@ -222,7 +222,8 @@ APP.views['c-profile'] = function () {
         '</div>' + progF + indF +
         '<div class="field"><span class="label">Open to</span><div class="chip-wrap">' + APP.chipGroup('profile', 'workPrefs', APP.workPrefs, d.workPrefs || []) + '</div></div>' +
         (APP.SHOW_RATES ? '<div class="form-grid"><div class="field"><span class="label">Your rate</span>' + APP.rateInputHtml(d, true) + '</div></div>' : ''),
-      skills: '<h3 class="pe-h">SAP skills</h3>' + skillsF,
+      skills: '<h3 class="pe-h">SAP skills</h3>' + skillsF +
+        '<label class="field"><span class="label">Other tools &amp; third-party solutions <span class="muted">(optional)</span></span><input name="otherTools" class="input" value="' + APP.h(Array.isArray(d.otherTools) ? d.otherTools.join(', ') : (d.otherTools || '')) + '" placeholder="e.g. Vertex, Blackline, Kinaxis, Celonis — comma separated" aria-label="Other tools and third-party solutions"></label>',
       specialties: '<h3 class="pe-h">Specialties</h3>' + specF +
         '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"></label>',
       about: '<h3 class="pe-h">About &amp; CV</h3>' +

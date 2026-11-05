@@ -468,7 +468,7 @@ APP.peopleList = function (me, f) {
     if (f.q) {
       const hay = [see ? c.firstName + ' ' + c.lastName : '', see ? c.headline : a.headline, a._title || '',
         sk.map(k => APP.productShort(k.productId) + ' ' + APP.skillName(k.productId, k.moduleId)).join(' '),
-        (c.specialties || []).map(id => APP.specialtyName(id)).join(' '), (c.otherSkills || []).join(' '), (c.industries || []).join(' ')].join(' ').toLowerCase();
+        (c.specialties || []).map(id => APP.specialtyName(id)).join(' '), (c.otherSkills || []).join(' ') + ' ' + (c.otherTools || []).join(' '), (c.industries || []).join(' ')].join(' ').toLowerCase();
       const words = f.q.toLowerCase().split(/\s+/).filter(Boolean);
       if (!words.every(w => hay.indexOf(w) !== -1)) return;
     }

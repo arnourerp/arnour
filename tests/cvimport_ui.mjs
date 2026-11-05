@@ -74,7 +74,7 @@ const submit=async(p)=>{ await p.evaluate(()=>document.querySelector('form[data-
 
 /* ========== B. a Word CV, start to finish ========== */
 { const p=await open({});
-  t('B: the card shows with the privacy promise',await p.evaluate(()=>{ const c=document.querySelector('.cv-import'); return !!c&&/Start from your CV/.test(c.textContent)&&/phone numbers are removed on your device/i.test(c.textContent)&&/not stored/i.test(c.textContent)&&/not used to train/i.test(c.textContent)&&!!c.querySelector('a[href="#/privacy"]'); }));
+  t('B: the card shows with the privacy promise',await p.evaluate(()=>{ const c=document.querySelector('.cv-import'); return !!c&&/Start from your CV/.test(c.textContent)&&/read once by AI/i.test(c.textContent)&&!!c.querySelector('a[href="#/privacy"]')&&!!c.querySelector('.cv-zone')&&!/Anthropic/.test(c.textContent); }));
   t('B: it asks for PDF or DOCX only',await p.evaluate(()=>document.querySelector('input[data-cv-import]').accept==='.pdf,.docx'));
   await upload(p,'cv.docx',docx(CV));
   await p.waitForSelector('.cv-found',{timeout:15000});
