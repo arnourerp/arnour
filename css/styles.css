@@ -434,20 +434,13 @@ textarea.input { resize: vertical; }
 .wizard-wrap { max-width: 660px; margin: 0 auto; }
 .wizard-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .wizard-card h2 { margin-bottom: 18px; }
-.wiz-progress { display: flex; gap: 0; margin: 4px 0 18px; }
-.wiz-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; min-width: 0; }
-.wiz-step + .wiz-step::before { content: ""; position: absolute; top: 17px; right: 50%; width: 100%; height: 4px; border-radius: 2px; background: var(--line); z-index: 0; }
-.wiz-step.active::before, .wiz-step.done::before { background: var(--green-ink); }
-.wiz-step.active::before { background: linear-gradient(90deg, var(--green-ink), var(--blue)); }
-.wiz-dot {
-  position: relative; z-index: 1; width: 36px; height: 36px; border-radius: 50%; background: #fff; border: 2px solid var(--line);
-  display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--mut);
-}
-.wiz-step small { font-size: 12.5px; color: var(--mut); text-align: center; line-height: 1.25; }
-.wiz-step.active .wiz-dot { border-color: var(--blue); background: var(--blue); color: #fff; box-shadow: 0 0 0 5px var(--blue-soft); }
-.wiz-step.active small { color: var(--ink); font-weight: 700; }
-.wiz-step.done .wiz-dot { border-color: var(--green-ink); background: var(--green-bg); color: var(--green-ink); }
-.wiz-eyebrow { margin: 0 0 4px; font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--blue-dark); }
+.wiz-progress { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wiz-pbar-wrap { margin: 2px 0 16px; }
+.wiz-pbar-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.wiz-pct { font-size: 20px; font-weight: 800; color: var(--blue-dark); }
+.wiz-pbar { height: 12px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.wiz-pbar span { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--blue), var(--green-ink)); transition: width .35s ease; }
+.wiz-eyebrow { margin: 0; font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--blue-dark); }
 .wiz-nav { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
 
 /* ------------------------------ dashboard / profile ------------------------------ */
@@ -2142,13 +2135,6 @@ a.sr-title:hover { text-decoration: underline; }
   .nav-actions { flex-shrink: 0; }
 }
 /* wizard step names do not fit six across on a phone (they broke mid-word): the dots stay, the heading says where you are */
-@media (max-width: 600px) {
-  .wiz-progress { gap: 5px; margin-bottom: 14px; }
-  .wiz-step { height: 7px; border-radius: 4px; background: var(--line); }
-  .wiz-step + .wiz-step::before { display: none; }
-  .wiz-step.done, .wiz-step.active { background: var(--green-ink); }
-  .wiz-step.active { background: var(--blue); }
-  .wiz-dot, .wiz-step small { display: none; }
 }
 /* nothing under 12 px */
 .tabbar .tab, .tabbar .tab-lbl { font-size: 12px; }

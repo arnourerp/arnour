@@ -13,7 +13,7 @@ const setStep=async(n)=>{ await p.evaluate(s=>{ APP.wizC.step=s; APP._formSyncSk
 await go('#/onboard'); await p.waitForSelector('form[data-form=wiz-c]');
 
 /* step 1 */
-t('stepper: numbered circles in a list, current one marked',await p.evaluate(()=>{ const s=document.querySelectorAll('.wiz-progress .wiz-step'); return s.length>=5&&document.querySelectorAll('.wiz-progress .wiz-step[aria-current=step]').length===1&&getComputedStyle(s[0].querySelector('.wiz-dot')).width==='36px'; }));
+t('step counter is a percent bar that grows',await p.evaluate(()=>{ const b=document.querySelector('.wiz-pbar'); const w=document.querySelector('.wiz-pbar span').style.width; return !!b&&b.getAttribute('role')==='progressbar'&&/%$/.test(document.querySelector('.wiz-pct').textContent)&&w===document.querySelector('.wiz-pct').textContent&&getComputedStyle(b).height==='12px'; }));
 t('"Step 1 of N · title" eyebrow above the title',await p.evaluate(()=>/^Step 1 of \d+ · /.test(document.querySelector('.wiz-eyebrow').textContent)));
 t('the old "Step x of" + minutes line is shortened',await p.evaluate(()=>!/Step \d/.test(document.querySelector('.wiz-time').textContent)&&/min left/.test(document.querySelector('.wiz-time').textContent)));
 t('the CV box is a big drop zone, with a short privacy line and link',await p.evaluate(()=>{ const c=document.querySelector('.cv-import'); return !!c&&!!c.querySelector('.cv-zone')&&/Drop your CV here/.test(c.textContent)&&!/Anthropic/.test(c.textContent)&&!!c.querySelector('a[href="#/privacy"]'); }));
@@ -42,6 +42,7 @@ t('it is kept and listed on the final preview',await p.evaluate(()=>JSON.stringi
 
 /* phone: bar-style steps */
 await p.setViewportSize({width:390,height:800}); await setStep(2);
-t('phone: bar style, the dots are hidden',await p.evaluate(()=>getComputedStyle(document.querySelector('.wiz-dot')).display==='none'&&document.querySelector('.wiz-step').getBoundingClientRect().height<12));
+t('phone: the bar is still shown, full width',await p.evaluate(()=>document.querySelector('.wiz-pbar').getBoundingClientRect().width>300));
+t('step 2 shows its own percent',await p.evaluate(()=>/Step 3 of/.test(document.querySelector('.wiz-eyebrow').textContent)&&document.querySelector('.wiz-pct').textContent===Math.round((APP.wizVisible().indexOf(2)+1)/APP.wizVisible().length*100)+'%'));
 t('no page errors',errs.length===0,errs);
 console.log(f?'FAILURES '+f:'ALL OK'); await b.close(); process.exit(f?1:0);

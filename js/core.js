@@ -1094,7 +1094,7 @@ APP.visibilityHtml = function (o) {
     '<p class="muted small">' + (priv ? T.hid + ' ' : '') + 'A reveal cannot be undone, so it only happens when you accept.' + (o.after || '') + '</p></div>' : '';
   return '<div class="card privacy-card vis-card' + (o.cls ? ' ' + o.cls : '') + '"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + T.title + '</div>' +
     '<p class="muted small vis-lead">' + T.lead + '</p>' +
-    '<div class="vis-tiles" role="group" aria-label="' + h(T.title) + '">' + tile(priv, 'private', T.a, kind === 'pro') + tile(!priv, 'public', T.b, false) + '</div>' + preview + '</div>';
+    '<div class="vis-tiles" role="group" aria-label="' + h(T.title) + '">' + tile(priv, 'private', T.a, false) + tile(!priv, 'public', T.b, false) + '</div>' + preview + '</div>';
 };
 /* professional: preview built from the (draft) profile */
 APP.visPro = function (d, ctx, extra) {

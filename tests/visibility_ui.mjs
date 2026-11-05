@@ -15,7 +15,7 @@ const submit=async(sel)=>{ await p.evaluate(s=>document.querySelector(s).request
 await go('#/onboard'); await p.waitForSelector('form[data-form=wiz-c]');
 t('the steps list has Privacy second',await p.evaluate(()=>{ const v=APP.wizVisible(); return v[0]===1&&v[1]===7&&/Privacy/.test(document.querySelector('.wiz-progress').textContent); }));
 await p.evaluate(()=>{ Object.assign(APP.wizC.data,{firstName:'Dana',lastName:'Hart',headline:'SAP FICO Consultant',nationality:'Egyptian',country:'ae',languages:['English'],gender:'f',roleType:'consultant'}); APP.wizC.step=7; APP._formSyncSkip=['wiz-c']; APP.render(); });
-t('two big choices, private selected and recommended',await p.evaluate(()=>{ const t=[...document.querySelectorAll('.vis-tile')]; return t.length===2&&t[0].classList.contains('on')&&/Recommended/.test(t[0].textContent); }));
+t('two big choices, private selected, no Recommended tag',await p.evaluate(()=>{ const t=[...document.querySelectorAll('.vis-tile')]; return t.length===2&&t[0].classList.contains('on')&&!/Recommended/.test(t[0].textContent); }));
 t('the preview hides the name',await p.evaluate(()=>!/Dana/.test(document.querySelector('.vis-preview').textContent)));
 await p.click('.vis-tile[data-v=public]'); await p.waitForTimeout(200);
 t('"Show my name" is stored and the preview shows the name',await p.evaluate(()=>APP.wizC.data.anon===false&&/Dana/.test(document.querySelector('.vis-preview').textContent)));

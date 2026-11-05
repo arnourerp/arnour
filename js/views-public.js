@@ -342,7 +342,7 @@ APP.views['wiz-c'] = function () {
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
     '<div class="card wizard-card wiz-flat">' +
     '<div class="wiz-progress" role="list" aria-label="Sign-up steps">' + progress + '</div>' +
-    '<p class="wiz-eyebrow">Step ' + (vis.indexOf(step) + 1) + ' of ' + vis.length + ' · ' + APP.wizStepTitle(step, d) + '</p>' +
+    APP.wizBarHtml(vis.indexOf(step) + 1, vis.length, APP.wizStepTitle(step, d)) +
     '<h1 class="wiz-title">' + APP.wizStepTitle(step, d) + '</h1>' +
     '<p class="muted small wiz-time">About ' + Math.max(1, Math.ceil((vis.length - vis.indexOf(step)) * 0.4)) + ' min left · you can edit everything later</p>' +
     (step === 1 ? APP.cvSlotHtml() : '') + APP.cvBannerHtml(step) +
@@ -402,6 +402,12 @@ APP.wizEDefaults = function () {
   };
 };
 
+/* the visible step counter: "Step 2 of 6 · Privacy", the percent done and a filling bar */
+APP.wizBarHtml = function (n, total, title) {
+  const pct = Math.round(n / total * 100);
+  return '<div class="wiz-pbar-wrap"><div class="wiz-pbar-row"><p class="wiz-eyebrow">Step ' + n + ' of ' + total + ' · ' + title + '</p><b class="wiz-pct">' + pct + '%</b></div>' +
+    '<div class="wiz-pbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '" aria-label="Sign-up progress"><span style="width:' + pct + '%"></span></div></div>';
+};
 APP.wizStepsE = ['Company', 'Privacy', 'SAP footprint', 'Finish'];
 /* an SI/Partner describes what its team delivers instead of the SAP systems it runs */
 APP.wizProgressHtml = function (names, step) {
@@ -485,7 +491,7 @@ APP.views['wiz-e'] = function () {
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
     '<div class="card wizard-card">' +
     '<div class="wiz-progress" role="list" aria-label="Sign-up steps">' + progress + '</div>' +
-    '<p class="wiz-eyebrow">Step ' + step + ' of ' + stepNames.length + ' · ' + stepNames[step - 1] + '</p>' +
+    APP.wizBarHtml(step, stepNames.length, stepNames[step - 1]) +
     '<h1 class="wiz-title">' + stepNames[step - 1] + '</h1>' +
     body +
     '</div></div>';
