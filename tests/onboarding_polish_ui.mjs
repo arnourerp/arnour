@@ -14,7 +14,7 @@ await go('#/onboard'); await p.waitForSelector('form[data-form=wiz-c]');
 
 /* step 1 */
 t('step counter is a percent bar that grows',await p.evaluate(()=>{ const b=document.querySelector('.wiz-pbar'); const w=document.querySelector('.wiz-pbar span').style.width; return !!b&&b.getAttribute('role')==='progressbar'&&/%$/.test(document.querySelector('.wiz-pct').textContent)&&w===document.querySelector('.wiz-pct').textContent&&getComputedStyle(b).height==='12px'; }));
-t('"Step 1 of N · title" eyebrow above the title',await p.evaluate(()=>/^Step 1 of \d+ · /.test(document.querySelector('.wiz-eyebrow').textContent)));
+t('"Step 1 of N · title" eyebrow above the title',await p.evaluate(()=>/^Step 1 of \d+$/.test(document.querySelector('.wiz-eyebrow').textContent)));
 t('the old "Step x of" + minutes line is shortened',await p.evaluate(()=>!/Step \d/.test(document.querySelector('.wiz-time').textContent)&&/min left/.test(document.querySelector('.wiz-time').textContent)));
 t('the CV box is a big drop zone, with a short privacy line and link',await p.evaluate(()=>{ const c=document.querySelector('.cv-import'); return !!c&&!!c.querySelector('.cv-zone')&&/Drop your CV here/.test(c.textContent)&&!/Anthropic/.test(c.textContent)&&!!c.querySelector('a[href="#/privacy"]'); }));
 t('"Current location" replaces "Country"',await p.evaluate(()=>/Current location/.test(document.querySelector('[name=country]').closest('label').textContent)&&!/^Country/.test(document.querySelector('[name=country]').closest('label').textContent.trim())));

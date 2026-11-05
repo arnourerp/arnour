@@ -405,7 +405,7 @@ APP.wizEDefaults = function () {
 /* the visible step counter: "Step 2 of 6 · Privacy", the percent done and a filling bar */
 APP.wizBarHtml = function (n, total, title) {
   const pct = Math.round(n / total * 100);
-  return '<div class="wiz-pbar-wrap"><div class="wiz-pbar-row"><p class="wiz-eyebrow">Step ' + n + ' of ' + total + ' · ' + title + '</p><b class="wiz-pct">' + pct + '%</b></div>' +
+  return '<div class="wiz-pbar-wrap"><div class="wiz-pbar-row"><p class="wiz-eyebrow">Step ' + n + ' of ' + total + '</p><b class="wiz-pct">' + pct + '%</b></div>' +
     '<div class="wiz-pbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '" aria-label="Sign-up progress"><span style="width:' + pct + '%"></span></div></div>';
 };
 APP.wizStepsE = ['Company', 'Privacy', 'SAP footprint', 'Finish'];
