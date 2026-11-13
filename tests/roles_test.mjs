@@ -53,9 +53,13 @@ for(const rt of Object.keys(modes)){
       await p.click('[data-action=mod-toggle][data-mid=qm]'); await p.waitForTimeout(120);
       t('projects rows use full module names, 1 project by default',await ev(()=>{const n=Array.from(document.querySelectorAll('.mod-line .ml-n')).map(x=>x.textContent); const v=Array.from(document.querySelectorAll('.mod-line input[data-skill-field=projects]')).map(x=>x.value); return n.join()==='Project System,Quality Management'&&v.join()==='1,1';}),await ev(()=>Array.from(document.querySelectorAll('.mod-line .ml-n')).map(x=>x.textContent)));
       t('module chips stay short (EPPM / PS, QM)',await ev(()=>Array.from(document.querySelectorAll('.mod-chips .mchip.on')).map(x=>x.textContent.trim()).sort().join()==='EPPM / PS,QM'));
-      t('certification is a separate block, no checkbox beside projects',await ev(()=>!!document.querySelector('.cert-box')&&!document.querySelector('.mod-line input[type=checkbox]')&&document.querySelectorAll('.cert-box .cert-chip').length===2));
-      await p.click('.cert-chip[data-mid=qm]'); await p.waitForTimeout(120);
-      t('tapping a cert chip certifies only that module',await ev(()=>{const s=APP.wizC.data.skills; return s.find(x=>x.moduleId==='qm').certified===true&&s.find(x=>x.moduleId==='ps').certified===false;}));
+      t('certification sits in the same module row as the projects (no separate box)',await ev(()=>!document.querySelector('.cert-box')&&!document.querySelector('.mod-line input[type=checkbox]')&&document.querySelectorAll('.mod-card .cert-sw').length===2&&document.querySelectorAll('.mod-card .step-b').length===4));
+      await p.click('.cert-sw[data-mid=qm]'); await p.waitForTimeout(120);
+      t('tapping the certified switch certifies only that module',await ev(()=>{const s=APP.wizC.data.skills; return s.find(x=>x.moduleId==='qm').certified===true&&s.find(x=>x.moduleId==='ps').certified===false;}));
+      await p.click('.mod-card:has(.cert-sw[data-mid=qm]) .step-b[data-d="1"]'); await p.waitForTimeout(120);
+      await p.click('.mod-card:has(.cert-sw[data-mid=qm]) .step-b[data-d="1"]'); await p.waitForTimeout(120);
+      await p.click('.mod-card:has(.cert-sw[data-mid=ps]) .step-b[data-d="-1"]'); await p.waitForTimeout(120);
+      t('the plus and minus buttons change only their own module',await ev(()=>{const s=APP.wizC.data.skills; return s.find(x=>x.moduleId==='qm').projects===3&&s.find(x=>x.moduleId==='ps').projects===0&&!!document.querySelector('.mod-card .step-b:disabled');}));
       t('no module filter box in the professional skills step',await ev(()=>!document.querySelector('.mod-q')));
       t('Add another product card appears once a module is ticked',await ev(()=>!!document.querySelector('.prod-add-card')));
     }

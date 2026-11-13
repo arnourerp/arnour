@@ -2984,9 +2984,15 @@ APP.skillCardsHtml = function (target, skills, mode) {
     const opts = APP.opt(APP.productsPick(pid).filter(p => p.id === pid || order.indexOf(p.id) === -1).map(p => [p.id, p.name]), pid);
     const lines = mode === 'modules' ? '' : idxs.filter(i => real(skills[i])).map(function (i) {
       const k = skills[i]; const m = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).find(x => x.id === k.moduleId);
-      return '<div class="skill-row mod-line" data-skill-row="' + i + '" data-target="' + target + '">' +
-        '<span class="ml-n" title="' + APP.h(m ? m.name : k.moduleId) + '">' + APP.h(m ? APP.moduleFull(m.name) : k.moduleId) + '</span>' +
-        '<label class="ml-f"><span class="muted small">Projects' + (mode === 'optional' ? ' (optional)' : '') + '</span><input type="number" inputmode="numeric" min="0" max="99" class="input" data-skill-field="projects" value="' + Number(k.projects || 0) + '"></label></div>';
+      const nm = m ? APP.moduleFull(m.name) : k.moduleId, n = Number(k.projects || 0);
+      return '<div class="skill-row mod-line mod-card' + (k.certified ? ' is-cert' : '') + '" data-skill-row="' + i + '" data-target="' + target + '">' +
+        '<span class="ml-n" title="' + APP.h(m ? m.name : k.moduleId) + '">' + APP.h(nm) + '</span>' +
+        '<div class="ml-step" role="group" aria-label="Projects delivered in ' + APP.h(nm) + '">' +
+        '<button type="button" class="step-b" data-action="proj-step" data-d="-1" data-target="' + target + '" data-i="' + i + '" aria-label="One project less"' + (n <= 0 ? ' disabled' : '') + '>&minus;</button>' +
+        '<input type="number" inputmode="numeric" min="0" max="99" class="step-n" data-skill-field="projects" value="' + n + '" aria-label="Number of projects">' +
+        '<button type="button" class="step-b" data-action="proj-step" data-d="1" data-target="' + target + '" data-i="' + i + '" aria-label="One project more"' + (n >= 99 ? ' disabled' : '') + '>+</button>' +
+        '</div>' +
+        '<button type="button" class="cert-sw' + (k.certified ? ' on' : '') + '" data-action="cert-toggle" data-target="' + target + '" data-pid="' + APP.h(pid) + '" data-mid="' + APP.h(k.moduleId) + '" aria-pressed="' + (k.certified ? 'true' : 'false') + '">' + APP.icon(k.certified ? 'check' : 'plus', 13) + ' ' + (k.certified ? 'SAP-certified' : 'Certified?') + '</button></div>';
     }).join('');
     const certChips = sel.map(function (mid) {
       const k = skills.find(x => x.productId === pid && x.moduleId === mid) || {};
@@ -2998,8 +3004,8 @@ APP.skillCardsHtml = function (target, skills, mode) {
       '<button type="button" class="icon-btn" data-action="prod-rm" data-target="' + target + '" data-pid="' + APP.h(pid) + '" title="Remove this product" aria-label="Remove this product">' + APP.icon('x', 15) + '</button></div>' +
       '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you have delivered') + ' <span class="muted">— ' + (leadT ? 'optional' : 'tick all that apply') + '</span></span>' +
       APP.moduleChipsHtml(pid, sel, 'data-target="' + target + '" data-pid="' + APP.h(pid) + '"', target + ':' + pid, false) + '</div>' +
-      (lines ? '<div class="mod-lines"><div class="mod-lines-h">' + (mode === 'optional' ? 'How many projects? <span class="muted">(optional)</span>' : 'How many projects?') + '</div>' + lines + '</div>' : '') +
-      (sel.length ? '<div class="cert-box"><div class="mod-lines-h"><b>SAP certification</b> <span class="muted">(optional)</span> <span class="muted small">— select the modules you\'re certified in</span></div><div class="chip-wrap">' + certChips + '</div></div>' : '') +
+      (lines ? '<div class="mod-lines"><div class="mod-lines-h">Projects delivered and SAP certification, per module' + (mode === 'optional' ? ' <span class="muted">(project numbers optional)</span>' : '') + '</div>' + lines + '</div>' : '') +
+      (sel.length && !lines ? '<div class="cert-box"><div class="mod-lines-h"><b>SAP certification</b> <span class="muted">(optional)</span> <span class="muted small">— select the modules you\'re certified in</span></div><div class="chip-wrap">' + certChips + '</div></div>' : '') +
       '</div>';
   }).join('');
   const emptyCard = order.length ? '' :
@@ -4218,6 +4224,16 @@ APP.onClick = function (el, e) {
         const p = CATALOG.products.find(x => used.indexOf(x.id) === -1);
         if (p) scope[key].push({ productId: p.id, moduleId: '', projects: 0, certified: false });
       });
+      break;
+    }
+
+    case 'proj-step': {
+      const scope = APP.getScope(d.target);
+      if (!scope) break;
+      const rows = scope[APP.scopeSkillKey(scope)];
+      const k = Array.isArray(rows) ? rows[+d.i] : null;
+      if (!k) break;
+      APP.skillMutate(el, function () { k.projects = Math.max(0, Math.min(99, (Number(k.projects) || 0) + (+d.d || 0))); });
       break;
     }
 

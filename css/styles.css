@@ -2226,3 +2226,18 @@ a.sr-title:hover { text-decoration: underline; }
 .pt-mods { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 12px; background: var(--bg-subtle, #F8FAFC); }
 .pt-mods-h { margin-bottom: 8px; }
 .pt-prod-chips { gap: 8px; }
+
+/* module rows: projects stepper and certified switch in one card */
+.mod-lines .mod-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 16px; padding: 12px 14px; margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.mod-card.is-cert { border-color: #86EFAC; background: #F0FDF4; }
+.mod-card .ml-n { font-weight: 700; }
+.ml-step { display: inline-flex; align-items: center; gap: 8px; }
+.step-b { width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--accent-blue); background: #fff; color: var(--accent-blue-ink); font-size: 22px; line-height: 1; font-weight: 700; cursor: pointer; padding: 0; }
+.step-b:hover:not(:disabled) { background: var(--accent-blue-soft); }
+.step-b:disabled { opacity: .35; cursor: default; border-color: var(--line); }
+.step-n { width: 64px; text-align: center; font-size: 24px; font-weight: 800; color: var(--blue-dark); border: 1px solid var(--line); border-radius: 10px; padding: 6px 4px; -moz-appearance: textfield; appearance: textfield; }
+.step-n::-webkit-outer-spin-button, .step-n::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mod-card .cert-sw { grid-column: 1 / -1; justify-self: start; }
+.cert-sw { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px; border: 1.5px dashed var(--border-strong, #94A3B8); background: #fff; color: var(--mut); font-weight: 600; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.cert-sw:hover { border-color: #16A34A; color: #15803D; }
+.cert-sw.on { border: 1.5px solid #16A34A; background: #DCFCE7; color: #15803D; }
