@@ -56,6 +56,7 @@ for(const rt of Object.keys(modes)){
       t('certification sits in the same module row as the projects (no separate box)',await ev(()=>!document.querySelector('.cert-box')&&!document.querySelector('.mod-line input[type=checkbox]')&&document.querySelectorAll('.mod-card .cert-sw').length===2&&document.querySelectorAll('.mod-card .step-b').length===4));
       await p.click('.cert-sw[data-mid=qm]'); await p.waitForTimeout(120);
       t('tapping the certified switch certifies only that module',await ev(()=>{const s=APP.wizC.data.skills; return s.find(x=>x.moduleId==='qm').certified===true&&s.find(x=>x.moduleId==='ps').certified===false;}));
+      t('module rows: name, chip and stepper on one line; chips aligned in one column (desktop)',await ev(()=>{const r=[...document.querySelectorAll('.mod-card')].map(c=>{const n=c.querySelector('.ml-n').getBoundingClientRect(),h=c.querySelector('.cert-sw').getBoundingClientRect(),s=c.querySelector('.ml-step').getBoundingClientRect();return {n,h,s}});return r.length>1&&r.every(x=>Math.abs(x.n.top+x.n.height/2-(x.s.top+x.s.height/2))<12&&Math.abs(x.h.top+x.h.height/2-(x.s.top+x.s.height/2))<12&&x.s.width<200)&&r.every(x=>Math.abs(x.h.left-r[0].h.left)<1)}));
       await p.click('.mod-card:has(.cert-sw[data-mid=qm]) .step-b[data-d="1"]'); await p.waitForTimeout(120);
       await p.click('.mod-card:has(.cert-sw[data-mid=qm]) .step-b[data-d="1"]'); await p.waitForTimeout(120);
       await p.click('.mod-card:has(.cert-sw[data-mid=ps]) .step-b[data-d="-1"]'); await p.waitForTimeout(120);

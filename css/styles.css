@@ -2229,10 +2229,11 @@ a.sr-title:hover { text-decoration: underline; }
 
 /* module rows: clean list, certified chip after the name, pill stepper on the right */
 .mod-lines { margin-top: 12px; }
-.mod-lines .mod-card { display: grid; grid-template-columns: minmax(0, 1fr) 140px auto; align-items: center; gap: 8px 14px; padding: 10px 0; margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
-.mod-card .ml-main { display: contents; }
-.mod-card .cert-sw { justify-self: start; }
-@media (max-width: 560px) { .mod-lines .mod-card { grid-template-columns: minmax(0, 1fr) auto; } .mod-card .ml-n { grid-column: 1 / -1; } }
+.mod-lines .mod-card { display: grid; grid-template-columns: minmax(0, 1fr) 140px auto; grid-template-areas: "n c s"; align-items: center; gap: 8px 14px; padding: 10px 0; margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.mod-card .ml-n { grid-area: n; }
+.mod-card .cert-sw { grid-area: c; justify-self: start; }
+.mod-card .ml-step { grid-area: s; justify-self: end; }
+@media (max-width: 560px) { .mod-lines .mod-card { grid-template-columns: auto auto; grid-template-areas: "n n" "c s"; justify-content: space-between; } }
 .mod-card .ml-n { font-weight: 600; }
 .ml-step { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: var(--bg-subtle, #F1F5F9); border: 1px solid var(--line); flex: 0 0 auto; }
 .step-b { width: 34px; height: 34px; border-radius: 50%; border: 0; background: #fff; color: var(--accent-blue-ink); font-size: 20px; line-height: 1; font-weight: 700; cursor: pointer; padding: 0; box-shadow: 0 1px 2px rgba(15,23,42,.12); }
