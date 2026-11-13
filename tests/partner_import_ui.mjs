@@ -78,7 +78,7 @@ const step2=(p)=>p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').
 
 /* ========== B. a PowerPoint, start to finish ========== */
 { const p=await open({});
-  t('B: the card shows with the privacy promise',await p.evaluate(()=>{ const c=document.querySelector('.pt-import'); return !!c&&/Build it from your company presentation/.test(c.textContent)&&/phone numbers and web links are removed on your device/i.test(c.textContent)&&/not stored/i.test(c.textContent)&&/not used to train/i.test(c.textContent)&&/Anthropic/.test(c.textContent); }));
+  t('B: the card is a drop zone with a short privacy line and link',await p.evaluate(()=>{ const c=document.querySelector('.pt-import'); return !!c&&/Build it from your company presentation/.test(c.textContent)&&!!c.querySelector('.cv-zone')&&/Read once by AI/.test(c.textContent)&&!!c.querySelector('a[href="#/privacy"]')&&!/Anthropic/.test(c.textContent); }));
   t('B: it asks for PDF, PPTX or DOCX',await p.evaluate(()=>document.querySelector('input[data-pt-import]').accept==='.pdf,.pptx,.docx'));
   await upload(p,'deck.pptx',pptx(DECK));
   await p.waitForSelector('.pt-import.cv-found',{timeout:15000});
@@ -91,22 +91,22 @@ const step2=(p)=>p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').
   const L=q.body.lists;
   t('B: the lists come from Arnour\'s own catalog',L.products.some(x=>x.id==='s4onprem'&&x.modules.some(m=>m.id==='fi'))&&L.countries.some(c=>c.id==='ae')&&L.specialties.some(s=>s.id==='greenfield')&&L.industries.indexOf('Banking & Financial Services')>-1&&L.languages.indexOf('English')>-1);
   const d=await p.evaluate(()=>JSON.parse(JSON.stringify(APP.wizE.data)));
-  t('B: skills, with project counts and certification',d.partner.skills.length===2&&d.partner.skills[0].projects===14&&d.partner.skills[0].certified===true,d.partner.skills);
+  t('B: a product without modules is imported as the whole product',d.partner.skills.length===1&&d.partner.skills[0].moduleId==='*'&&d.partner.skills[0].productId==='s4onprem',d.partner.skills);
   t('B: industries, specialties, countries, languages, delivery, engagement, size, best-at',JSON.stringify([d.partner.industries,d.partner.specialties,d.partner.countries,d.partner.languages,d.partner.delivery,d.partner.engagement,d.partner.teamSize])==='[["Banking & Financial Services"],["greenfield"],["ae","sa"],["English","Arabic"],["onsite","hybrid"],["team","consultants"],"51-200"]'&&/finance rollouts/.test(d.partner.bestAt),d.partner);
   t('B: the About text was blank, so it was filled',/Dubai SAP firm/.test(d.about),d.about);
   const card=await p.evaluate(()=>document.querySelector('.pt-import.cv-found').textContent);
-  t('B: the found card lists what was filled and asks for a check',/We read your presentation/.test(card)&&/1 SAP product and 2 modules/.test(card)&&/industries/.test(card)&&/Please check it/.test(card)&&/Nothing is saved until/.test(card),card);
-  t('B: the form shows the filled values (one product card, two certified modules)',await p.evaluate(()=>document.querySelectorAll('form[data-form=wiz-e] .prod-card').length===1&&document.querySelectorAll('form[data-form=wiz-e] .cert-chip.on').length===2));
-  t('B: the draft is saved so a reload keeps it',await p.evaluate(()=>{ const x=JSON.parse(localStorage.getItem('arnour-wizard-draft')||'null'); return !!x&&x.wiz.data.partner.skills.length===2; }));
+  t('B: the found card lists what was filled and asks for a check',/We read your presentation/.test(card)&&/1 SAP product/.test(card)&&/industries/.test(card)&&/Please check it/.test(card)&&/Nothing is saved until/.test(card),card);
+  t('B: the form shows the filled product ticked',await p.evaluate(()=>document.querySelectorAll('form[data-form=wiz-e] .pt-prod-chips .chip-on').length===1));
+  t('B: the draft is saved so a reload keeps it',await p.evaluate(()=>{ const x=JSON.parse(localStorage.getItem('arnour-wizard-draft')||'null'); return !!x&&x.wiz.data.partner.skills.length===1; }));
   await step2(p);
   t('B: step 3 already has the details from the file, so only the contact name is still needed',await p.evaluate(()=>APP.wizE.step===3&&!!document.querySelector('[data-pt-best]').value&&!document.querySelector('input[name=contactName]').value));
   await p.fill('input[name=contactName]','Dana'); await step2(p);
-  t('B: step 4 reviews the team skills',await p.evaluate(()=>APP.wizE.step===4&&/Team skills: 2 modules across 1 product/.test(document.body.textContent)));
+  t('B: step 4 reviews the team skills',await p.evaluate(()=>APP.wizE.step===4&&/Team skills: 1 product/.test(document.body.textContent)));
   await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit());
   await p.waitForFunction(()=>location.hash==='#/e/dashboard',null,{timeout:10000});
   const row=(await be.db.query(`select data from companies where owner=$1`,[be.users[p.email].id])).rows[0].data;
-  t('B: saved in the database as a partner with its capabilities',row.companyType==='partner'&&row.partner.skills.length===2&&row.partner.teamSize==='51-200'&&row.partner.countries.length===2&&!('sapSystems' in row&&row.sapSystems.length),row);
-  const pl=(await be.db.query(`select 1 from companies where owner=$1 and jsonb_array_length(data #> '{partner,skills}')=2`,[be.users[p.email].id])).rows.length;
+  t('B: saved in the database as a partner with its capabilities',row.companyType==='partner'&&row.partner.skills.length===1&&row.partner.teamSize==='51-200'&&row.partner.countries.length===2&&!('sapSystems' in row&&row.sapSystems.length),row);
+  const pl=(await be.db.query(`select 1 from companies where owner=$1 and jsonb_array_length(data #> '{partner,skills}')=1`,[be.users[p.email].id])).rows.length;
   t('B: the database kept the capabilities (the cleaning trigger accepted them)',pl===1);
   t('B: no page errors',p.errors.length===0,p.errors); await p.context().close(); }
 
@@ -119,7 +119,7 @@ const step2=(p)=>p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').
   const d=await p.evaluate(()=>JSON.parse(JSON.stringify(APP.wizE.data)));
   t('C: a Word file works',p.posts.length===1&&/Greenfield and migration/.test(p.posts[0].body.text));
   t('C: typed About and best-at text are kept',d.about==='Our own About text.'&&d.partner.bestAt==='Typed by the company.',[d.about,d.partner.bestAt]);
-  t('C: a skill already there is not duplicated or reset',d.partner.skills.filter(k=>k.moduleId==='fi').length===1&&d.partner.skills.find(k=>k.moduleId==='fi').projects===2&&d.partner.skills.length===2,d.partner.skills);
+  t('C: a skill already there is not duplicated or reset',d.partner.skills.filter(k=>k.moduleId==='fi').length===1&&d.partner.skills.find(k=>k.moduleId==='fi').projects===2&&d.partner.skills.length===1,d.partner.skills);
   await p.context().close(); }
 { const p=await open({});
   await upload(p,'deck.pdf',pdf(['Orbit SAP Partners profile','We deliver S/4HANA finance and supply chain programmes for Gulf banks and energy groups with 120 SAP consultants.','Greenfield and migration projects in Dubai and Riyadh. Certified in FI and CO.','Contact: sales@orbit.com']));
@@ -142,12 +142,12 @@ const step2=(p)=>p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').
   await upload(p,'deck.pptx',pptx(DECK));
   await p.waitForSelector('.pt-import.cv-found',{timeout:15000});
   const d=await p.evaluate(()=>JSON.parse(JSON.stringify(APP.profileDraft)));
-  t('D: skills were added to the edit draft next to the existing one',d.partner.skills.length===3&&d.partner.skills.some(k=>k.moduleId==='mm')&&d.partner.skills.some(k=>k.moduleId==='co'),d.partner.skills);
+  t('D: skills were added to the edit draft next to the existing one',d.partner.skills.some(k=>k.moduleId==='mm')&&!d.partner.skills.some(k=>k.moduleId==='*'&&k.productId==='s4onprem'),d.partner.skills);
   await p.click('.pe-tab[data-s=skills]'); await p.waitForTimeout(300);
-  t('D: the Team skills tab shows them',await p.evaluate(()=>document.querySelectorAll('.pe-pane[data-pane=skills] .skill-row, .pe-pane[data-pane=skills] .mod-line, .pe-pane[data-pane=skills] .cert-chip').length>=3));
+  t('D: the Team skills tab shows them',await p.evaluate(()=>document.querySelectorAll('.pe-pane[data-pane=skills] .pt-prod-chips .chip-on').length>=1));
   await p.evaluate(()=>document.querySelector('form[data-form=company-edit]').requestSubmit()); await p.waitForTimeout(800);
   const row=(await be.db.query(`select data from companies where owner=$1`,[be.users[p.email].id])).rows[0].data;
-  t('D: saving stores the capabilities',row.partner.skills.length===3&&row.partner.countries.length===2,row.partner);
+  t('D: saving stores the capabilities',row.partner.skills.length>=1&&row.partner.countries.length===2,row.partner);
   t('D: no page errors',p.errors.length===0,p.errors); await p.context().close(); }
 
 /* ========== E. every error message ========== */

@@ -185,7 +185,8 @@
   APP.ptSummaryLine = function (p) {
     var n = APP.ptSkillCount(p), prods = {}; ((p && p.skills) || []).forEach(function (k) { if (k.moduleId) prods[k.productId] = 1; });
     var np = Object.keys(prods).length;
-    return n ? n + (n === 1 ? ' module' : ' modules') + ' across ' + np + (np === 1 ? ' product' : ' products') : '—';
+    var nm = ((p && p.skills) || []).filter(function (k) { return k.moduleId && k.moduleId !== '*'; }).length;
+    return n ? np + (np === 1 ? ' product' : ' products') + (nm ? ', ' + nm + (nm === 1 ? ' module' : ' modules') : '') : '—';
   };
   /* what a partner must fill in besides its skills; returns the first thing missing (text for a toast) or '' */
   APP.ptMissing = function (p) {
@@ -203,28 +204,59 @@
   /* pane 1: the products and modules the team delivers (what customers search on), plus industries and specialties */
   APP.ptSkillsHtml = function (d) {
     var p = APP.ptEnsure(d);
-    return '<p class="muted small">SAP Customers find you by this on Find partners. Add at least one product and module to be listed. Please leave out rates and prices.</p>' +
-      grp('SAP products and modules your team has delivered', '', APP.skillCardsHtml('partnerCaps', p.skills, 'full')) +
-      grp('Industries', '(optional)', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'industries', APP.industries, p.industries) + '</div>') +
-      grp('Specialties', '(optional)', APP.specialtyChipsHtml('partnerCaps', p.specialties, 'specialties'));
+    return secCard('building', 'Industries <span class="muted">(optional)</span>', 'Customers can filter partners by industry.',
+        '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'industries', APP.industries, p.industries) + '</div>') +
+      secCard('spark', 'SAP products your team delivers <span class="req-star">*</span>',
+        'SAP Customers find you by this on Find partners. Tick every product your team delivers, at least one. For the products that have modules you can also tick the modules (optional). Please leave out rates and prices.',
+        APP.ptProductsHtml(p)) +
+      secCard('users', 'Specialties <span class="muted">(optional)</span>', 'What your team is known for. It sharpens how customers find you.',
+        APP.specialtyChipsHtml('partnerCaps', p.specialties, 'specialties'));
+  };
+  var secCard = function (ico, title, hint, inner) {
+    return '<section class="wiz-sec pt-sec"><div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><h2>' + title + '</h2>' + (hint ? APP.hintHtml(h(hint)) : '') + '</div>' + inner + '</section>';
+  };
+  /* these six products have modules a partner may add (optional); every other product is just ticked */
+  APP.PT_MOD_PRODUCTS = ['data', 'btp', 'industry', 'specialized', 'scmcloud', 'biznetwork'];
+  APP.ptProductsHtml = function (p) {
+    var sk = p.skills || [];
+    var on = function (id) { return sk.some(function (k) { return k.productId === id && k.moduleId; }); };
+    var chipsHtml = CATALOG.products.map(function (pr) {
+      return '<button type="button" class="chip' + (on(pr.id) ? ' chip-on' : '') + '" aria-pressed="' + (on(pr.id) ? 'true' : 'false') + '" data-action="pt-prod" data-pid="' + h(pr.id) + '">' + h(pr.name) + '</button>';
+    }).join('');
+    var subs = APP.PT_MOD_PRODUCTS.filter(on).map(function (id) {
+      var pr = CATALOG.products.filter(function (x) { return x.id === id; })[0]; if (!pr) return '';
+      var sel = sk.filter(function (k) { return k.productId === id && k.moduleId && k.moduleId !== '*'; }).map(function (k) { return k.moduleId; });
+      var mods = (pr.modules || []).filter(function (m) { return !m.hidden || sel.indexOf(m.id) !== -1; });
+      return '<div class="pt-mods"><div class="pt-mods-h"><b>' + h(APP.productShort(id) || pr.name) + '</b> <span class="muted small">modules (optional)</span></div><div class="chip-wrap mod-chips">' +
+        mods.map(function (m) { var o = sel.indexOf(m.id) !== -1; return '<button type="button" class="mchip' + (o ? ' on' : '') + '" data-action="pt-mod" data-pid="' + h(id) + '" data-mid="' + h(m.id) + '" aria-pressed="' + o + '" title="' + h(m.name) + '">' + (o ? APP.icon('check', 12) + ' ' : '') + h(APP.moduleShort(m.name)) + '</button>'; }).join('') +
+        '</div></div>';
+    }).join('');
+    return '<div class="chip-wrap pt-prod-chips">' + chipsHtml + '</div>' + subs;
   };
   /* pane 2: where and how the team delivers, size, best-at text and the hide-name switch */
   APP.ptDetailsHtml = function (d) {
     var p = APP.ptEnsure(d);
     var R = '<span class="req-star">*</span>';
-    return APP.visPt(d, 'pt') + grp('Countries you deliver in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
-      grp('Languages your team works in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'languages', APP.languages, p.languages) + '</div>') +
-      '<div class="form-grid">' +
-      grp('How you deliver ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'delivery', pairsToOpts(APP.PT_DELIVERY), p.delivery) + '</div>') +
-      grp('What you provide ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'engagement', pairsToOpts(APP.PT_ENGAGE), p.engagement) + '</div>') +
-      '</div>' +
-      grp('Team size (SAP consultants) ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'teamSize', APP.PT_SIZES, p.teamSize, true) + '</div>') +
-      '<label class="field"><span class="label">What you are best at ' + R + ' <span class="muted">(up to 400 characters)</span></span>' +
-      '<textarea class="input" rows="3" maxlength="400" data-pt-best placeholder="e.g. S/4HANA Public Cloud rollouts for retail groups in the Gulf, with a local support desk.">' + h(p.bestAt) + '</textarea></label>';
+    return APP.visPt(d, 'pt') +
+      secCard('pin', 'Where you deliver', 'Everything marked * is needed, so customers can judge fit before they ask.',
+        grp('Countries you deliver in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'countries', APP.countries.map(function (c) { return { id: c.id, name: c.name }; }), p.countries) + '</div>') +
+        grp('Languages your team works in ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'languages', APP.languages, p.languages) + '</div>')) +
+      secCard('briefcase', 'How you work', '',
+        '<div class="form-grid">' +
+        grp('How you deliver ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'delivery', pairsToOpts(APP.PT_DELIVERY), p.delivery) + '</div>') +
+        grp('What you provide ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'engagement', pairsToOpts(APP.PT_ENGAGE), p.engagement) + '</div>') +
+        '</div>' +
+        grp('Team size (SAP consultants) ' + R, '', '<div class="chip-wrap">' + APP.chipGroup('partnerCaps', 'teamSize', APP.PT_SIZES, p.teamSize, true) + '</div>')) +
+      secCard('msg', 'What you are best at ' + R, 'Up to 400 characters. Leave out rates and prices.',
+        '<label class="field"><textarea class="input" rows="3" maxlength="400" data-pt-best aria-label="What you are best at" placeholder="e.g. S/4HANA Public Cloud rollouts for retail groups in the Gulf, with a local support desk.">' + h(p.bestAt) + '</textarea></label>');
   };
   /* "Build it from your company presentation": a lazy-loaded card (js/partner-import.js), only on the live site, only when the feature is switched on */
   APP.ptImportSlotHtml = function () {
-    if (!APP.LIVE) return '';
+    /* practice copy (no backend): show the box so it can be judged; it cannot read anything here */
+    if (!APP.LIVE) return '<section class="wiz-sec cv-import cv-demo pt-import" data-sec="ptimp"><div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Build it from your company presentation <span class="muted">(optional)</span></h2></div>' +
+      '<div class="cv-zone"><span class="cv-zone-ico" aria-hidden="true">' + APP.icon('file', 30) + '</span><span class="cv-zone-t"><b>Drop your company profile here, or click to choose a file</b><small>PDF, PowerPoint (.pptx) or Word (.docx) · up to 25 MB</small></span><span class="cv-zone-btn">Choose file</span></div>' +
+      '<p class="live-note">Practice mode: reading a file only works on the real site.</p>' +
+      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' Read once by AI to fill this form. <a href="#/privacy" target="_blank" rel="noopener">Privacy</a></p></section>';
     if (!APP.ptImpLoaded) {
       if (!APP.ptImpLoading) {
         APP.ptImpLoading = true;
@@ -268,9 +300,9 @@
     var c = p.partner || {}; opts = opts || {};
     var groups = groupedSkills(c.skills);
     var card = function (g) {
-      return '<div class="pt-prod-card"><div class="pt-prod-top"><b>' + h(APP.productShort(g.pid) || g.pid) + '</b><span class="muted small">' + g.mods.length + (g.mods.length === 1 ? ' module' : ' modules') + '</span></div>' +
+      return '<div class="pt-prod-card"><div class="pt-prod-top"><b>' + h(APP.productShort(g.pid) || g.pid) + '</b>' + (g.mods.filter(function (k) { return k.moduleId !== '*'; }).length ? '<span class="muted small">' + g.mods.length + (g.mods.length === 1 ? ' module' : ' modules') + '</span>' : '') + '</div>' +
         '<div class="chip-wrap">' + g.mods.map(function (k) {
-          var nm = APP.skillName(k.productId, k.moduleId) || k.moduleId;
+          var nm = k.moduleId === '*' ? 'Whole product' : (APP.skillName(k.productId, k.moduleId) || k.moduleId);
           return '<span class="chip pt-mod">' + h(nm) + (k.projects ? '<small>' + k.projects + (k.projects === 1 ? ' project' : ' projects') + '</small>' : '') +
             (k.certified ? '<span class="pt-cert" title="The team holds an SAP certification in this module">' + APP.icon('check', 12) + ' certified</span>' : '') + '</span>';
         }).join('') + '</div></div>';
@@ -297,7 +329,7 @@
   };
   /* on the partner's own company page: the page customers see, plus the owner's tools in the side column */
   APP.ptOwnHtml = function (co, extra) {
-    var c = co.partner || {}, n = APP.ptSkillCount(c), miss = n ? APP.ptMissing(c) : 'Add at least one SAP product and module your team delivers';
+    var c = co.partner || {}, n = APP.ptSkillCount(c), miss = n ? APP.ptMissing(c) : 'Add at least one SAP product your team delivers';
     var meta = [co.industry, co.size, co.country ? countryName(co.country) + (co.city ? ', ' + co.city : '') : ''].filter(Boolean).join(' · ');
     var site = safeUrl(co.website);
     APP.ptLoadReqs();
@@ -321,7 +353,7 @@
       '<button class="btn btn-outline pt-hero-cta" data-action="co-edit-on">Edit profile</button></div>' +
       APP.ptFactsHtml(c) + '</header>' + status +
       '<div class="pt-cols"><div class="pt-main">' +
-      (n ? APP.ptCapsHtml({ partner: c }) : '<div class="card pt-empty-card"><div class="card-h">What your team delivers</div><p class="muted">Not filled in yet. SAP Customers cannot find you on Find partners until you add at least one product and module.</p><button class="btn btn-primary btn-sm" data-action="co-edit-on">Add it</button></div>') +
+      (n ? APP.ptCapsHtml({ partner: c }) : '<div class="card pt-empty-card"><div class="card-h">What your team delivers</div><p class="muted">Not filled in yet. SAP Customers cannot find you on Find partners until you add at least one SAP product.</p><button class="btn btn-primary btn-sm" data-action="co-edit-on">Add it</button></div>') +
       (co.about ? '<div class="card"><div class="card-h">About</div><p class="pt-about">' + h(co.about) + '</p></div>' : '') +
       '</div><aside class="pt-side pt-own-side">' + side + '</aside></div>';
   };
@@ -536,6 +568,24 @@
       if (a === 'pt-accept' || a === 'pt-decline') { APP.ptAnswer(el.dataset.id, a === 'pt-accept'); return; }
       if (a === 'pt-scroll-req') { var rq = document.getElementById('pt-req'); if (rq) { rq.scrollIntoView({ behavior: 'smooth', block: 'start' }); var ta = rq.querySelector('textarea,select'); if (ta) ta.focus({ preventScroll: true }); } return; }
       if (a === 'pt-clear') { APP.state.ptF = emptyF(); APP.render(); return; }
+      if (a === 'pt-prod' || a === 'pt-mod') {
+        var pid = el.dataset.pid, mid = el.dataset.mid;
+        APP.skillMutate(el, function () {
+          var p = APP.getScope('partnerCaps'); if (!p) return;
+          var rows = p.skills = Array.isArray(p.skills) ? p.skills : [];
+          var mine = rows.filter(function (k) { return k.productId === pid; });
+          if (a === 'pt-prod') {
+            p.skills = mine.length ? rows.filter(function (k) { return k.productId !== pid; }) : rows.concat([{ productId: pid, moduleId: '*', projects: 0, certified: false }]);
+          } else {
+            var has = mine.some(function (k) { return k.moduleId === mid; });
+            var rest = rows.filter(function (k) { return !(k.productId === pid && (k.moduleId === mid || k.moduleId === '*' || !k.moduleId)); });
+            if (!has) rest.push({ productId: pid, moduleId: mid, projects: 0, certified: false });
+            else if (!rest.some(function (k) { return k.productId === pid; })) rest.push({ productId: pid, moduleId: '*', projects: 0, certified: false });
+            p.skills = rest;
+          }
+        });
+        return;
+      }
       if (a === 'pt-retry') { APP.ptFail = false; APP.ptLoad(true); APP.render(); return; }
       return click.apply(this, arguments);
     };

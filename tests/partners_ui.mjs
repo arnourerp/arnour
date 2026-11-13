@@ -92,10 +92,14 @@ await p.click('[data-action=co-edit-on]'); await p.waitForTimeout(400);
 t('the editor has short tabs: Company, About, Team skills, Reach, Contact — and no SAP systems',await p.evaluate(()=>{ const x=[...document.querySelectorAll('.pe-tab')].map(e=>e.textContent.replace(/\s+/g,' ').trim()); return x.length===5&&/Team skills/.test(x[2])&&/Reach/.test(x[3])&&!x.some(y=>/SAP systems/.test(y))&&!!document.querySelector('.pe-pct'); }));
 t('only the first tab is open at the start',await p.evaluate(()=>[...document.querySelectorAll('.pe-pane')].filter(e=>!e.hidden).map(e=>e.dataset.pane).join()==='basics'));
 await tab('skills');
-t('Team skills shows the current products',await p.evaluate(()=>{ const e=document.querySelector('.pe-pane[data-pane=skills]'); return !e.hidden&&e.querySelectorAll('.prod-card').length>=2; }));
-{ const before=await p.evaluate(()=>APP.profileDraft.partner.skills.filter(k=>k.certified).length);
-  await p.click('.pe-pane[data-pane=skills] [data-action=cert-toggle]'); await p.waitForTimeout(300);
-  t('a partner can tick a certified module (no permission error)',await p.evaluate((b)=>APP.profileDraft.partner.skills.filter(k=>k.certified).length!==b&&!/permission/i.test(document.body.innerText),before)); }
+t('Team skills shows the current products',await p.evaluate(()=>{ const e=document.querySelector('.pe-pane[data-pane=skills]'); return !e.hidden&&e.querySelectorAll('.pt-prod-chips .chip-on').length>=2; }));
+{ const sk=()=>p.evaluate(()=>APP.profileDraft.partner.skills.map(k=>k.productId+':'+k.moduleId));
+  const chipOn=(pid)=>p.evaluate((x)=>!!document.querySelector('.pe-pane[data-pane=skills] .pt-prod-chips [data-pid="'+x+'"].chip-on'),pid);
+  await p.evaluate(()=>{ APP.profileDraft.partner.skills=APP.profileDraft.partner.skills.filter(k=>k.productId!=='btp'&&k.productId!=='ariba'); APP.render(); }); await p.waitForTimeout(250);
+  t('a product with no modules is just ticked (whole product)',await (async()=>{ await p.click('.pe-pane[data-pane=skills] [data-action=pt-prod][data-pid=ariba]'); await p.waitForTimeout(250); return (await sk()).includes('ariba:*')&&await chipOn('ariba')&&!(await p.$('.pt-mods [data-pid=ariba]')); })());
+  t('only the six module products offer modules',await (async()=>{ await p.click('.pe-pane[data-pane=skills] [data-action=pt-prod][data-pid=btp]'); await p.waitForTimeout(250); return !!(await p.$('.pt-mods [data-action=pt-mod][data-pid=btp]'))&&(await p.$$('.pt-mods')).length===(await p.evaluate(()=>APP.profileDraft.partner.skills.map(k=>k.productId).filter((x,i,a)=>a.indexOf(x)===i&&APP.PT_MOD_PRODUCTS.includes(x)).length)); })());
+  t('ticking a module replaces the whole-product row, unticking it goes back',await (async()=>{ await p.click('.pt-mods [data-action=pt-mod][data-pid=btp]'); await p.waitForTimeout(250); const a=await sk(); await p.click('.pt-mods [data-action=pt-mod][data-pid=btp].on'); await p.waitForTimeout(250); const b=await sk(); return a.filter(x=>x.startsWith('btp:')).length===1&&!a.includes('btp:*')&&b.includes('btp:*'); })());
+  t('unticking a product removes it',await (async()=>{ await p.click('.pe-pane[data-pane=skills] [data-action=pt-prod][data-pid=ariba]'); await p.waitForTimeout(250); return !(await sk()).some(x=>x.startsWith('ariba:')); })()); }
 await tab('reach');
 t('the visibility card is at the top of the tab and "show our name" is chosen',await p.evaluate(()=>{ const f=document.querySelector('.pe-pane[data-pane=reach] .vis-card'); return !!f&&f.compareDocumentPosition(document.querySelector('.pe-pane[data-pane=reach] .field'))&4&&document.querySelector('.pe-pane[data-pane=reach] .vis-tile[data-v=public]').classList.contains('on'); }));
 await p.fill('[data-pt-best]','We deliver finance programmes on S/4HANA.');
@@ -132,10 +136,11 @@ await p.fill('input[name=name]','Delta SAP'); await p.selectOption('select[name=
 await p.check('input[name=companyType][value=partner]'); await p.waitForTimeout(200);
 t('the step names change as soon as SI/Partner is chosen',await p.evaluate(()=>[...document.querySelectorAll('.wiz-progress small')].map(e=>e.textContent).join('|')==='Company|Team skills|About your team|Finish'));
 await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(400);
-t('step 2 asks for the team skills, not for SAP systems, and not for the details',await p.evaluate(()=>/Team skills/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('.prod-card, .skill-rows, [data-action=prod-add]')&&!/SAP systems your company runs/.test(document.getElementById('app').innerText)&&!document.querySelector('[data-pt-best]')&&!document.querySelector('input[name=contactName]')));
+t('step 2 asks for the team skills, not for SAP systems, and not for the details',await p.evaluate(()=>/Team skills/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('.pt-prod-chips')&&!/SAP systems your company runs/.test(document.getElementById('app').innerText)&&!document.querySelector('[data-pt-best]')&&!document.querySelector('input[name=contactName]')));
+t('step 2: separate cards, industries first, no long grey text, hint icons instead',await p.evaluate(()=>{ const s=[...document.querySelectorAll('.wiz-sec.pt-sec')]; return s.length===3&&/Industries/.test(s[0].textContent)&&/SAP products/.test(s[1].textContent)&&document.querySelectorAll('.pt-sec .hint-i').length===3&&!document.querySelector('.field-hint')&&document.querySelector('.wizard-card').classList.contains('wiz-flat'); }));
 await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(300);
-t('it will not go on without a product and module',await p.evaluate(()=>APP.wizE.step===2));
-await p.evaluate(()=>{ const pr=CATALOG.products.find(x=>x.modules.length); APP.wizE.data.partner.skills.push({productId:pr.id,moduleId:pr.modules[0].id,projects:3,certified:false}); APP.render(); }); await p.waitForTimeout(300);
+t('it will not go on without a product',await p.evaluate(()=>APP.wizE.step===2));
+await p.evaluate(()=>{ const pr=CATALOG.products.find(x=>x.modules.length); APP.wizE.data.partner.skills.push({productId:pr.id,moduleId:'*',projects:0,certified:false}); APP.render(); }); await p.waitForTimeout(300);
 await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(300);
 t('step 3 is its own step, with every field marked required',await p.evaluate(()=>APP.wizE.step===3&&/About your team/.test(document.querySelector('.wiz-title').textContent)&&!!document.querySelector('[data-pt-best]')&&!!document.querySelector('.vis-card .vis-tile')&&!!document.querySelector('input[name=contactName]')&&!document.querySelector('details.pt-more')&&(document.getElementById('app').innerText.match(/\*/g)||[]).length>=6&&!/\(optional/.test(document.querySelector('form[data-form=wiz-e]').innerText.replace('Contact email (optional)',''))));
 const submit3=async()=>{ await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForTimeout(250); };
@@ -148,7 +153,7 @@ await p.evaluate(()=>{ APP.wizE.data.partner.engagement=['team']; APP.render(); 
 await p.evaluate(()=>{ APP.wizE.data.partner.teamSize='11-50'; APP.render(); }); await p.waitForTimeout(200); await needs('then what they are best at',/best at/);
 await p.fill('[data-pt-best]','Finance rollouts for banks.'); await needs('then the contact name',/contact name/);
 await p.fill('input[name=contactName]','Dana'); await submit3();
-t('with everything filled it moves to the review, which names the team skills',await p.evaluate(()=>APP.wizE.step===4&&/Team skills: 1 module across 1 product/.test(document.getElementById('app').innerText)&&/Delivers in United Arab Emirates/.test(document.getElementById('app').innerText)));
+t('with everything filled it moves to the review, which names the team skills',await p.evaluate(()=>APP.wizE.step===4&&/Team skills: 1 product/.test(document.getElementById('app').innerText)&&/Delivers in United Arab Emirates/.test(document.getElementById('app').innerText)));
 await p.evaluate(()=>document.querySelector('form[data-form=wiz-e]').requestSubmit()); await p.waitForFunction(()=>location.hash==='#/e/dashboard',null,{timeout:5000});
 t('the new partner was created with its capabilities and is listed',await p.evaluate(()=>{ const c=APP.company(APP.db.session.companyId); return c.companyType==='partner'&&c.partner.skills.length===1&&c.partner.teamSize==='11-50'&&!c.partner.hideName&&(c.sapSystems||[]).length===0; }));
 await as(null); await go('#/partners');
@@ -161,7 +166,7 @@ t('switching back restores the SAP footprint name',await p.evaluate(()=>[...docu
 
 /* ---- a new partner with nothing filled in is told how to be listed ---- */
 await p.evaluate(()=>{ APP.db.companies['co-new']={id:'co-new',name:'Fresh SI',companyType:'partner',country:'ae'}; }); await as('employer','co-new'); await go('#/e/company');
-t('an empty partner profile explains how to be listed',await p.evaluate(()=>/cannot find you on Find partners until you add at least one product/.test(document.getElementById('app').innerText)));
+t('an empty partner profile explains how to be listed',await p.evaluate(()=>/cannot find you on Find partners until you add at least one SAP product/.test(document.getElementById('app').innerText)));
 await go('#/e/dashboard');
 t('…and the dashboard asks for it',await p.evaluate(()=>/Describe what your team delivers/.test(document.getElementById('app').innerText)));
 

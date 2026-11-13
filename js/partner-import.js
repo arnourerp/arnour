@@ -31,14 +31,15 @@
     if (S.dismissed === host) return '';
     var busy = S.state === 'reading';
     return '<section class="wiz-sec cv-import pt-import" data-sec="ptimp">' +
-      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Build it from your company presentation <span class="muted">(optional)</span></h2></div>' +
-      '<p class="field-hint">Upload your company profile or presentation and we fill in your team skills, industries, countries and more, so you only check and correct it. It takes about 15 seconds.</p>' +
+      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Build it from your company presentation <span class="muted">(optional)</span></h2>' + APP.hintHtml('Upload your company profile or presentation and we fill in your products, industries, countries and more. You check and correct it before anything is saved. Please leave prices out.') + '</div>' +
       (busy
         ? '<p class="live-note cv-reading" role="status"><span class="cv-spin" aria-hidden="true"></span> Reading your presentation…</p>'
-        : '<div class="cv-import-row"><label class="cv-drop">' + APP.icon('file', 18) + '<span>Upload PDF, PowerPoint (.pptx) or Word (.docx)</span><input type="file" accept=".pdf,.pptx,.docx" data-pt-import hidden></label>' +
-          '<button type="button" class="link-btn" data-pt-act="dismiss">No thanks, I will fill it in myself</button></div>') +
+        : '<label class="cv-zone" data-pt-zone><span class="cv-zone-ico" aria-hidden="true">' + APP.icon('file', 30) + '</span>' +
+          '<span class="cv-zone-t"><b>Drop your company profile here, or click to choose a file</b><small>PDF, PowerPoint (.pptx) or Word (.docx) · up to 25 MB</small></span>' +
+          '<span class="cv-zone-btn">Choose file</span><input type="file" accept=".pdf,.pptx,.docx" data-pt-import hidden></label>' +
+          '<p class="cv-skip"><button type="button" class="link-btn" data-pt-act="dismiss">No thanks, I will fill it in myself</button></p>') +
       (S.state === 'error' && S.msg ? '<p class="field-error" role="alert">' + esc(S.msg) + '</p>' : '') +
-      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' We read the file once with AI (Anthropic\'s Claude) to fill in this form. Email addresses, phone numbers and web links are removed on your device first. The text is not stored by Arnour, not used to train AI and not shown to anyone, and the file itself is not kept. Please leave prices out: they are not used.</p>' +
+      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' Read once by AI to fill this form. <a href="#/privacy" target="_blank" rel="noopener">Privacy</a></p>' +
       '</section>';
   };
   function foundHtml(done) {
@@ -53,6 +54,15 @@
     var t = e.target;
     if (!t || !t.matches || !t.matches('input[data-pt-import]')) return;
     var file = t.files && t.files[0]; t.value = '';
+    if (file) run(file);
+  });
+  function zoneOf(e) { return e.target && e.target.closest && e.target.closest('[data-pt-zone]'); }
+  document.addEventListener('dragover', function (e) { var z = zoneOf(e); if (z) { e.preventDefault(); z.classList.add('drag'); } });
+  document.addEventListener('dragleave', function (e) { var z = zoneOf(e); if (z) z.classList.remove('drag'); });
+  document.addEventListener('drop', function (e) {
+    var z = zoneOf(e); if (!z) return;
+    e.preventDefault(); z.classList.remove('drag');
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (file) run(file);
   });
   document.addEventListener('click', function (e) {
@@ -218,14 +228,14 @@
       if (have.length > n0) { p[key] = have; return have.length - n0; } return 0;
     };
     /* skills: add rows that are not there yet (a product with no module chosen yet is replaced by its modules) */
-    var added = 0, prods = {};
-    (r.skills || []).forEach(function (k) {
-      var same = p.skills.some(function (h) { return h.productId === k.productId && h.moduleId === k.moduleId; });
+    var added = 0, addedMods = 0, prods = {};
+    (r.skills || []).map(function (k) { return (APP.PT_MOD_PRODUCTS || []).indexOf(k.productId) === -1 ? { productId: k.productId, moduleId: '*', projects: 0, certified: false } : k; }).forEach(function (k) {
+      var same = p.skills.some(function (h) { return h.productId === k.productId && (h.moduleId === k.moduleId || (k.moduleId === '*' && h.moduleId)); });
       if (same) return;
       p.skills = p.skills.filter(function (h) { return !(h.productId === k.productId && !h.moduleId); });
-      p.skills.push({ productId: k.productId, moduleId: k.moduleId, projects: k.projects || 0, certified: !!k.certified }); added++; prods[k.productId] = 1;
+      p.skills.push({ productId: k.productId, moduleId: k.moduleId, projects: k.projects || 0, certified: !!k.certified }); added++; if (k.moduleId !== '*') addedMods++; prods[k.productId] = 1;
     });
-    if (added) parts.push(plural(Object.keys(prods).length, 'SAP product') + ' and ' + plural(added, 'module'));
+    if (added) parts.push(plural(Object.keys(prods).length, 'SAP product') + (addedMods ? ' and ' + plural(addedMods, 'module') : ''));
     var ni = union('industries', 20); if (ni) parts.push('industries');
     var nsp = union('specialties', 40); if (nsp) parts.push(plural(nsp, 'specialty', 'specialties'));
     var nc = union('countries', 60); if (nc) parts.push('countries');

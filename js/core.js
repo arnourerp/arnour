@@ -5042,7 +5042,7 @@ APP.onSubmit = function (f) {
         if (d.name && d.country && !APP.coTypeById[d.companyType]) { APP.toast('Please tell us what best describes you'); return; }
         if (!d.name || !d.country) { APP.toast(!d.name ? 'Please enter your company name' : 'Please select the headquarters country'); return; }
       } else if (step === 2 && d.companyType === 'partner') {
-        if (APP.ptSkillCount && !APP.ptSkillCount(APP.ptEnsure(d))) { APP.toast('Add at least one SAP product and module your team delivers'); return; }
+        if (APP.ptSkillCount && !APP.ptSkillCount(APP.ptEnsure(d))) { APP.toast('Add at least one SAP product your team delivers'); return; }
       } else if (step === 3 && d.companyType === 'partner') {
         d.contactName = g('contactName'); d.contactTitle = g('contactTitle'); d.contactEmail = g('contactEmail').trim();
         if (d.contactEmail && !APP.validEmail(d.contactEmail)) { APP.toast('That contact email does not look right'); return; }
@@ -5126,7 +5126,7 @@ APP.onSubmit = function (f) {
       if (d.contactEmail && !APP.validEmail(d.contactEmail)) { APP.toast('That contact email does not look right'); APP.peJump('contact'); return; }
       if (APP.profileDraft) d.sapSystems = APP.profileDraft.sapSystems;
       if (d.companyType === 'partner' && APP.ptSkillCount) {
-        const pm = !APP.ptSkillCount(APP.ptEnsure(d)) ? ['skills', 'Add at least one SAP product and module your team delivers'] : (APP.ptMissing(d.partner) ? ['reach', APP.ptMissing(d.partner)] : null);
+        const pm = !APP.ptSkillCount(APP.ptEnsure(d)) ? ['skills', 'Add at least one SAP product your team delivers'] : (APP.ptMissing(d.partner) ? ['reach', APP.ptMissing(d.partner)] : null);
         if (pm) { APP.toast(pm[1]); APP.peJump(pm[0]); return; }
       }
       if (APP.ptCollect) APP.ptCollect(d, co); /* SI/Partner capabilities are kept for partners only */

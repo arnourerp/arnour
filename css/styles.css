@@ -2220,3 +2220,9 @@ a.sr-title:hover { text-decoration: underline; }
 .draft-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .draft-note{display:flex;gap:8px;align-items:flex-start;margin:10px 0;padding:10px 12px;background:#eef3f9;border:1px dashed #9fb1c9;border-radius:8px;font-size:14px}
 .jd-del{color:#a12b2b}
+
+/* partner sign-up: product list with optional modules, cards with space */
+.pt-sec .hint-wrap { margin-left: 6px; }
+.pt-mods { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 12px; background: var(--bg-subtle, #F8FAFC); }
+.pt-mods-h { margin-bottom: 8px; }
+.pt-prod-chips { gap: 8px; }

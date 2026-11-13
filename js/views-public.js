@@ -450,12 +450,12 @@ APP.views['wiz-e'] = function () {
   } else if (step === 3 && isPt) {
     APP.ptEnsure(d);
     body = '<form data-form="wiz-e" data-step="3">' +
-      '<p class="field-hint">Everything marked * is needed, so customers can judge fit before they ask. Leave out rates and prices.</p>' +
       APP.ptDetailsHtml(d) +
+      '<section class="wiz-sec"><div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('users', 18) + '</span><h2>Contact person</h2></div>' +
       '<div class="form-grid">' +
       '<label class="field"><span class="label">Contact name *</span><input name="contactName" class="input" value="' + APP.h(d.contactName) + '" placeholder="Hala Al Suwaidi"></label>' +
       '<label class="field"><span class="label">Contact title</span><input name="contactTitle" class="input" value="' + APP.h(d.contactTitle) + '" placeholder="Partner Manager"></label>' +
-      '</div>' + APP.contactEmailField(d) +
+      '</div>' + APP.contactEmailField(d) + '</section>' +
       APP.wizNav2(3, 4) +
       '</form>';
   } else if (step === 2) {
@@ -489,7 +489,7 @@ APP.views['wiz-e'] = function () {
 
   return '<div class="wizard-wrap">' +
     '<div class="wizard-top"><a class="link" href="#/login">← Back to sign in</a><span class="brand sm">A Arnour</span></div>' +
-    '<div class="card wizard-card">' +
+    '<div class="card wizard-card' + (isPt && (step === 2 || step === 3) ? ' wiz-flat' : '') + '">' +
     '<div class="wiz-progress" role="list" aria-label="Sign-up steps">' + progress + '</div>' +
     APP.wizBarHtml(step, stepNames.length, stepNames[step - 1]) +
     '<h1 class="wiz-title">' + stepNames[step - 1] + '</h1>' +
