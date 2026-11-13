@@ -2986,13 +2986,15 @@ APP.skillCardsHtml = function (target, skills, mode) {
       const k = skills[i]; const m = (CAT_INDEX.byId[pid] ? CAT_INDEX.byId[pid].modules : []).find(x => x.id === k.moduleId);
       const nm = m ? APP.moduleFull(m.name) : k.moduleId, n = Number(k.projects || 0);
       return '<div class="skill-row mod-line mod-card' + (k.certified ? ' is-cert' : '') + '" data-skill-row="' + i + '" data-target="' + target + '">' +
+        '<div class="ml-main">' +
         '<span class="ml-n" title="' + APP.h(m ? m.name : k.moduleId) + '">' + APP.h(nm) + '</span>' +
+        '<button type="button" class="cert-sw' + (k.certified ? ' on' : '') + '" data-action="cert-toggle" data-target="' + target + '" data-pid="' + APP.h(pid) + '" data-mid="' + APP.h(k.moduleId) + '" aria-pressed="' + (k.certified ? 'true' : 'false') + '">' + APP.icon(k.certified ? 'check' : 'plus', 13) + ' ' + (k.certified ? 'SAP-certified' : 'Certified?') + '</button>' +
+        '</div>' +
         '<div class="ml-step" role="group" aria-label="Projects delivered in ' + APP.h(nm) + '">' +
         '<button type="button" class="step-b" data-action="proj-step" data-d="-1" data-target="' + target + '" data-i="' + i + '" aria-label="One project less"' + (n <= 0 ? ' disabled' : '') + '>&minus;</button>' +
         '<input type="number" inputmode="numeric" min="0" max="99" class="step-n" data-skill-field="projects" value="' + n + '" aria-label="Number of projects">' +
         '<button type="button" class="step-b" data-action="proj-step" data-d="1" data-target="' + target + '" data-i="' + i + '" aria-label="One project more"' + (n >= 99 ? ' disabled' : '') + '>+</button>' +
-        '</div>' +
-        '<button type="button" class="cert-sw' + (k.certified ? ' on' : '') + '" data-action="cert-toggle" data-target="' + target + '" data-pid="' + APP.h(pid) + '" data-mid="' + APP.h(k.moduleId) + '" aria-pressed="' + (k.certified ? 'true' : 'false') + '">' + APP.icon(k.certified ? 'check' : 'plus', 13) + ' ' + (k.certified ? 'SAP-certified' : 'Certified?') + '</button></div>';
+        '</div></div>';
     }).join('');
     const certChips = sel.map(function (mid) {
       const k = skills.find(x => x.productId === pid && x.moduleId === mid) || {};
