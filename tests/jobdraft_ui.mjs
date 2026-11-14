@@ -42,6 +42,7 @@ let rows=await sql(`select id, status, data->>'title' title from public.jobs whe
 const id=rows[0]&&rows[0].id;
 t('a draft is saved with only a title',rows[0]&&rows[0].status==='draft'&&rows[0].title==='Half-finished FICO role',rows);
 t('we land on the draft page, marked Draft, with Publish / Edit / Preview / Delete and no tabs',await emp.evaluate(()=>/#\/e\/jobs\//.test(location.hash)&&!!document.querySelector('.jd-title .pill')&&/Draft/.test(document.querySelector('.jd-title').textContent)&&!!document.querySelector('[data-action=job-publish]')&&!!document.querySelector('[data-action=job-delete]')&&!!document.querySelector('[data-action=preview-public]')&&!document.querySelector('.jd-tabs')&&!document.querySelector('[data-action=close-job]')));
+t('the draft page shows no "Days since posted" and says Saved, not Posted',await emp.evaluate(()=>!/Days since posted|Days open/.test(document.body.textContent)&&/Saved /.test(document.querySelector('.jd-posted').textContent)&&!/Posted /.test(document.querySelector('.jd-posted').textContent)));
 await go(emp,'#/e/jobs');
 t('My roles shows a Drafts section with Continue editing / Publish / Delete',await emp.evaluate(()=>{ const b=document.querySelector('.draft-box'); return !!b&&/Half-finished FICO role/.test(b.textContent)&&!!b.querySelector('[data-action=job-publish]')&&!!b.querySelector('[data-action=job-delete]')&&/Continue editing/.test(b.textContent); }));
 const pro=await page('pro'); await go(pro,'#/c/jobs');
@@ -49,6 +50,7 @@ t('a professional does not see the draft',await pro.evaluate((i)=>!APP.db.jobs[i
 await go(emp,'#/e/jobs/'+id);
 await emp.click('[data-action=preview-public]'); await emp.waitForTimeout(600);
 t('Preview as professional opens the role page marked Draft',await emp.evaluate(()=>/#\/job\//.test(location.hash)&&/Half-finished FICO role/.test(document.body.textContent)&&/Draft/.test(document.querySelector('.jd-title').textContent)));
+t('the preview of a draft has no "Posted" line',await emp.evaluate(()=>![...document.querySelectorAll('.jd-fact dt')].some(d=>d.textContent.trim()==='Posted')));
 await go(emp,'#/e/jobs/'+id+'/edit'); await emp.waitForTimeout(400);
 t('editing a draft offers Save draft and Publish (not Save changes)',await emp.evaluate(()=>!!document.querySelector('[data-action=job-draft]')&&/Publish/.test(document.querySelector('.edit-bar').textContent)&&!/Save changes/.test(document.querySelector('.edit-bar').textContent)));
 await emp.click('.edit-bar button[type=submit]'); await emp.waitForTimeout(600);

@@ -231,7 +231,10 @@
     if (p.minExp) row.minExp = p.minExp;
     if (p.level) row.level = p.level;
     if (p.industries.length) row.industries = p.industries;
-    if (p.languages.length) row.languages = p.languages; else if (p.preferredLangs.length) row.preferredLangs = p.preferredLangs;
+    /* an imported role keeps both lists: required languages, and the "plus" languages the ad names (never one that is already required) */
+    if (p.languages.length) row.languages = p.languages;
+    var plus = (p.preferredLangs || []).filter(function (x) { return p.languages.indexOf(x) === -1; });
+    if (plus.length) row.preferredLangs = plus;
     if (p.mustLevel) row.mustLevel = true;
     if (p.mustExp) row.mustExp = true;
     if (p.specialties.length) { row.preferredSpecialties = p.specialties; if (p.mustSpec) row.mustSpec = true; }

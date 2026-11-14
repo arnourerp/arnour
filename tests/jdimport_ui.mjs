@@ -112,6 +112,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
   t('E: sent as an admin read',p.posts.length===1&&p.posts[0].body.kind==='admin'&&!/careers\.acme\.com/.test(p.posts[0].body.text));
   const list=JSON.parse(await p.inputValue('#imp-text'));
   t('E: one role in the list with employer from the ad, the link and source typed, skills, and the cleaned text',list.length===1&&list[0].extEmployer==='Acme Bank'&&list[0].applyUrl==='https://careers.acme.com/job/77'&&list[0].extSource==='Recruiter / agency posting'&&list[0].requires.length===4&&list[0].requires[3].nice===true&&list[0].requires[1].orPrev===true&&list[0].requires[0].minProjects===3&&list[0].country==='ae'&&list[0].city==='Dubai'&&list[0].employmentType==='Full-time'&&!/@|\+971|https?:/.test(list[0].description),list[0]);
+  t('E: the admin row keeps both the required language and the "plus" language',JSON.stringify(list[0].languages)==='["English"]'&&JSON.stringify(list[0].preferredLangs)==='["Arabic"]',[list[0].languages,list[0].preferredLangs]);
   t('E: the usual check ran: ready to import',/ready to import/.test(await p.textContent('.adm-main'))&&await p.locator('[data-action=adm-imp-run]').count()===1,await p.textContent('.adm-main'));
   await p.fill('#jd-slot-admin textarea',AD); await p.fill('[data-jd-admin=url]','https://careers.acme.com/job/78'); await p.click('#jd-slot-admin [data-jd-act=read]');
   await p.waitForFunction(()=>{ try{ return JSON.parse(document.getElementById('imp-text').value).length===2; }catch(e){ return false; } },null,{timeout:10000});

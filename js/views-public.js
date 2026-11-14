@@ -642,7 +642,7 @@ APP.jobSections = function (job, me, opts) {
     ['Duration', job.duration],
     ['Level', job.level],
     ['Experience', APP.expLabel(job) ? APP.expLabel(job) + ' exp' : ''],
-    ['Posted', job.postedTs ? APP.timeAgo(job.postedTs) : '']
+    ['Posted', job.status !== 'draft' && job.postedTs ? APP.timeAgo(job.postedTs) : ''] /* a draft has not been posted yet */
   ].filter(f => f[1] && String(f[1]).trim());
   const factsHtml = facts.map(f => '<div class="jd-fact"><dt>' + f[0] + '</dt><dd>' + E(f[1]) + '</dd></div>').join('');
 

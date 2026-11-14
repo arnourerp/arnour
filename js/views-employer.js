@@ -816,7 +816,7 @@ APP.views['e-job-detail'] = function (ctx) {
     (job.external ? '' : '<button type="button" class="btn btn-ghost btn-sm jd-del" data-action="job-delete" data-id="' + job.id + '">' + APP.icon('x', 14) + ' Delete</button>') +
     '</div>' +
     '<div class="card"><h2 class="jd-side-h">At a glance</h2><div class="jd-stats">' +
-    stat(applicants.length, 'Applicants') + stat(scored.filter(x => APP.appStage(job, x.c.id) === 'shortlisted').length, 'Shortlisted') + stat(nStrongApp(scored), 'Strong matches') + stat(invited.length, 'Invited') + stat(days != null ? days : '–', open ? 'Days open' : 'Days since posted') + '</div></div>' +
+    stat(applicants.length, 'Applicants') + stat(scored.filter(x => APP.appStage(job, x.c.id) === 'shortlisted').length, 'Shortlisted') + stat(nStrongApp(scored), 'Strong matches') + stat(invited.length, 'Invited') + (isDraft ? '' : stat(days != null ? days : '–', open ? 'Days open' : 'Days since posted')) + '</div></div>' + /* a draft has no posted date yet */
     '<div class="card"><h2 class="jd-side-h">Share this role</h2>' + APP.shareHtml({
       title: job.title + (co ? ' — ' + co.name : ''),
       text: job.title + (co ? ' at ' + co.name : '') + ' · ' + APP.locText(job, job.remote ? 'Remote' : '') + (job.remote && (job.city || job.country) ? ' (remote ok)' : '') + ' — now hiring on Arnour, the SAP talent network.',
