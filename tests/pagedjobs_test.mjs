@@ -3,7 +3,7 @@
 import {makeBackend} from './harness.mjs'; import fs from 'fs'; import vm from 'vm';
 const ROOT=process.env.ARNOUR_ROOT;
 const be=await makeBackend(); const db=be.db;
-for (const f of ['014_match_alerts','015_module_families','017_company_type','018_partner_capabilities','026_must_nice','029_light_jobs','030_paged_search','030_paged_search']) await db.exec(fs.readFileSync(ROOT+'/supabase/'+f+'.sql','utf8'));
+for (const f of ['014_match_alerts','015_module_families','017_company_type','018_partner_capabilities','026_must_nice','029_light_jobs','030_paged_search','030_paged_search','031_paged_search_speed','031_paged_search_speed']) await db.exec(fs.readFileSync(ROOT+'/supabase/'+f+'.sql','utf8'));
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,500):'');} else console.log('ok  ',n); };
 await db.exec(`delete from jobs; delete from consultants where owner is null; delete from match_scores_dirty;`); /* start from an empty board: only the roles made here */
 
@@ -171,6 +171,6 @@ const priv=async(role,fn)=>(await db.query(`select has_function_privilege($1,$2,
 t('pages and single roles are open to visitors; the bundle needs a sign-in',await priv('anon','public.list_jobs_page(jsonb,text,int,int)')&&await priv('anon','public.get_jobs(text[])')&&!(await priv('anon','public.my_jobs_bundle()'))&&await priv('authenticated','public.my_jobs_bundle()'));
 t('the worker and the helpers cannot be called from outside',!(await priv('anon','public.match_scores_run(int)'))&&!(await priv('authenticated','public.match_scores_run(int)'))&&!(await priv('authenticated','public._ms_rescore_c(text)'))&&!(await priv('authenticated','public._job_row(public.jobs,boolean)')));
 t('the score tables cannot be read directly',await (async()=>{ try{ const r=await as('pro',`select count(*)::int n from match_scores`); return r[0].n===0; }catch(e){ return true; } })());
-t('running the release again keeps the scores',await (async()=>{ const a=(await db.query(`select count(*)::int n, coalesce(sum(score),0)::int s from match_scores`)).rows[0]; await db.exec(fs.readFileSync(ROOT+'/supabase/030_paged_search.sql','utf8')); const b=(await db.query(`select count(*)::int n, coalesce(sum(score),0)::int s from match_scores`)).rows[0]; return a.n===b.n&&a.s===b.s; })());
+t('running the release again keeps the scores',await (async()=>{ const a=(await db.query(`select count(*)::int n, coalesce(sum(score),0)::int s from match_scores`)).rows[0]; await db.exec(fs.readFileSync(ROOT+'/supabase/030_paged_search.sql','utf8')); await db.exec(fs.readFileSync(ROOT+'/supabase/031_paged_search_speed.sql','utf8')); const b=(await db.query(`select count(*)::int n, coalesce(sum(score),0)::int s from match_scores`)).rows[0]; return a.n===b.n&&a.s===b.s; })());
 t('list_jobs and list_jobs_light are not redefined by the release',!/function public\.list_jobs(_light)?\(\)/.test(fs.readFileSync(ROOT+'/supabase/030_paged_search.sql','utf8')));
 console.log(fails?'FAILS '+fails:'ALL OK'); process.exit(fails?1:0);

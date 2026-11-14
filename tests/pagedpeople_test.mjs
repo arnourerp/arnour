@@ -3,7 +3,7 @@
 import {makeBackend} from './harness.mjs'; import fs from 'fs'; import vm from 'vm';
 const ROOT=process.env.ARNOUR_ROOT;
 const be=await makeBackend(); const db=be.db;
-for (const f of ['014_match_alerts','015_module_families','017_company_type','018_partner_capabilities','021_avatars','026_must_nice','028_other_tools','029_light_jobs','030_paged_search','030_paged_search']) await db.exec(fs.readFileSync(ROOT+'/supabase/'+f+'.sql','utf8'));
+for (const f of ['014_match_alerts','015_module_families','017_company_type','018_partner_capabilities','021_avatars','026_must_nice','028_other_tools','029_light_jobs','030_paged_search','030_paged_search','031_paged_search_speed','031_paged_search_speed']) await db.exec(fs.readFileSync(ROOT+'/supabase/'+f+'.sql','utf8'));
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,600):'');} else console.log('ok  ',n); };
 await db.exec(`delete from jobs; delete from consultants where owner is null; delete from match_scores_dirty;`);
 
