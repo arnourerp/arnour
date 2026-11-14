@@ -6,6 +6,8 @@ const APP = window.APP = {};
 
 /* The version of this deploy's scripts and styles (index.html sets window.ARNOUR_V; written by tests/stamp.mjs).
    Files loaded later (admin, CV / job-ad / presentation readers, PDF reader) add it to their address, so they always match the files already on the page. */
+/* the message as it is in the chat right now (same id), or the given one when it cannot be found */
+APP.liveMsg = function (convId, m) { const cv = APP.conv && APP.conv(convId); return (m && m.id && cv && (cv.messages || []).find(x => x.id === m.id)) || m; };
 APP.vq = function () { const v = String(window.ARNOUR_V || ''); return /^[A-Za-z0-9]{1,40}$/.test(v) ? '?v=' + v : ''; };
 
 /* ---------------------------- constants ---------------------------- */
@@ -4511,7 +4513,8 @@ APP.onClick = function (el, e) {
         sub: m.cv ? 'Your CV will be removed from this chat and can no longer be downloaded from it.' : 'Both of you will see “This message was deleted”. Email notifications already sent cannot be recalled.',
         confirmLabel: 'Delete', danger: true,
         onConfirm: function () {
-          const apply = function () { m.deleted = true; m.text = ''; m.cv = false; delete m.call; m.editedTs = Date.now(); APP.render(); };
+          /* a background refresh may have rebuilt the chat while the dialog was open or the request was under way: mark the message that is in the chat now, not the copy this dialog started with */
+          const apply = function () { const t = APP.liveMsg(d.conv, m); t.deleted = true; t.text = ''; t.cv = false; delete t.call; t.editedTs = Date.now(); APP.render(); };
           if (APP.LIVE && APP.backend) APP.backend.rpc('delete_message', { p_msg: m.id }).then(apply, function () { APP.toast('Could not delete the message. Please try again.'); });
           else { apply(); APP.save(); }
         }
@@ -5338,7 +5341,7 @@ APP.onSubmit = function (f) {
       if (!m || m.deleted) { APP.state.editMsg = null; APP.render(); return; }
       if (!text) { APP.toast('A message cannot be empty — use Delete instead'); return; }
       if (Date.now() - m.ts > 15 * 6e4) { APP.state.editMsg = null; APP.toast('Messages can be edited for 15 minutes after sending'); APP.render(); return; }
-      const apply = function () { if (text !== m.text) { m.text = text; m.editedTs = Date.now(); } APP.state.editMsg = null; APP.render(); };
+      const apply = function () { const t = APP.liveMsg(f.dataset.conv, m); if (text !== t.text) { t.text = text; t.editedTs = Date.now(); } APP.state.editMsg = null; APP.render(); };
       if (text === m.text) { apply(); return; }
       if (APP.LIVE && APP.backend) APP.backend.rpc('edit_message', { p_msg: m.id, p_text: text }).then(apply, function (e) {
         APP.toast(/edit window/i.test(String((e && e.message) || e)) ? 'Messages can be edited for 15 minutes after sending' : 'Could not save the change. Please try again.');
