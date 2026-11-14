@@ -33,7 +33,8 @@ const SQL = ['version_test', 'lightjobs_test', 'pagedjobs_test', 'pagedpeople_te
 const UI = ['seo_test', 'lazy_admin_ui', 'returning_ui', 'lightjobs_ui', 'paged_ui', 'access_ui', 'e2e', 'e2e2', 'e2e3', 'e2e4', 'nav4', 'roles_test', 'rates_off', 'extapply', 'coedit', 'skills_block', 'exttest_ui', 'longtext', 'fbui', 'fbmenu_live', 'poll_test', 'longwrap', 'polish_test', 'captcha_test', 'anon_preview', 'lead_wizard', 'job_lead', 'job_status', 'jobtabs_ui', 'mustnice_ui', 'jobdraft_ui', 'msg_ui', 'edit_cancel', 'attn_test', 'peer_profile', 'people_test', 'email_ui', 'nav_back', 'samples_toggle', 'session_lost', 'oauth_test', 'search_test', 'pipeline_ui', 'catalog_ui', 'lists_ui', 'announce_ui', 'profile_ui', 'admin_ux', 'seo_urls_ui', 'attribution_ui', 'cvimport_ui', 'earlyhome_ui', 'jdimport_ui', 'cotype_ui', 'reqmode_ui', 'partners_ui', 'partner_import_ui', 'visibility_ui', 'partner_chat_ui', 'photo_ui', 'onboarding_polish_ui', 'photo_live_ui', 'staff_messages_ui', 'health_errors_ui', 'traffic_ui', 'reminders_ui'];
 const only = process.argv.slice(2);
 const list = (only.length ? only : SQL.concat(UI));
-const env = Object.assign({}, process.env, { ARNOUR_ROOT: ROOT, ARNOUR_DEMO: DEMO, ARNOUR_TESTS: TESTS, PORT_LIVE: String(PORT_LIVE), PORT_DEMO: String(PORT_DEMO) });
+/* the suites run in UTC, like the CI machine and the live database: a few date checks compare the test database's "today" with a UTC date */
+const env = Object.assign({}, process.env, { TZ: 'UTC', ARNOUR_ROOT: ROOT, ARNOUR_DEMO: DEMO, ARNOUR_TESTS: TESTS, PORT_LIVE: String(PORT_LIVE), PORT_DEMO: String(PORT_DEMO) });
 const results = [];
 for (const name of list) {
   const t0 = Date.now();
