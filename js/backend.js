@@ -75,15 +75,66 @@
 
   /* ------------------------------ loading ------------------------------ */
   B.fetchPublic = function () {
-    return Promise.all([B.sb.rpc('list_jobs'), B.sb.rpc('list_companies'), B.fetchCommunity(), B.fetchCatalog(), B.fetchLists(), B.fetchBanner()]).then(function (r) {
+    return Promise.all([B.fetchJobs(), B.sb.rpc('list_companies'), B.fetchCommunity(), B.fetchCatalog(), B.fetchLists(), B.fetchBanner()]).then(function (r) {
       /* the announcement banner for whoever is signed in (null for visitors and when there is none) */
       var nb = r[5] || null;
       if ((nb ? nb.id : 0) !== (APP.banner ? APP.banner.id : 0)) { APP.banner = nb; if (APP.render && APP.db && APP.db.session !== undefined) { setTimeout(function () { try { APP.render(); } catch (e) { /* ignore */ } }, 0); } }
       if (r[4] && r[4].v !== APP.LISTS_V && APP.applyLists) { try { APP.applyLists(r[4]); } catch (e) { /* keep what we have */ } }
       /* the catalog (products, modules, specialties) is kept in the database; the built-in copy is the fallback */
       if (r[3] && r[3].v !== APP.CATALOG_V && APP.applyCatalog) { try { APP.applyCatalog(r[3]); } catch (e) { /* keep what we have */ } }
-      return { jobs: unwrap(r[0], 'list_jobs'), companies: unwrap(r[1], 'list_companies'), community: r[2] };
+      return { jobs: B.reText(unwrap(r[0].res, r[0].fn)), companies: unwrap(r[1], 'list_companies'), community: r[2] };
     });
+  };
+
+  /* ---- light role list (release 49) ----
+     Start-up downloads the roles without their description text (most of the download); "descN" on a role says how long its text is.
+     The text of one role is fetched when the role is opened, and all texts are fetched the first time the person searches,
+     so search still finds words that only appear in a description. A person's own roles always arrive complete, because an edited role is saved as a whole.
+     If the database does not have the new functions yet, the full list is used as before. */
+  var NO_FN = /PGRST202|42883|does not exist|not find/i;
+  B._text = {};      /* role id | edited time | length -> description already fetched in this tab */
+  B._textP = {};     /* role id -> request under way */
+  B._textFail = {};  /* role id -> could not be loaded */
+  function textKey(j) { return j.id + '|' + (j.editedTs || 0) + '|' + (j.descN || 0); }
+  B.fetchJobs = function () {
+    var full = function () { return B.sb.rpc('list_jobs').then(function (r) { return { res: r, fn: 'list_jobs' }; }); };
+    if (B.noLight) return full();
+    return B.sb.rpc('list_jobs_light').then(function (r) {
+      if (r.error && NO_FN.test((r.error.code || '') + ' ' + (r.error.message || ''))) { B.noLight = true; return full(); }
+      return { res: r, fn: 'list_jobs_light' };
+    });
+  };
+  /* put back the texts this tab already has, after every fresh list */
+  B.reText = function (jobs) {
+    jobs.forEach(function (j) { if (APP.jobNeedsText(j)) { var t = B._text[textKey(j)]; if (t != null) j.description = t; } });
+    return jobs;
+  };
+  APP.jobNeedsText = function (j) { return !!j && j.descN > 0 && j.description == null; };
+  B.loadJobText = function (id) {
+    var j = APP.db.jobs[id];
+    if (!APP.jobNeedsText(j) || B._textP[id] || B._textFail[id]) return;
+    var key = textKey(j);
+    B._textP[id] = B.sb.rpc('get_job_text', { p_id: id }).then(function (r) {
+      delete B._textP[id];
+      if (r.error || typeof r.data !== 'string') { B._textFail[id] = 1; }
+      else { B._text[key] = r.data; var now = APP.db.jobs[id]; if (APP.jobNeedsText(now) && textKey(now) === key) now.description = r.data; }
+      if (location.hash.indexOf(id) !== -1) APP.render();
+    }, function () { delete B._textP[id]; B._textFail[id] = 1; if (location.hash.indexOf(id) !== -1) APP.render(); });
+  };
+  B.retryJobText = function (id) { delete B._textFail[id]; B.loadJobText(id); APP.render(); };
+  B.needAllTexts = function () { return !B.noLight && Object.values(APP.db.jobs || {}).some(APP.jobNeedsText); };
+  B.loadAllJobTexts = function () {
+    if (B._allP || (B._allTs && Date.now() - B._allTs < 60000) || !B.needAllTexts()) return;
+    B._allP = B.sb.rpc('list_job_texts').then(function (r) {
+      B._allP = null; B._allTs = Date.now();
+      if (r.error || !r.data || typeof r.data !== 'object') return;
+      var got = 0;
+      Object.values(APP.db.jobs).forEach(function (j) {
+        if (!APP.jobNeedsText(j) || typeof r.data[j.id] !== 'string' || (r.data[j.id].length !== j.descN && Array.from(r.data[j.id]).length !== j.descN)) return; /* a text of another length belongs to a newer edit: the next list brings it */
+        B._text[textKey(j)] = r.data[j.id]; j.description = r.data[j.id]; got++;
+      });
+      if (got && /^#\/search/.test(location.hash)) APP.render();
+    }, function () { B._allP = null; B._allTs = Date.now(); });
   };
   B.fetchCatalog = function () {
     return B.sb.rpc('get_catalog').then(function (r) {
@@ -300,6 +351,7 @@
       Object.values(db.jobs).forEach(function (j) {
         if (j.companyId !== ent) return;
         mine[j.id] = 1;
+        if (j.descN !== undefined) return; /* safety net: a role without its text (light list) is never saved; a person's own roles always arrive complete */
         var sg = jobSig(j);
         if (S.jobs[j.id] !== sg) ops.push({ run: function () { return rpc('save_job', { p_id: j.id, p_data: JSON.parse(sg) }); }, done: function () { S.jobs[j.id] = sg; if (!S.invited[j.id]) S.invited[j.id] = []; } });
         (j.invited || []).forEach(function (cid) {

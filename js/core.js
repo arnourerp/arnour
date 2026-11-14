@@ -4645,6 +4645,7 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'job-text-retry': if (APP.backend && APP.backend.retryJobText) APP.backend.retryJobText(d.id); break;
     case 'job-publish': { /* publish a saved draft */
       const j = APP.job(d.id);
       if (!j || j.status !== 'draft') break;

@@ -51,6 +51,8 @@
   };
 
   APP.searchAll = function (q) {
+    /* role descriptions are not part of the start-up download: the first search fetches them, and the results refresh when they arrive */
+    if (q && APP.backend && APP.backend.needAllTexts && APP.backend.needAllTexts()) APP.backend.loadAllJobTexts();
     const ws = words(q), res = { roles: [], people: [], companies: [], community: [] };
     if (!ws.length) return res;
     const s = APP.db.session, role = who();

@@ -22,7 +22,7 @@ create function storage.foldername(name text) returns text[] language sql as $$ 
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/010_announcements.sql','utf8'));
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/009_lists.sql','utf8'));
   const users={}; let tok=0; const log=[];
-  const SETOF=['list_consultants','list_jobs','list_companies'];
+  const SETOF=['list_consultants','list_jobs','list_jobs_light','list_companies'];
   const JSONB=['p_data','p_cv','p_call','p_args'];
   async function withRole(uid,fn){
     await db.exec(`reset role; select set_config('request.jwt.claim.sub','${uid||''}',false); set role ${uid?'authenticated':'anon'};`);

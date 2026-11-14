@@ -645,8 +645,17 @@ APP.jobSections = function (job, me, opts) {
   const factsHtml = facts.map(f => '<div class="jd-fact"><dt>' + f[0] + '</dt><dd>' + E(f[1]) + '</dd></div>').join('');
 
   /* ---- description: keep paragraphs ---- */
+  /* the text of someone else's role is not part of the start-up download: it is fetched now, and the space it will need is kept so the page below does not jump */
+  const needText = APP.jobNeedsText && APP.jobNeedsText(job), B = APP.backend;
+  if (needText && B && B.loadJobText) B.loadJobText(job.id);
   const descHtml = job.description
-    ? '<section class="jd-sec"><h2>About the role</h2>' + APP.longTextHtml(job.description) + '</section>' : '';
+    ? '<section class="jd-sec"><h2>About the role</h2>' + APP.longTextHtml(job.description) + '</section>'
+    : needText && B && B._textFail && B._textFail[job.id]
+      ? '<section class="jd-sec jd-text-fail"><h2>About the role</h2><p class="muted">The description could not be loaded. <button type="button" class="link-btn" data-action="job-text-retry" data-id="' + APP.h(job.id) + '">Try again</button></p></section>'
+    : needText
+      ? '<section class="jd-sec jd-text-wait" aria-busy="true" style="min-height:' + Math.min(900, 60 + Math.ceil(job.descN / 95) * 26) + 'px"><h2>About the role</h2><p class="sr-only" role="status">Loading the description…</p>' +
+        '<span class="skeleton skel-line sk-w90"></span><span class="skeleton skel-line sk-w70"></span><span class="skeleton skel-line sk-w90"></span><span class="skeleton skel-line sk-w40"></span></section>'
+      : '';
 
   return { desc: descHtml, req: reqSection, facts: factsHtml };
 };
