@@ -1015,6 +1015,8 @@
     try {
       var ft = window.ArnourFT && ArnourFT.forAccount(), src = ft ? (ft.b || 'other') : 'direct';
       if (APP.trackEvent) APP.trackEvent('conv:' + (role === 'consultant' ? 'c' : 'e') + ':' + src);
+      /* Google Ads: reported only if the person accepted the measurement bar and a label is set in config.js */
+      try { if (window.ArnourConsent) ArnourConsent.conversion(role === 'consultant' ? 'c' : 'e'); } catch (e2) { /* never block the profile */ }
       var um = (B.user && B.user.user_metadata) || {};
       if (ft && !um.ft && B.sb.auth.updateUser) B.sb.auth.updateUser({ data: { ft: ft } }).then(null, function () { /* attribution is optional */ });
     } catch (e) { /* never block the profile */ }
@@ -1244,7 +1246,7 @@
       '<h3>Where it is stored</h3><p>Data is stored with our hosting and database providers (Supabase and Netlify). Emails are sent from noreply@arnour.com.</p>' +
       '<h3>Your rights</h3><p>You can edit your profile at any time and delete your account from the Account page, which removes your profile, messages and applications. To ask for a copy of your data or raise a concern, write to <a href="mailto:contact@arnour.com">contact@arnour.com</a>.</p>' +
       '<h3>Reading your CV with AI (optional)</h3><p>If you choose “Start from your CV” when you create your profile, the text of your CV is read once, with email addresses and phone numbers removed on your device first, and sent to our AI provider, Anthropic (Claude), through our own server so it can suggest answers for your profile. The text is used only to produce those suggestions: we do not store it, it is not used to train AI models, and nobody else sees it. We keep a short record that a CV was read (who and when, never what it said) to limit use. You check and change every answer before anything is saved. The CV file itself is stored privately on your profile like any CV you upload, and you can remove it at any time.</p>' +
-      '<h3>Cookies and browser storage</h3><p>We use browser storage to keep you signed in and, for new visitors, to remember which link or campaign brought them here (for example a post in a Facebook group), so we know which sharing works. That note stays in your browser for up to 90 days and, if you create an account, is saved with it. We do not use advertising cookies or third-party tracking.</p>'+
+      '<h3>Cookies and browser storage</h3><p>We use browser storage to keep you signed in and, for new visitors, to remember which link or campaign brought them here (for example a post in a Facebook group), so we know which sharing works. That note stays in your browser for up to 90 days and, if you create an account, is saved with it. ' + (window.ArnourConsent && ArnourConsent.on() ? 'We advertise on Google. Only if you press Accept on the measurement bar do we load Google\'s tag, which sets a Google Ads cookie and tells Google that someone who clicked one of our ads created a profile here; we do not use it to personalise ads. If you decline, or do nothing, no advertising cookie is set and nothing is sent to Google. You can change your choice any time with “Ad measurement choice” at the bottom of the page.' : 'We do not use advertising cookies or third-party tracking.') + '</p>'+
       '<h3>Problem reports and error logs</h3><p>If you send us a problem report we keep it with the page, browser and your account email so we can fix the issue and reply. For visitors who are not signed in we keep a scrambled form of the network address only, to stop spam. We also record technical errors from the site (the message and page, never what you typed) and anonymous page-view counts, with no cookies and no personal data.</p>');
   };
 
@@ -1254,7 +1256,7 @@
       '<span class="brand sm"><span class="brand-logo" aria-hidden="true">A</span>Arnour</span>' +
       '<nav aria-label="Footer">' + (B.user ? '<a href="#/home">Home page</a>' : '') + '<a href="#/jobs">Open roles</a><a href="#/community">Community</a>' +
       (B.user ? '<a href="#/account">Account</a>' : '<a href="#/login">Sign in</a><a href="#/register">Join</a>') +
-      '<a href="#/terms">Terms</a><a href="#/privacy">Privacy</a><a href="mailto:contact@arnour.com">Contact</a><a href="#" data-action="fb-open">Report a problem</a></nav>' +
+      '<a href="#/terms">Terms</a><a href="#/privacy">Privacy</a><a href="mailto:contact@arnour.com">Contact</a><a href="#" data-action="fb-open">Report a problem</a>' + (window.ArnourConsent && ArnourConsent.on() ? '<a href="#" data-action="consent-open">Ad measurement choice</a>' : '') + '</nav>' +
       '<small>© Arnour. The talent network for the SAP ecosystem.</small></div></footer>';
   };
 

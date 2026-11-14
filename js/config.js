@@ -9,5 +9,10 @@ window.ARNOUR_CONFIG = {
   /* sign-in with Google / LinkedIn: providers switched on in Supabase > Authentication > Sign In / Providers */
   oauth: ['google', 'linkedin_oidc'],
   /* Cloudflare Turnstile (bot check on sign-up, sign-in and password reset). Public key; the secret lives in Supabase. */
-  turnstileSiteKey: '0x4AAAAAAFadzsiE4NdC2-3G'
+  turnstileSiteKey: '0x4AAAAAAFadzsiE4NdC2-3G',
+  /* Google Ads measurement (public values, not secrets). Leave id empty and nothing is loaded and no consent bar is shown.
+     id:    the Google Ads tag ID, e.g. 'AW-123456789'
+     convC: conversion label for "professional profile completed" (the part after the slash in AW-123456789/AbCdEfGhIjK)
+     convE: conversion label for "company profile completed" */
+  ads: { id: '', convC: '', convE: '' }
 };

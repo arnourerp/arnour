@@ -326,6 +326,7 @@
     if (n === 'apply') return 'Applied to a role on Arnour';
     if (n === 'ext_apply') return 'Clicked an external apply link';
     if ((m = /^lnd:(.+)$/.exec(n))) return 'New visitors from ' + m[1];
+    if ((m = /^lc:(.+)$/.exec(n))) return 'New visitors from the campaign ' + m[1];
     if ((m = /^conv:c:(.+)$/.exec(n))) return 'Professional profiles completed, from ' + m[1];
     if ((m = /^conv:e:(.+)$/.exec(n))) return 'Company profiles completed, from ' + m[1];
     return n;
@@ -375,6 +376,19 @@
     var srcTable = sl.length ? '<table class="adm-table adm-table-num"><thead><tr><th>Where they came from</th><th>New visitors</th><th>Professional profiles done</th><th>Company profiles done</th></tr></thead><tbody>' + sl.map(function (k) {
       return '<tr><td>' + h(k === 'direct' ? 'direct (no link or tag found)' : k) + '</td><td>' + (src[k].v || '') + '</td><td>' + (src[k].c || '') + '</td><td>' + (src[k].e || '') + '</td></tr>';
     }).join('') + '</tbody></table>' : '<div class="empty">No tagged visits yet.</div>';
+    /* per campaign: new visitors come from the anonymous counters (lc:<campaign>), accounts and finished profiles from the sign-up note saved with each account */
+    var cmp = {};
+    Object.keys(tot).forEach(function (k) { var m = /^lc:(.+)$/.exec(k); if (m) (cmp[m[1]] = cmp[m[1]] || { v: 0, n: 0, pc: 0, pe: 0, g: 0, src: {} }).v += tot[k]; });
+    (T.campaigns || []).forEach(function (c) {
+      var o = cmp[c.c] = cmp[c.c] || { v: 0, n: 0, pc: 0, pe: 0, g: 0, src: {} };
+      o.n += c.n; o.pc += c.pc; o.pe += c.pe; o.g += c.g || 0; o.src[c.s + ' / ' + c.m] = 1;
+    });
+    var cl = Object.keys(cmp).sort(function (a, b) { return (cmp[b].n - cmp[a].n) || (cmp[b].v - cmp[a].v) || (a < b ? -1 : 1); });
+    var cmpTable = cl.length ? '<div class="adm-scroll"><table class="adm-table adm-table-num" id="adm-campaigns"><thead><tr><th>Campaign</th><th>New visitors</th><th>Accounts</th><th>Professional profiles done</th><th>Company profiles done</th><th>Visitor to profile</th></tr></thead><tbody>' + cl.map(function (k) {
+      var o = cmp[k], done = o.pc + o.pe, srcs = Object.keys(o.src).join(', ');
+      return '<tr><td>' + h(k) + (srcs || o.g ? '<div class="fb-meta">' + h(srcs) + (o.g ? (srcs ? ' · ' : '') + o.g + ' from a Google ad click' : '') + '</div>' : '') + '</td><td>' + (o.v || '') + '</td><td>' + (o.n || '') + '</td><td>' + (o.pc || '') + '</td><td>' + (o.pe || '') + '</td><td>' + (o.v ? pct(done, o.v) : '—') + '</td></tr>';
+    }).join('') + '</tbody></table></div><p class="muted small">A campaign is the <code>utm_campaign</code> on the link that first brought the person (Google Ads final URLs, posts, e-mails). Visitors are counted once per browser; accounts and profiles are those created in this period. Clicks, cost and cost per profile are in Google Ads.</p>'
+      : '<div class="empty">No campaign links yet. Links with <code>utm_campaign=…</code> show up here.</div>';
     var pv = Object.keys(tot).filter(function (k) { return /^v:/.test(k) && k !== 'v:admin'; }).sort(function (a, b) { return tot[b] - tot[a]; });
     var pvTable = pv.length ? '<table class="adm-table adm-table-num"><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody>' + pv.map(function (k) { return '<tr><td>' + h(usageLabel(k).replace(/ — views$/, '')) + '</td><td>' + tot[k] + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty">No data yet.</div>';
     return '<h1>Traffic</h1><div class="chip-wrap mb16">' + chips + '</div>' +
@@ -382,6 +396,7 @@
       '<h2>From visit to profile</h2>' + funnel +
       '<h2>Day by day</h2>' + dayTable +
       '<h2>Where people came from</h2>' + srcTable +
+      '<h2>By campaign</h2>' + cmpTable +
       '<h2>Pages people opened</h2>' + pvTable +
       '<p class="muted small">For real visitor totals, search impressions and clicks, see Netlify Analytics and Google Search Console.</p>';
   }

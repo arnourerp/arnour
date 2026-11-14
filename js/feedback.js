@@ -53,7 +53,14 @@
   var waited = 0; (function firstView() { if (APP.backend && !APP.backend.ready && waited < 8000) { waited += 250; setTimeout(firstView, 250); return; } trackRoute(); })();
   /* anonymous counts per source (facebook, linkedin, …): new visitors from a tagged link, and completed profiles (see js/attribution.js) */
   APP.trackEvent = function (name) { if (APP.isAdminSession && APP.isAdminSession()) return; if (/^[a-z0-9_:-]{1,40}$/.test(String(name))) quiet('track_usage', { p_name: String(name) }); };
-  try { if (window.ArnourFT && ArnourFT.takeLandingCount()) APP.trackEvent('lnd:' + ArnourFT.bucket()); } catch (e) { /* ignore */ }
+  try {
+    if (window.ArnourFT && ArnourFT.takeLandingCount()) {
+      APP.trackEvent('lnd:' + ArnourFT.bucket());
+      /* the campaign that brought a new visitor (utm_campaign), counted once per browser, for the per-campaign table in Admin > Traffic */
+      var ft0 = ArnourFT.get(), cmp = ft0 && ft0.c ? String(ft0.c).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) : '';
+      if (cmp) APP.trackEvent('lc:' + cmp);
+    }
+  } catch (e) { /* ignore */ }
   var oExt = APP.openExternalApply; if (oExt) APP.openExternalApply = function () { track('ext_apply'); lastSeen = ''; return oExt.apply(this, arguments); };
   var oApply = APP.applyToJob; if (oApply) APP.applyToJob = function () { track('apply'); lastSeen = ''; return oApply.apply(this, arguments); };
 

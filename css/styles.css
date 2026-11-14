@@ -2260,3 +2260,10 @@ a.sr-title:hover { text-decoration: underline; }
 .pg-foot { text-align: center; padding: var(--space-4) 0; }
 .pg-foot .btn { min-width: 180px; }
 .pg-foot.pg-wait { text-align: left; padding-top: 0; }
+/* ---- consent bar for ad measurement (js/consent.js): fixed at the bottom, so it never moves the page ---- */
+.consent-bar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 80; max-width: 760px; margin: 0 auto; display: flex; gap: 12px 16px; align-items: center; flex-wrap: wrap;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 28px rgb(15 23 42 / .16); padding: 12px 16px; font-size: 13.5px; line-height: 1.45; }
+.consent-bar p { margin: 0; flex: 1 1 320px; color: var(--ink); }
+.consent-btns { display: flex; gap: 8px; margin-left: auto; }
+.consent-btns .btn { min-width: 96px; min-height: 40px; }
+@media (max-width: 600px) { .consent-bar { bottom: 72px; } .consent-btns { width: 100%; } .consent-btns .btn { flex: 1; min-height: 44px; } }

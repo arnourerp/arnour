@@ -4657,6 +4657,7 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'consent-open': if (e && e.preventDefault) e.preventDefault(); if (window.ArnourConsent) { ArnourConsent.hide(); ArnourConsent.show(); } break;
     case 'jobs-more': if (APP.backend && APP.backend.jobsMore) APP.backend.jobsMore(d.key); break;
     case 'job-text-retry': if (APP.backend && APP.backend.retryJobText) APP.backend.retryJobText(d.id); break;
     case 'job-publish': { /* publish a saved draft */
