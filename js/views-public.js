@@ -79,7 +79,7 @@ APP.views.landing = function () {
     '<p class="mr-note">A reveal cannot be undone, so it only ever happens when you accept. Free to use, and you can switch it on or off any time in your profile.</p></section>';
   /* on a first visit the page is drawn before the data arrives: leave out the numbers that come from the database until then */
   const dataReady = !(APP.backend && APP.backend.earlyHome);
-  const liveRoles = Object.values(APP.db.jobs).filter(j => j.status === 'open').length;
+  const liveRoles = APP.PAGED && APP.backend && APP.backend.openTotal != null ? APP.backend.openTotal : Object.values(APP.db.jobs).filter(j => j.status === 'open').length;
   const livePros = Object.keys(APP.db.consultants || {}).length;
   return (APP.LIVE ? '' : '<div class="proto-banner" role="note">Prototype for customer validation: every company, profile and role is sample data.</div>') +
     '<section class="hero">' +
@@ -521,15 +521,17 @@ APP.views['jobs'] = function () {
   const c = s && s.role === 'consultant' ? APP.consultant(s.consultantId) : null;
   const f = APP.state.jobFilters;
 
-  let list = APP.applyJobFilters(null, Object.values(APP.db.jobs).filter(j => j.status === 'open'));
-  if (f.sort === 'newest' || !c) list = list.slice().sort((a, b) => b.postedTs - a.postedTs);
+  const pg = APP.PAGED && APP.backend ? APP.backend.jobsPage(f, f.sort === 'newest' || !c ? 'newest' : 'match') : null; /* paged mode: filtered and sorted by the database */
+  let list = pg ? APP.pagedJobs(pg) : APP.applyJobFilters(null, Object.values(APP.db.jobs).filter(j => j.status === 'open'));
+  if (pg) { /* already in order */ }
+  else if (f.sort === 'newest' || !c) list = list.slice().sort((a, b) => b.postedTs - a.postedTs);
   else list = list.slice().sort((a, b) => APP.matchScore(c, b) - APP.matchScore(c, a));
 
   const isAnon = !s;
   const viewBtn = (j) => '<a class="btn btn-outline btn-sm" href="#/job/' + j.id + '">View role</a>';
   const cards = list.map(j => APP.jobCard(j, c ? APP.matchScore(c, j) : undefined, c ? APP.jobActionButtons(j, 'consultant') : viewBtn(j), '#/job/' + j.id)).join('');
   return APP.jobSearchHtml({
-    items: list, canSort: !!c, ranked: !!c, cards: cards,
+    items: list, canSort: !!c, ranked: pg ? pg.sort === 'match' : !!c, cards: cards + (pg ? APP.pagedFootHtml(pg) : ''), total: pg ? pg.total : undefined,
     emptyExtra: isAnon ? '<a class="btn btn-outline" href="#/register">Get matched when one is posted</a>' : '',
     head: APP.crumbHtml('#/', 'Home') +
       '<h1 class="page-title">Open SAP roles</h1>' +
@@ -668,7 +670,9 @@ APP.views['job-detail'] = function (ctx) {
     APP.state.jobTried = APP.state.jobTried || {};
     if (APP.LIVE && B && B.refreshPublicNow && id && !APP.state.jobTried[id]) {
       APP.state.jobTried[id] = true;
-      B.refreshPublicNow().then(function () { if (location.hash === '#/job/' + id) APP.render(); });
+      const again = function () { if (location.hash === '#/job/' + id) APP.render(); };
+      if (APP.PAGED && B.loadJobs) B.loadJobs([id]).then(again, again); /* paged mode: fetch just this role */
+      else B.refreshPublicNow().then(again);
       return '<div class="empty">Loading the role…</div>';
     }
     return '<div class="empty">Job not found — this role may no longer be listed.</div>';
@@ -842,7 +846,10 @@ APP.views['company-public'] = function (ctx) {
       '<h3>This company is confidential</h3><p class="muted">This company uses Mutual Reveal: its name is shared only after it accepts an introduction with a professional.</p><a class="btn btn-outline btn-sm" href="#/jobs">Browse open roles</a></div></div>';
   }
   document.title = co.name + ' — hiring on Arnour';
-  const jobs = APP.companyJobs(co.id).filter(j => j.status === 'open' && APP.canSeeCompany(co, j)).sort((a, b) => b.postedTs - a.postedTs);
+  /* paged mode: this company's open roles come from the database (newest 20); a person's own company keeps using what is loaded */
+  const ownCo = APP.db.session && APP.db.session.companyId === co.id;
+  const jobs = (APP.PAGED && APP.backend && !ownCo ? APP.pagedJobs(APP.backend.jobsPage({ company: co.id }, 'newest', true)) : APP.companyJobs(co.id))
+    .filter(j => j.status === 'open' && APP.canSeeCompany(co, j)).sort((a, b) => b.postedTs - a.postedTs);
   const s = APP.db.session;
 
   const share = APP.shareHtml({

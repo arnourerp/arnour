@@ -22,8 +22,8 @@ create function storage.foldername(name text) returns text[] language sql as $$ 
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/010_announcements.sql','utf8'));
   await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/009_lists.sql','utf8'));
   const users={}; let tok=0; const log=[];
-  const SETOF=['list_consultants','list_jobs','list_jobs_light','list_companies'];
-  const JSONB=['p_data','p_cv','p_call','p_args'];
+  const SETOF=['list_consultants','list_jobs','list_jobs_light','list_companies','get_jobs','get_consultants'];
+  const JSONB=['p_data','p_cv','p_call','p_args','p_f'];
   async function withRole(uid,fn){
     await db.exec(`reset role; select set_config('request.jwt.claim.sub','${uid||''}',false); set role ${uid?'authenticated':'anon'};`);
     try{ return await fn(); } finally { await db.exec('reset role'); }
@@ -39,7 +39,7 @@ create function storage.foldername(name text) returns text[] language sql as $$ 
     if(op.t==='rpc'){
       try{ return await withRole(op.uid,async()=>{
         const names=Object.keys(op.args), vals=[], parts=[];
-        names.forEach((n,i)=>{ let v=op.args[n]; const ty=JSONB.includes(n)?'jsonb':(n==='p_accept'||n==='p_on'||n==='p_anon'||n==='p_test'||n==='p_share_email')?'boolean':n==='p_user'?'uuid':(n==='p_report'||n==='p_ann_id')?'bigint':(n==='p_limit'||n==='p_days')?'int':n==='p_ids'?'bigint[]':n==='p_msg'?'uuid':'text'; vals.push(ty==='jsonb'?(v===null?null:JSON.stringify(v)):v); parts.push(`${n} => $${i+1}::${ty}`); });
+        names.forEach((n,i)=>{ let v=op.args[n]; const ty=JSONB.includes(n)?'jsonb':(n==='p_accept'||n==='p_on'||n==='p_anon'||n==='p_test'||n==='p_share_email')?'boolean':n==='p_user'?'uuid':(n==='p_report'||n==='p_ann_id')?'bigint':(n==='p_limit'||n==='p_days'||n==='p_offset')?'int':n==='p_ids'?((op.fn==='get_jobs'||op.fn==='get_consultants')?'text[]':'bigint[]'):n==='p_msg'?'uuid':'text'; vals.push(ty==='jsonb'?(v===null?null:JSON.stringify(v)):v); parts.push(`${n} => $${i+1}::${ty}`); });
         const r=await db.query(`select * from public.${op.fn}(${parts.join(',')})`,vals);
         const rows=r.rows;
         if(rows.length&&Object.keys(rows[0]).length===1&&Object.keys(rows[0])[0]===op.fn){ const vs=rows.map(x=>x[op.fn]); return {data:SETOF.includes(op.fn)?vs:vs[0]}; }

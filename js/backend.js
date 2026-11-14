@@ -98,12 +98,134 @@
   function textKey(j) { return j.id + '|' + (j.editedTs || 0) + '|' + (j.descN || 0); }
   B.fetchJobs = function () {
     var full = function () { return B.sb.rpc('list_jobs').then(function (r) { return { res: r, fn: 'list_jobs' }; }); };
+    APP.PAGED = B.pagedOn();
+    if (APP.PAGED) return B.fetchBundle();
     if (B.noLight) return full();
     return B.sb.rpc('list_jobs_light').then(function (r) {
       if (r.error && NO_FN.test((r.error.code || '') + ' ' + (r.error.message || ''))) { B.noLight = true; return full(); }
+      if (!r.error) B.notePagedAuto((r.data || []).filter(function (x) { var j = x && x.list_jobs_light ? x.list_jobs_light : x; return j && j.status === 'open'; }).length);
       return { res: r, fn: 'list_jobs_light' };
     });
   };
+
+  /* ---- paged roles (releases 50 to 52) ----
+     In paged mode the browser no longer downloads every role card. At start-up it gets only the person's own roles and the roles they
+     applied to, were invited to or saved (my_jobs_bundle); lists ask the database for one page of 20 at a time (list_jobs_page), already
+     filtered and sorted there; a role opened from a link is fetched on its own (get_jobs). APP.db.jobs is then a cache of the roles seen so far.
+     The mode is off unless: the address has ?paged=1 (kept for the browser tab; ?paged=0 switches it off again), or an earlier visit found more
+     than APP.PAGED_FROM open roles. If the database does not have the functions, the site falls back to the full list. */
+  APP.PAGED = false;
+  APP.PAGED_FROM = 600;
+  B.PAGE = 20;
+  B._pg = {};          /* key -> { ids, total, loading, err, f, sort } */
+  B.openTotal = null;  /* open roles the person can see (paged mode) */
+  B.pagedOn = function () {
+    if (B.noPaged) return false;
+    var v = null;
+    try {
+      var m = /[?&]paged=([01])(?:&|$)/.exec(location.search || '');
+      if (m) sessionStorage.setItem('arnour-paged', m[1]);
+      v = sessionStorage.getItem('arnour-paged');
+      if (v === null) v = localStorage.getItem('arnour-paged-auto');
+    } catch (e) { v = null; }
+    return v === '1';
+  };
+  /* remember for the next visit whether the board has grown past the point where paging pays off */
+  B.notePagedAuto = function (open) {
+    try {
+      if (open > APP.PAGED_FROM) localStorage.setItem('arnour-paged-auto', '1');
+      else if (open <= APP.PAGED_FROM * 0.8) localStorage.removeItem('arnour-paged-auto');
+    } catch (e) { /* ignore */ }
+  };
+  function pagedOff() { B.noPaged = true; APP.PAGED = false; B._pg = {}; return B.fetchJobs(); }
+  B.fetchBundle = function () {
+    var call = B.user ? B.sb.rpc('my_jobs_bundle') : B.sb.rpc('list_jobs_page', { p_f: {}, p_sort: 'newest', p_limit: 1, p_offset: 0 });
+    return call.then(function (r) {
+      if (r.error) { if (NO_FN.test((r.error.code || '') + ' ' + (r.error.message || ''))) return pagedOff(); return { res: r, fn: 'paged' }; }
+      var d = r.data || {};
+      B.openTotal = typeof d.open === 'number' ? d.open : typeof d.total === 'number' ? d.total : null;
+      if (B.openTotal !== null) B.notePagedAuto(B.openTotal);
+      return { res: { data: B.user ? (d.jobs || []) : [] }, fn: 'paged' };
+    });
+  };
+  /* put rows from the database into the cache; a person's own roles and roles already there keep their private details (applicants, invitations) */
+  B.cacheJobs = function (rows) {
+    var me = B.profile ? B.profile.entity_id : null, db = APP.db, ids = [];
+    B.reText(rows).forEach(function (j) {
+      ids.push(j.id);
+      var old = db.jobs[j.id];
+      if (old && me && old.companyId === me) return;
+      delete j.mine; delete j.ms;
+      j.applicants = old ? old.applicants || [] : []; j.appliedTs = old ? old.appliedTs || {} : {}; j.applyNotes = old ? old.applyNotes || {} : {}; j.invited = old ? old.invited || [] : [];
+      ['appStage', 'appViewed', 'hiredId'].forEach(function (k) { if (old && old[k] !== undefined) j[k] = old[k]; });
+      db.jobs[j.id] = j;
+    });
+    return ids;
+  };
+  function cleanF(f) {
+    var o = {};
+    Object.keys(f || {}).sort().forEach(function (k) {
+      var v = f[k];
+      if (k === 'sort' || v === '' || v === null || v === undefined || v === false || (k === 'region' && v === 'all') || (Array.isArray(v) && !v.length)) return;
+      o[k] = v;
+    });
+    return o;
+  }
+  function loadPage(p, replace) {
+    if (p.loading) return;
+    p.loading = true; p.err = false;
+    var want = replace ? Math.max(B.PAGE, p.ids.length) : B.PAGE, got = [], total = null, off = replace ? 0 : p.ids.length, start = off;
+    var step = function () {
+      var n = Math.min(50, want - got.length);
+      return B.sb.rpc('list_jobs_page', { p_f: p.f, p_sort: p.sort, p_limit: n, p_offset: start + got.length }).then(function (r) {
+        if (r.error) throw r.error;
+        var d = r.data || {}; total = d.total; p.sorted = d.sort;
+        got = got.concat(B.cacheJobs(d.rows || []));
+        if ((d.rows || []).length === n && got.length < want && start + got.length < total) return step();
+      });
+    };
+    step().then(function () {
+      p.ids = replace ? got : p.ids.concat(got.filter(function (id) { return p.ids.indexOf(id) === -1; }));
+      p.total = total; p.loading = false; p.ts = Date.now();
+      if (!p.f || !Object.keys(p.f).length) { B.openTotal = total; }
+      APP.render();
+    }, function (e) {
+      p.loading = false;
+      if (e && NO_FN.test((e.code || '') + ' ' + (e.message || ''))) { pagedOff().then(function () { return B.refreshPublicNow(); }).then(function () { APP.render(); }); return; }
+      p.err = true; APP.render();
+    });
+  }
+  /* one list of roles as the database filters and sorts it. Returns at once with what is loaded so far; the page redraws when more arrives. */
+  B.jobsPage = function (f, sort, side) {
+    var args = cleanF(f), s = sort === 'newest' ? 'newest' : 'match', key = s + '|' + JSON.stringify(args);
+    var p = B._pg[key];
+    if (!p) p = B._pg[key] = { key: key, ids: [], total: null, loading: false, err: false, f: args, sort: s };
+    if (!side) B._pgLast = key; /* side lists (dashboard, badge, search, company page) do not count as "the list on screen" */
+    if (p.total === null && !p.loading && !p.err) loadPage(p, false);
+    return p;
+  };
+  B.jobsMore = function (key) { var p = B._pg[key]; if (p && !p.loading && (p.total === null || p.ids.length < p.total)) { p.err = false; loadPage(p, false); APP.render(); } };
+  /* after the regular refresh: the list on screen is loaded again in place; the other lists are fetched again when they are next opened */
+  B.refreshPages = function () {
+    var keep = B._pgLast && B._pg[B._pgLast];
+    Object.keys(B._pg).forEach(function (k) { if (B._pg[k] !== keep) delete B._pg[k]; });
+    if (keep && keep.total !== null && !keep.loading) loadPage(keep, true);
+  };
+  /* roles opened from a link, a notification or a chat that are not in the cache yet */
+  B.loadJobs = function (ids) {
+    return B.sb.rpc('get_jobs', { p_ids: ids }).then(function (r) {
+      if (r.error) throw r.error;
+      B.cacheJobs((r.data || []).map(function (x) { return x && x.get_jobs ? x.get_jobs : x; }));
+    });
+  };
+  /* what the list pages draw under the cards in paged mode */
+  APP.pagedFootHtml = function (p) {
+    if (p.err) return '<div class="card empty pg-foot"><p class="muted">The roles could not be loaded. <button type="button" class="link-btn" data-action="jobs-more" data-key="' + APP.h(p.key) + '">Try again</button></p></div>';
+    if (p.loading) return '<div class="pg-foot pg-wait" aria-busy="true"><p class="sr-only" role="status">Loading roles…</p>' + [0, 1, 2].map(function () { return '<div class="card skel-card"><span class="skeleton skel-line sk-w40"></span><span class="skeleton skel-line sk-w90"></span><span class="skeleton skel-line sk-w70"></span></div>'; }).join('') + '</div>';
+    if (p.total !== null && p.ids.length < p.total) return '<div class="pg-foot"><p class="muted small">Showing ' + p.ids.length + ' of ' + p.total + '</p><button type="button" class="btn btn-outline" data-action="jobs-more" data-key="' + APP.h(p.key) + '">Show more</button></div>';
+    return '';
+  };
+  APP.pagedJobs = function (p) { return p.ids.map(function (id) { return APP.db.jobs[id]; }).filter(function (j) { return j && j.status === 'open'; }); };
   /* put back the texts this tab already has, after every fresh list */
   B.reText = function (jobs) {
     jobs.forEach(function (j) { if (APP.jobNeedsText(j)) { var t = B._text[textKey(j)]; if (t != null) j.description = t; } });
@@ -542,7 +664,8 @@
       delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = [];
       db.jobs[j.id] = j;
     });
-    Object.keys(db.jobs).forEach(function (id) { if (!jobIds[id]) delete db.jobs[id]; });
+    if (!APP.PAGED) Object.keys(db.jobs).forEach(function (id) { if (!jobIds[id]) delete db.jobs[id]; });
+    else B.refreshPages(); /* paged mode: db.jobs is a cache; the list on screen is loaded again instead */
   };
   B.applyDirectory = function (db, list) {
     var me = B.profile.entity_id, ids = {};
@@ -558,7 +681,8 @@
         var jIds = {}, cIds = {};
         pub.jobs.forEach(function (j) { jIds[j.id] = 1; delete j.mine; j.applicants = []; j.appliedTs = {}; j.applyNotes = {}; j.invited = []; APP.db.jobs[j.id] = j; });
         pub.companies.forEach(function (c) { cIds[c.id] = 1; APP.db.companies[c.id] = c; });
-        Object.keys(APP.db.jobs).forEach(function (id) { if (!jIds[id]) delete APP.db.jobs[id]; });
+        if (!APP.PAGED) Object.keys(APP.db.jobs).forEach(function (id) { if (!jIds[id]) delete APP.db.jobs[id]; });
+        else B.refreshPages();
         Object.keys(APP.db.companies).forEach(function (id) { if (!cIds[id]) delete APP.db.companies[id]; });
         if (pub.community && !B.commBusy) B.applyCommunity(APP.db, pub.community);
         return;

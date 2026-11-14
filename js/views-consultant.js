@@ -353,7 +353,7 @@ APP.jobFilterPanelHtml = function (f, active, nShown) {
 APP.jobSearchHtml = function (o) {
   const f = APP.state.jobFilters;
   const active = APP.jobActiveFilters(f);
-  const n = o.items.length;
+  const n = o.total === undefined ? o.items.length : o.total === null ? '…' : o.total; /* paged mode: the total comes from the database */
   const sortSel = o.canSort
     ? '<label class="rb-sort"><span>Sort</span><select name="sort" class="input rb-sort-sel" aria-label="Sort roles"><option value="match"' + (f.sort !== 'newest' ? ' selected' : '') + '>Best match</option><option value="newest"' + (f.sort === 'newest' ? ' selected' : '') + '>Newest</option></select></label>' : '';
   const bar =
@@ -387,9 +387,11 @@ APP.views['c-jobs'] = function () {
   const c = APP.consultant(APP.db.session.consultantId);
   if (!c) return '<div class="empty">Profile not found.</div>';
   const f = APP.state.jobFilters;
-  const open = APP.applyJobFilters(c, Object.values(APP.db.jobs).filter(j => j.status === 'open' && APP.jobVisibleToConsultant(c, j)));
+  /* paged mode: the database filters and sorts, 20 roles at a time; otherwise the full list is filtered and sorted here */
+  const pg = APP.PAGED && APP.backend ? APP.backend.jobsPage(f, f.sort === 'newest' ? 'newest' : 'match') : null;
+  const open = pg ? APP.pagedJobs(pg) : APP.applyJobFilters(c, Object.values(APP.db.jobs).filter(j => j.status === 'open' && APP.jobVisibleToConsultant(c, j)));
   const items = open.map(j => ({ job: j, score: APP.matchScore(c, j) }));
-  items.sort(f.sort === 'newest' ? (a, b) => b.job.postedTs - a.job.postedTs : (a, b) => b.score - a.score);
+  if (!pg) items.sort(f.sort === 'newest' ? (a, b) => b.job.postedTs - a.job.postedTs : (a, b) => b.score - a.score);
   const hid = APP.hiddenJobsInfo(c);
   const nApplied = Object.values(APP.db.jobs).filter(j => (j.applicants || []).indexOf(c.id) !== -1).length;
   const notice = hid.n ? '<div class="card hidden-note">' + APP.icon('spark', 14) + ' <span><strong>' + hid.n + ' more role' + (hid.n === 1 ? ' is' : 's are') + ' hidden</strong> because ' + (hid.lang ? 'they require a language that isn’t on your profile' : '') + (hid.lang && hid.cert ? ' or ' : '') + (hid.cert ? 'they require an SAP certification you haven’t added' : '') + '. <a class="link" href="#/c/profile">Update your profile</a> to see them.</span></div>' : '';
@@ -402,9 +404,9 @@ APP.views['c-jobs'] = function () {
     nIntro ? '<a class="link" href="#/c/intros">' + nIntro + ' introduction request' + (nIntro > 1 ? 's' : '') + ' waiting</a>' : ''
   ]);
   return APP.jobSearchHtml({
-    items: items, canSort: true, ranked: true, notice: notice,
+    items: items, canSort: true, ranked: pg ? pg.sort === 'match' : true, notice: notice, total: pg ? pg.total : undefined,
     head: APP.jobsSwitchHtml('find') + attn,
-    cards: items.map(m => APP.jobCard(m.job, m.score, APP.jobActionButtons(m.job))).join('')
+    cards: items.map(m => APP.jobCard(m.job, m.score, APP.jobActionButtons(m.job))).join('') + (pg ? APP.pagedFootHtml(pg) : '')
   });
 };
 

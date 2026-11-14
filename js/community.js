@@ -275,7 +275,7 @@ APP.views['community-q'] = function (ctx) {
         '</div>');
 
   /* job funnel — open roles requiring exactly this product + module */
-  const jobs = Object.values(APP.db.jobs)
+  const jobs = (APP.PAGED && APP.backend && APP.backend.jobsPage && q.productId ? APP.pagedJobs(APP.backend.jobsPage({ product: q.productId, module: q.moduleId || '' }, 'newest', true)) : Object.values(APP.db.jobs))
     .filter(j => j.status === 'open' && (j.requires || []).some(r => r.productId === q.productId && r.moduleId === q.moduleId))
     .sort((a, b) => b.postedTs - a.postedTs)
     .slice(0, 3);

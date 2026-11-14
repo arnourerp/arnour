@@ -52,20 +52,22 @@
 
   APP.searchAll = function (q) {
     /* role descriptions are not part of the start-up download: the first search fetches them, and the results refresh when they arrive */
-    if (q && APP.backend && APP.backend.needAllTexts && APP.backend.needAllTexts()) APP.backend.loadAllJobTexts();
+    if (q && !APP.PAGED && APP.backend && APP.backend.needAllTexts && APP.backend.needAllTexts()) APP.backend.loadAllJobTexts();
     const ws = words(q), res = { roles: [], people: [], companies: [], community: [] };
     if (!ws.length) return res;
     const s = APP.db.session, role = who();
     const meC = s && s.role === 'consultant' ? APP.consultant(s.consultantId) : null;
     /* roles */
-    Object.values(APP.db.jobs || {}).forEach(j => {
+    /* paged mode: the database finds the roles (every word must appear in title, employer, skills or place), best match first */
+    const paged = !!(q && APP.PAGED && APP.backend && APP.backend.jobsPage);
+    (paged ? APP.pagedJobs(APP.backend.jobsPage({ q: q }, meC ? 'match' : 'newest', true)) : Object.values(APP.db.jobs || {})).forEach(j => {
       if (j.status !== 'open') return;
       if (meC && APP.jobVisibleToConsultant && !APP.jobVisibleToConsultant(meC, j)) return;
       const co = APP.coFor(APP.company(j.companyId), j);
       const coName = j.external ? (j.extEmployer || '') : (co && !co._anon ? co.name : '');
       const sc = scoreOf([[j.title, 3], [coName, 2.5], [skillText(j.requires), 2], [(j.preferredSpecialties || []).map(APP.specialtyName).join(' '), 1.2],
         [[j.city, APP.countryName && APP.countryName(j.country), j.remote ? 'remote' : ''].join(' '), 1], [APP.jobIndustries ? APP.jobIndustries(j).join(' ') : '', 1], [j.description, 0.6]], ws);
-      if (!sc) return;
+      if (!sc && !paged) return; /* paged mode: the database already matched it */
       const boost = meC ? APP.matchScore(meC, j) / 50 : 0;
       res.roles.push({ kind: 'roles', id: j.id, score: sc + boost, title: j.title, sub: [coName || (co && co._anon ? 'Confidential company' : ''), APP.locText(j, j.remote ? 'Remote' : undefined)].filter(Boolean).join(' · '),
         snippet: j.description, skills: skillLabels(j.requires), href: (s && s.role === 'employer' && s.companyId === j.companyId) ? '#/e/jobs/' + j.id : '#/job/' + j.id,

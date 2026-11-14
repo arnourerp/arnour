@@ -2256,3 +2256,7 @@ a.sr-title:hover { text-decoration: underline; }
 .sk-main .skel-card .skel-line { height: 14px; margin: 9px 0; }
 .sk-w40 { width: 40%; } .sk-w70 { width: 70%; } .sk-w90 { width: 90%; }
 @media (max-width: 960px) { .sk-link { width: 44px; min-width: 44px; } .sk-search { display: none; } }
+/* ---- paged role lists: Show more and the loading rows ---- */
+.pg-foot { text-align: center; padding: var(--space-4) 0; }
+.pg-foot .btn { min-width: 180px; }
+.pg-foot.pg-wait { text-align: left; padding-top: 0; }

@@ -1767,6 +1767,15 @@ APP.hiddenJobsInfo = function (c) {
   return { n: open.length, lang: lang, cert: cert };
 };
 APP.jobsForConsultant = function (c) {
+  if (APP.PAGED && APP.backend && APP.backend.jobsPage) {
+    /* paged mode: the 20 best stored matches from the database, plus the roles the person was invited to */
+    const seen = {};
+    return APP.pagedJobs(APP.backend.jobsPage({}, 'match', true))
+      .concat(Object.values(APP.db.jobs).filter(j => j.status === 'open' && (j.invited || []).indexOf(c.id) !== -1))
+      .filter(j => !seen[j.id] && (seen[j.id] = 1))
+      .map(j => ({ job: j, score: APP.matchScore(c, j) }))
+      .sort((a, b) => b.score - a.score);
+  }
   return Object.values(APP.db.jobs)
     .filter(j => j.status === 'open' && APP.jobVisibleToConsultant(c, j))
     .map(j => ({ job: j, score: APP.matchScore(c, j) }))
@@ -4648,6 +4657,7 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'jobs-more': if (APP.backend && APP.backend.jobsMore) APP.backend.jobsMore(d.key); break;
     case 'job-text-retry': if (APP.backend && APP.backend.retryJobText) APP.backend.retryJobText(d.id); break;
     case 'job-publish': { /* publish a saved draft */
       const j = APP.job(d.id);
