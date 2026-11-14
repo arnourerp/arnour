@@ -30,7 +30,7 @@ async function page(who,opts){
   const p=await ctx.newPage(); const errors=[]; p.errors=errors; p.posts=[]; p.gets=0;
   p.on('pageerror',e=>errors.push(e.message));
   await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.route('**/.netlify/functions/jd-parse',async r=>{
     const q=r.request();

@@ -261,7 +261,7 @@
       if (!APP.ptImpLoading) {
         APP.ptImpLoading = true;
         var s = document.createElement('script');
-        s.src = '/js/partner-import.js';
+        s.src = '/js/partner-import.js' + APP.vq();
         s.onload = function () { APP.ptImpLoaded = true; APP.ptImpInit(); };
         s.onerror = function () { /* the form works without it */ };
         document.head.appendChild(s);

@@ -16,7 +16,7 @@ t('a seeded open job exists for the test',!!(job&&job.id),job);
 
 const ctx=await browser.newContext({viewport:{width:1280,height:900}});
 const p=await ctx.newPage(); await p.exposeFunction('__sb',be.handle);
-await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
 await p.route('**/fonts.googleapis.com/**',r=>r.abort());
 /* stand in for the edge function: the real index.html turned into the page for this job */
 const served=lib.buildPage(shell,{title:'Hiring: '+job.title+' — Test Employer | Arnour',desc:'Test description for the role.',canonical:'https://arnour.com/job/'+job.id,robots:null,ld:[{'@context':'https://schema.org','@type':'JobPosting',title:job.title}],fallback:lib.jobFallbackHtml({id:job.id,title:job.title,country:'ae',external:true,extEmployer:'Test Employer',description:'Body text.'},[]),path:'/job/'+job.id});

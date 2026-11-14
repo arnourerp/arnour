@@ -42,7 +42,7 @@ async function open(opts){ /* a new person, signed in and on step 1 of the consu
   const ctx=await browser.newContext({viewport:{width:1100,height:1000}}); const p=await ctx.newPage(); const errors=[]; p.on('pageerror',e=>errors.push(e.message));
   p.posts=[]; p.gets=0;
   await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.route('**/.netlify/functions/cv-parse',async r=>{
     const q=r.request();

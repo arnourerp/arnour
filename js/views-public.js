@@ -365,7 +365,7 @@ APP.cvSlotHtml = function () {
     if (!APP.cvImpLoading) {
       APP.cvImpLoading = true;
       const s = document.createElement('script');
-      s.src = '/js/cv-import.js';
+      s.src = '/js/cv-import.js' + APP.vq();
       s.onload = () => { APP.cvImpLoaded = true; APP.cvImpInit(); };
       s.onerror = () => { /* the wizard works without it */ };
       document.head.appendChild(s);

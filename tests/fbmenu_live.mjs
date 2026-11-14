@@ -12,7 +12,7 @@ async function newPage(name,w=1280,h=900){
   page.on('console',m=>{ if(m.type()==='error'&&!/ERR_TUNNEL|Failed to load resource/.test(m.text())) errors.push(name+': '+m.text()); });
   page.on('pageerror',e=>errors.push(name+' PAGEERR: '+e.message));
   await page.exposeFunction('__sb',be.handle);
-  await page.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await page.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await page.route('**/fonts.googleapis.com/**',r=>r.abort());
   return page;
 }

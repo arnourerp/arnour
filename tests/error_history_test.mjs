@@ -52,7 +52,7 @@ t('the history is newest first and limit works',H[0].resolved_ts>=H[H.length-1].
 t('actions are in the activity log',(await db.query(`select count(*)::int n from admin_log where action in ('error fixed','error noise','clear errors')`)).rows[0].n===3);
 
 /* Report reasons: every reason the page offers must be accepted by the database */
-const adminJs=fs.readFileSync(ROOT+'/js/admin.js','utf8');
+const adminJs=fs.readFileSync(ROOT+'/js/report.js','utf8');
 const block=adminJs.match(/var REASONS = \[([\s\S]*?)\];/)[1];
 const reasons=[...block.matchAll(/\['([a-z]+)'/g)].map(m=>m[1]);
 t('the page offers the expected reasons',reasons.length>=6&&reasons.includes('abuse')&&reasons.includes('inappropriate'),reasons);

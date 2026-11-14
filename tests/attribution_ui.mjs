@@ -12,7 +12,7 @@ async function newPage(){
   const ctx=await browser.newContext({viewport:{width:1280,height:900}}); const page=await ctx.newPage();
   page.on('pageerror',e=>{ fails++; console.log('FAIL PAGEERR',e.message); });
   await page.exposeFunction('__sb',be.handle);
-  await page.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await page.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await page.route('**/fonts.googleapis.com/**',r=>r.abort());
   return page;
 }

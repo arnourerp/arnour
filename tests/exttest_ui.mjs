@@ -5,11 +5,14 @@ const {chromium}=require('playwright');
 const b=await chromium.launch(); const p=await b.newPage({viewport:{width:1200,height:900}});
 await p.route('**/fonts.googleapis.com/**',r=>r.abort());
 const calls=[];
-await p.route('**/js/admin.js',async r=>{ const body=fs.readFileSync(process.env.ARNOUR_DEMO+'/js/admin.js','utf8');
-  r.fulfill({contentType:'application/javascript',body:`APP.backend=APP.backend||{isAdmin:true,profile:{},rpc:function(fn,a){window.__calls=(window.__calls||[]);window.__calls.push([fn,a]);if(fn==='admin_import_external_jobs')return Promise.resolve({imported:a.p_jobs.length,skipped:[]});if(fn==='admin_overview')return Promise.resolve({openReports:0});if(fn==='admin_jobs')return Promise.resolve([]);return Promise.resolve({});}};\n`+body}); });
+/* the admin area is no longer part of the page: the test loads it (and the Report file it shares lists with) by hand, on a pretend backend */
+const FAKE_BACKEND=`APP.backend=APP.backend||{isAdmin:true,profile:{},rpc:function(fn,a){window.__calls=(window.__calls||[]);window.__calls.push([fn,a]);if(fn==='admin_import_external_jobs')return Promise.resolve({imported:a.p_jobs.length,skipped:[]});if(fn==='admin_overview')return Promise.resolve({openReports:0});if(fn==='admin_jobs')return Promise.resolve([]);return Promise.resolve({});}};`;
 let f=0; const t=(n,ok,x)=>{console.log(ok?'ok  ':'FAIL',n,ok?'':JSON.stringify(x||'')); if(!ok)f++;};
 const errs=[]; p.on('pageerror',e=>errs.push(e.message));
 await p.goto('http://localhost:'+(process.env.PORT_DEMO||8124)+'/index.html'); await p.waitForSelector('.hero');
+await p.evaluate(FAKE_BACKEND);
+await p.addScriptTag({content:fs.readFileSync(process.env.ARNOUR_DEMO+'/js/report.js','utf8')});
+await p.addScriptTag({content:fs.readFileSync(process.env.ARNOUR_DEMO+'/js/admin.js','utf8')});
 // card + detail rendering for an external job
 const r=await p.evaluate(()=>{ const j=Object.values(APP.db.jobs).find(x=>x.status==='open'&&!x.confidential);
   const x=Object.assign({},j,{id:'x-1',external:true,extEmployer:'Acme Corp',extSource:'Company career page',applyUrl:'https://careers.acme.com/j/1'}); APP.db.jobs['x-1']=x;

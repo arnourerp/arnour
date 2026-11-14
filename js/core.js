@@ -4,6 +4,10 @@
 
 const APP = window.APP = {};
 
+/* The version of this deploy's scripts and styles (index.html sets window.ARNOUR_V; written by tests/stamp.mjs).
+   Files loaded later (admin, CV / job-ad / presentation readers, PDF reader) add it to their address, so they always match the files already on the page. */
+APP.vq = function () { const v = String(window.ARNOUR_V || ''); return /^[A-Za-z0-9]{1,40}$/.test(v) ? '?v=' + v : ''; };
+
 /* ---------------------------- constants ---------------------------- */
 
 APP.regions = {

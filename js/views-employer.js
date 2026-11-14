@@ -701,7 +701,7 @@ APP.jdSlotHtml = function (kind) {
     if (!APP.jdImpLoading) {
       APP.jdImpLoading = true;
       const s = document.createElement('script');
-      s.src = '/js/jd-import.js';
+      s.src = '/js/jd-import.js' + APP.vq();
       s.onload = () => { APP.jdImpLoaded = true; APP.jdImpInit(); };
       s.onerror = () => { /* the form works without it */ };
       document.head.appendChild(s);

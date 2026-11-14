@@ -22,7 +22,7 @@ async function page(who){
   await ctx.addInitScript(([id,em,r])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:em,user_metadata:{role:r}}})); }catch(e){} },[U[who],who+'@t.com',role[who]]);
   const p=await ctx.newPage(); const errors=[]; p.errors=errors; p.on('pageerror',e=>errors.push(e.message));
   await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.route('**/.netlify/functions/jd-parse',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:false})}));
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); return p;

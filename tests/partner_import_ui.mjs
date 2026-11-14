@@ -45,7 +45,7 @@ async function open(opts){ /* a new company, signed in, on step 2 of the company
   const ctx=await browser.newContext({viewport:{width:1100,height:1000}}); const p=await ctx.newPage(); const errors=[]; p.on('pageerror',e=>errors.push(e.message));
   p.posts=[]; p.gets=0;
   await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.route('**/.netlify/functions/partner-parse',async r=>{
     const q=r.request();

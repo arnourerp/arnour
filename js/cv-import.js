@@ -126,8 +126,8 @@
       .catch(function (e) { throw (e && e.code) ? e : { code: 'file' }; });
   }
   function pdfText(buf) {
-    return import('/js/vendor/pdfjs/pdf.min.mjs').then(function (lib) {
-      lib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdfjs/pdf.worker.min.mjs';
+    return import('/js/vendor/pdfjs/pdf.min.mjs' + APP.vq()).then(function (lib) {
+      lib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdfjs/pdf.worker.min.mjs' + APP.vq();
       return lib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise.then(function (doc) {
         var n = Math.min(doc.numPages, MAX_PAGES), out = [], chain = Promise.resolve();
         function page(p) {

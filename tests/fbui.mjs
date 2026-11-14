@@ -10,10 +10,12 @@ const pre=`APP.backend=APP.backend||{isAdmin:true,user:{id:'u1'},profile:{},sb:{
   if(fn==='admin_health')return Promise.resolve({openFeedback:2,errors:[{message:'Boom',src:'core.js:1',n:4,last_ts:Date.now(),page:'#/jobs',ua:'Mozilla Chrome/120.0 Windows'}],usage:[{d:new Date().toISOString().slice(0,10),name:'v:jobs',n:7}]});
   if(fn==='admin_feedback')return Promise.resolve([{id:5,created_ts:Date.now(),category:'problem',role:'consultant',email:'a@b.com',message:'Save fails <b>x</b>',page:'#/c/profile',ua:'Mozilla Safari/17.0 iPhone',ctx:{errors:[{t:'10:00:00',m:'oops',s:'core.js:1'}],viewport:'390x800'},shot:'u1/s.png',status:'open',note:''}]);
   return Promise.resolve({});}};\n`;
-for (const f of ['admin','feedback']) await p.route('**/js/'+f+'.js',async r=>{ r.fulfill({contentType:'application/javascript',body:(f==='admin'?pre:'')+fs.readFileSync(process.env.ARNOUR_DEMO+'/js/'+f+'.js','utf8')}); });
+/* the pretend backend goes in front of report.js (the first live-only file on the page); the admin area is loaded by hand below, as it is no longer part of the page */
+for (const f of ['report','feedback']) await p.route('**/js/'+f+'.js*',async r=>{ r.fulfill({contentType:'application/javascript',body:(f==='report'?pre:'')+fs.readFileSync(process.env.ARNOUR_DEMO+'/js/'+f+'.js','utf8')}); });
 let f=0; const t=(n,ok,x)=>{console.log(ok?'ok  ':'FAIL',n,ok?'':JSON.stringify(x||'')); if(!ok)f++;};
 const errs=[]; p.on('pageerror',e=>errs.push(e.message));
 await p.goto('http://localhost:'+(process.env.PORT_DEMO||8124)+'/index.html'); await p.waitForSelector('.hero');
+await p.addScriptTag({content:fs.readFileSync(process.env.ARNOUR_DEMO+'/js/admin.js','utf8')});
 // feedback.js requires APP.backend at load; admin.js defines it first (both routed)
 t('feedback API present',await p.evaluate(()=>typeof APP.openFeedback==='function'));
 await p.evaluate(()=>APP.openFeedback()); await p.waitForSelector('#fb-text');

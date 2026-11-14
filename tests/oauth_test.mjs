@@ -11,9 +11,9 @@ async function page(withOAuth,email,meta){
   const ctx=await browser.newContext({viewport:{width:1280,height:900}}); const p=await ctx.newPage();
   p.on('pageerror',e=>errors.push(e.message));
   await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   const cfg=CFGJS.replace(/\n\s*oauth:[^\n]*/,'');
-  await p.route('**/js/config.js',r=>r.fulfill({contentType:'application/javascript',body:withOAuth?cfg.replace("legalDate:","oauth: ['google','linkedin_oidc'], legalDate:"):cfg}));
+  await p.route('**/js/config.js*',r=>r.fulfill({contentType:'application/javascript',body:withOAuth?cfg.replace("legalDate:","oauth: ['google','linkedin_oidc'], legalDate:"):cfg}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await ctx.addInitScript(([e,m])=>{ window.__oauthEmail=e; window.__oauthMeta=m; },[email||'oauth@test.com',meta||{}]);
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); return p;

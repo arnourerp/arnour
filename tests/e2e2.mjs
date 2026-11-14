@@ -7,7 +7,7 @@ const be=await makeBackend(); const browser=await chromium.launch();
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,300):'');}else console.log('ok  ',n); };
 const BASE='http://localhost:'+(process.env.PORT_LIVE||8123)+'/index.html';
 async function newPage(w,h){ const ctx=await browser.newContext({viewport:{width:w,height:h}}); const page=await ctx.newPage(); await page.exposeFunction('__sb',be.handle);
- await page.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK})); await page.route('**/fonts.googleapis.com/**',r=>r.abort()); return page; }
+ await page.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK})); await page.route('**/fonts.googleapis.com/**',r=>r.abort()); return page; }
 const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x},h); await p.waitForTimeout(250); };
 // forgot / reset flow at phone width
 const p=await newPage(375,800); p.on('console',m=>console.log('CONSOLE',m.text().slice(0,200))); p.on('pageerror',e=>console.log('PAGEERR',e.message));

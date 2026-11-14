@@ -69,8 +69,8 @@ t('counter names fit the database rule', ['conv:c:facebook', 'conv:e:instagram',
 
 /* wiring */
 const rd = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
-t('app page loads the file right after the config', /js\/config\.js"><\/script>\s*<script src="js\/attribution\.js"><\/script>/.test(rd('index.html')));
-t('landing pages remember the source too', ['about', 'sap-consultants', 'sap-jobs'].every((d) => rd(d + '/index.html').includes('<script src="/js/attribution.js" defer></script>')));
+t('app page loads the file right after the config', /js\/config\.js\?v=[a-f0-9]{10}"><\/script>\s*<script src="js\/attribution\.js\?v=[a-f0-9]{10}"><\/script>/.test(rd('index.html')));
+t('landing pages remember the source too', ['about', 'sap-consultants', 'sap-jobs'].every((d) => /<script src="\/js\/attribution\.js\?v=[a-f0-9]{10}" defer><\/script>/.test(rd(d + '/index.html'))));
 t('landing page links still go to the app page (same browser storage)', ['about', 'sap-consultants', 'sap-jobs'].every((d) => /href="\/#\//.test(rd(d + '/index.html'))));
 t('privacy text explains the stored note and still says no advertising cookies', /remember which link or campaign/.test(rd('js/backend.js')) && /do not use advertising cookies/.test(rd('js/backend.js')));
 

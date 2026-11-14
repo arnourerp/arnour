@@ -24,7 +24,7 @@ async function page(who,w=1280,h=900){
   p.on('console',m=>{ if(m.type()==='error'&&!/ERR_TUNNEL|Failed to load resource/.test(m.text())) errors.push((who||'visitor')+': '+m.text()); });
   p.on('pageerror',e=>errors.push((who||'visitor')+' PAGEERR: '+e.message));
   await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); return p;
 }
@@ -57,7 +57,7 @@ U.adm='dddddddd-4444-4444-4444-444444444444';
 be.users['ahmed.salem@arnour.com']={id:U.adm,email:'ahmed.salem@arnour.com',password:'passpass1',confirmed:true,meta:{},token:'tadm'};
 await be.db.query('insert into auth.users values ($1,$2)',[U.adm,'ahmed.salem@arnour.com']);
 const ctx=await browser.newContext(); await ctx.addInitScript(([id])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:'ahmed.salem@arnour.com',user_metadata:{}}})); }catch(e){} },[U.adm]);
-const ap=await ctx.newPage(); await ap.exposeFunction('__sb',be.handle); await ap.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK})); await ap.route('**/fonts.googleapis.com/**',r=>r.abort());
+const ap=await ctx.newPage(); await ap.exposeFunction('__sb',be.handle); await ap.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK})); await ap.route('**/fonts.googleapis.com/**',r=>r.abort());
 await ap.goto(BASE); await ap.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready); await ap.waitForTimeout(500); t('admin opening / lands on admin',(await hash(ap))==='#/admin',await hash(ap));
 for(const h of ['#/c/dashboard','#/e/dashboard','#/register','#/login','#/c/messages']){ await ap.evaluate(x=>{location.hash=x},h); await ap.waitForTimeout(350); t('admin without profile: '+h+' goes to admin, not the profile steps',(await hash(ap))==='#/admin',await hash(ap)); }
 await ap.evaluate(()=>{location.hash='#/community'}); await ap.waitForTimeout(350); t('admin can browse community',(await hash(ap))==='#/community');

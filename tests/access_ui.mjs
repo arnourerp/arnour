@@ -20,7 +20,7 @@ async function page(who){
   if(who) await ctx.addInitScript(([id,em,r])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:em,user_metadata:{role:r}}})); }catch(e){} },[U[who],who+'@t.com',role[who]]);
   await ctx.addInitScript(()=>{ window.__views=[]; window.__rpc=[]; const iv=setInterval(()=>{ if(!window.APP||!APP.views||APP.views.__h||!APP.backend||!APP.backend.rpc) return; for(const k of Object.keys(APP.views)){ const f=APP.views[k]; APP.views[k]=function(){ window.__views.push(k); return f.apply(this,arguments); }; } APP.views.__h=1; const r=APP.backend.rpc; APP.backend.rpc=function(n){ window.__rpc.push(n); return r.apply(this,arguments); }; clearInterval(iv); },3); });
   const p=await ctx.newPage(); await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); await p.waitForTimeout(600); return p;
 }

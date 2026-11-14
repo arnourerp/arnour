@@ -2244,3 +2244,15 @@ a.sr-title:hover { text-decoration: underline; }
 .cert-sw { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; border: 1.5px dashed var(--border-strong, #94A3B8); background: #fff; color: var(--mut); font-weight: 600; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
 .cert-sw:hover { border-color: #16A34A; color: #15803D; }
 .cert-sw.on { border: 1.5px solid #16A34A; background: #DCFCE7; color: #15803D; }
+
+/* ---- returning visitors: top bar and page outline shown while the data loads (index.html, js/backend.js) ---- */
+.sk-nav .brand { cursor: default; }
+.sk-search { height: 36px; padding: 0; }
+.sk-link { width: 84px; height: 34px; padding: 0; border-radius: 999px; }
+.sk-dot { border-radius: 50%; }
+.sk-av { display: block; box-shadow: none !important; }
+.sk-main { min-height: calc(100vh - 59px); }
+.sk-title { width: 220px; max-width: 60%; height: 26px; margin: 4px 0 20px; }
+.sk-main .skel-card .skel-line { height: 14px; margin: 9px 0; }
+.sk-w40 { width: 40%; } .sk-w70 { width: 70%; } .sk-w90 { width: 90%; }
+@media (max-width: 960px) { .sk-link { width: 44px; min-width: 44px; } .sk-search { display: none; } }

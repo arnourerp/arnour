@@ -177,6 +177,27 @@
     db.notifications[ent] = p.nots.map(function (n) { return { id: n.id, type: n.type, text: n.text, ts: +n.ts, read: !!n.read, link: n.link || null }; });
   };
 
+  /* The admin area (js/admin.js, about 31 KB compressed) is not part of the page for visitors, professionals and companies.
+     It is fetched once the database has confirmed an administrator. Until it is here, #/admin shows a short loading note. */
+  B.loadAdmin = function () {
+    if (APP.adminLoaded) return Promise.resolve(true);
+    if (B._adminP) return B._adminP;
+    B._adminP = new Promise(function (res) {
+      var s = document.createElement('script');
+      s.src = 'js/admin.js' + APP.vq(); s.async = true;
+      s.onload = function () { res(!!APP.adminLoaded); };
+      s.onerror = function () { B._adminP = null; res(false); };
+      document.head.appendChild(s);
+    });
+    return B._adminP;
+  };
+  if (!APP.views.admin) APP.views.admin = function () {
+    document.title = 'Admin — Arnour';
+    if (!B.isAdmin) return '<div class="empty">Not available.</div>';
+    if (!B._adminP) B.loadAdmin().then(function (ok) { if (ok) APP.render(); });
+    return '<div class="empty adm-wait" role="status"><p>Loading the admin area…</p><p class="muted small">If this stays, check your connection.</p><button type="button" class="btn btn-outline btn-sm" onclick="location.reload()">Reload</button></div>';
+  };
+
   B.hydrate = function (session) {
     B.user = session ? session.user : null; B.profile = null; B.suspended = null; B.isAdmin = false; B.emailPrefs = null; B._epLoading = false;
     var db = B.emptyDb(), pub, priv = null;
@@ -186,11 +207,13 @@
       var prof = r0 ? r0.data : null;
       if (prof && prof.suspended) { /* suspended: nothing else is loaded, the person sees the notice */
         B.suspended = { reason: prof.suspended_reason || '' };
-        APP.db = db; B.snap = B.makeSnap(); B.ready = true;
+        APP.db = db; B.snap = B.makeSnap(); B.ready = true; B.noteShell(null);
         return 'suspended';
       }
       return Promise.all([B.fetchPublic(), B.user ? rpc('am_i_admin').catch(function () { return false; }) : false]).then(function (xs) {
         pub = xs[0]; B.isAdmin = xs[1] === true;
+        return B.isAdmin ? B.loadAdmin() : null; /* the admin area is a separate file, fetched only for an administrator */
+      }).then(function () {
         if (!B.user) return null;
         /* the admin is not a user of the marketplace: any profile this account once had is ignored (and hidden from everyone else on the server) */
         B.profile = (B.isAdmin ? null : prof) || null;
@@ -216,7 +239,17 @@
       APP.db = db;
       B.snap = B.makeSnap();
       B.ready = true;
+      B.noteShell(db.session);
     }
+  };
+
+  /* Remember only which kind of account uses this browser (c = professional, e = company), so the next visit can show the top bar
+     and a page outline at once (see the small script in index.html). Removed on sign-out, for the admin and for people without a profile. */
+  B.noteShell = function (ses) {
+    try {
+      if (ses && !B.isAdmin && (ses.role === 'consultant' || ses.role === 'employer')) localStorage.setItem('arnour-shell', ses.role === 'consultant' ? 'c' : 'e');
+      else localStorage.removeItem('arnour-shell');
+    } catch (e) { /* storage blocked: the logo screen shows next time, as before */ }
   };
 
   /* what the server already has — compared against APP.db after every save */
@@ -1271,8 +1304,13 @@
         window.addEventListener('hashchange', onEarlyHash);
         APP.render();
       } catch (e) { early = false; B.earlyHome = false; window.removeEventListener('hashchange', onEarlyHash); root.innerHTML = splash; }
-    } else root.innerHTML = splash;
-    var finish = function () { bootDone = true; B.earlyHome = false; window.removeEventListener('hashchange', onEarlyHash); };
+    } else {
+      /* a returning, signed-in visitor: top bar and page outline now, the real page when the data is here (new elements replace the outline, so nothing on screen moves) */
+      var kind = ''; try { kind = window.ARNOUR_SHELL_OK ? window.ARNOUR_SHELL_OK() : ''; } catch (e) { kind = ''; }
+      B.shell = !!kind;
+      root.innerHTML = kind ? window.ARNOUR_SHELL(kind) : splash;
+    }
+    var finish = function () { bootDone = true; B.earlyHome = false; B.shell = false; window.removeEventListener('hashchange', onEarlyHash); };
     B.boot().then(function () {
       if (B.justConfirmed && B.user && !B.profile && B.isAdmin) location.hash = '#/admin';
       else if (B.justConfirmed && B.user && !B.profile) { /* freshly confirmed: go straight to the profile steps (or pick a side first, after Google / LinkedIn from the sign-in page) */

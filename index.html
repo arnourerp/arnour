@@ -26,15 +26,36 @@
   <!-- the font file loads without holding up the first paint (text shows in the system font, then switches to Inter) -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
-  <link rel="stylesheet" href="css/styles.css" />
+  <!-- the version of this deploy's scripts and styles (written by tests/stamp.mjs); every local file address carries it, so old and new files never mix -->
+  <script>window.ARNOUR_V="c1c720d586"</script>
+  <link rel="stylesheet" href="css/styles.css?v=c1c720d586" />
   <style>/* the first-paint logo screen floats above the page, so removing it moves nothing (it used to push the app down 590 px and cause a 0.7 layout shift) */
   #boot-splash{position:fixed;top:0;left:0;right:0}
+  #boot-splash.boot-shell{bottom:0;overflow:hidden;background:var(--bg,#F5F7FA)}
   /* people see the logo screen from the first paint; the plain text for search engines stays in the page but is not shown */
   #app>.seo-fallback{position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}</style>
   <noscript><style>#app>.seo-fallback{position:static!important;width:auto!important;height:auto!important;margin:0 auto!important;padding:32px 24px!important;overflow:visible!important;clip:auto!important;white-space:normal!important}#boot-splash{display:none!important}</style></noscript>
 </head>
 <body>
   <div id="boot-splash" class="live-splash"><span class="brand-logo lg">A</span><p class="muted">Loading Arnour…</p></div>
+  <script>/* A returning, signed-in visitor sees the top bar and a grey page outline at once, instead of the logo screen, while the scripts and the data load.
+     Only the kind of account (c = professional, e = company) is kept in the browser for this, under "arnour-shell"; no personal data.
+     js/backend.js uses the same two functions when it starts, so the outline stays in place until the real page replaces it. */
+  (function(){var w=window;
+    w.ARNOUR_SHELL_OK=function(){try{var L=localStorage,r=L.getItem('arnour-shell'),q=location.search||'',h=location.hash||'',i,ok=false;
+      if(r!=='c'&&r!=='e')return '';
+      if(/[?&](code|token_hash|error|error_description|error_code|type)=/.test(q)||/[?&#](code|token_hash|error|error_description|error_code|access_token|refresh_token|type)=/.test(h))return '';
+      if(L.getItem('arnour-oauth-pending'))return '';
+      if(/^#\/(onboard|admin|reset|unsubscribe|start|login|register|forgot|check-email)/.test(h))return '';
+      for(i=0;i<L.length;i++){if(/^sb-.*-auth-token/.test(L.key(i)||'')){ok=true;break;}}
+      return ok?r:'';}catch(e){return '';}};
+    w.ARNOUR_SHELL=function(r){var k='<span class="nav-link skeleton sk-link"></span>',d='<span class="nav-ico skeleton sk-dot"></span>',
+      c='<div class="card skel-card"><span class="skeleton skel-line sk-w40"></span><span class="skeleton skel-line sk-w90"></span><span class="skeleton skel-line sk-w70"></span></div>';
+      return '<header class="nav sk-nav" aria-hidden="true"><div class="nav-inner"><span class="brand"><span class="brand-logo">A</span>Arnour</span><span class="nav-search skeleton sk-search"></span>'+
+        '<span class="nav-actions">'+k+k+(r==='e'?k:'')+d+d+'<span class="nav-user"><span class="avatar skeleton sk-av"></span></span></span></div></header>'+
+        '<main class="main sk-main" id="main" aria-busy="true"><p class="sr-only" role="status">Loading Arnour…</p><span class="skeleton sk-title"></span>'+c+c+c+'</main>';};
+    try{var r=w.ARNOUR_SHELL_OK(),b=document.getElementById('boot-splash');if(r&&b){b.className='boot-shell';b.innerHTML=w.ARNOUR_SHELL(r);}}catch(e){}
+  })();</script>
   <div id="app"><div class="seo-fallback" style="max-width:860px;margin:0 auto;padding:32px 24px;font-family:Inter,system-ui,sans-serif;color:#0F172A;line-height:1.6">
     <h1>Arnour — the SAP talent and consulting network</h1>
     <p>Arnour is a professional network and recruiting marketplace for SAP consultants, architects and enterprise employers across MENA and worldwide. Skills first, names second: professionals and companies stay anonymous until both say yes, matched on exact SAP product, module and project experience.</p>
@@ -43,21 +64,21 @@
     <p><a href="/sap-consultants/">Find SAP consultants</a> · <a href="/sap-jobs/">SAP jobs</a> · <a href="/about/">About Arnour</a> · <a href="/#/register/c">Create a profile</a> · <a href="/#/register/e">Hire SAP talent</a></p>
     <noscript><p>Arnour needs JavaScript to run the app. The pages above work without it.</p></noscript>
   </div></div>
-  <script src="js/config.js"></script>
-  <script src="js/attribution.js"></script>
-  <script src="js/vendor/supabase.js"></script>
-  <script src="js/catalog.js"></script>
-  <script>/* the demo data is only needed when the site runs without a live database */ if (!(window.ARNOUR_CONFIG && window.ARNOUR_CONFIG.url)) document.write('<script src="js/sample-data.js"><\/script>');</script>
-  <script src="js/core.js"></script>
-  <script src="js/views-public.js"></script>
-  <script src="js/views-consultant.js"></script>
-  <script src="js/views-employer.js"></script>
-  <script src="js/community.js"></script>
-  <script src="js/search.js"></script>
-  <script src="js/partners.js"></script>
-  <script src="js/backend.js"></script>
-  <script src="js/admin.js"></script>
-  <script src="js/feedback.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/config.js?v=c1c720d586"></script>
+  <script src="js/attribution.js?v=c1c720d586"></script>
+  <script src="js/vendor/supabase.js?v=c1c720d586"></script>
+  <script src="js/catalog.js?v=c1c720d586"></script>
+  <script>/* the demo data is only needed when the site runs without a live database */ if (!(window.ARNOUR_CONFIG && window.ARNOUR_CONFIG.url)) document.write('<script src="js/sample-data.js?v=c1c720d586"><\/script>');</script>
+  <script src="js/core.js?v=c1c720d586"></script>
+  <script src="js/views-public.js?v=c1c720d586"></script>
+  <script src="js/views-consultant.js?v=c1c720d586"></script>
+  <script src="js/views-employer.js?v=c1c720d586"></script>
+  <script src="js/community.js?v=c1c720d586"></script>
+  <script src="js/search.js?v=c1c720d586"></script>
+  <script src="js/partners.js?v=c1c720d586"></script>
+  <script src="js/backend.js?v=c1c720d586"></script>
+  <script src="js/report.js?v=c1c720d586"></script>
+  <script src="js/feedback.js?v=c1c720d586"></script>
+  <script src="js/main.js?v=c1c720d586"></script>
 </body>
 </html>

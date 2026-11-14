@@ -19,7 +19,7 @@ const ctx=await browser.newContext({viewport:{width:1280,height:1000}});
 await ctx.addInitScript(([id])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:'pia@t.com',user_metadata:{role:'consultant'}}})); }catch(e){} },[UID]);
 const p=await ctx.newPage(); const errs=[]; p.on('pageerror',e=>errs.push(e.message));
 await p.exposeFunction('__sb',be.handle);
-await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
 await p.route('**/fonts.googleapis.com/**',r=>r.abort());
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==','base64');
 await p.route('**/storage/v1/object/public/avatars/**',r=>r.fulfill({contentType:'image/png',body:PNG}));

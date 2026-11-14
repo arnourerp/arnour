@@ -126,7 +126,7 @@ export function buildPage(shell, o) {
   h = h.replace('<head>', () => '<head><base href="/">' + entry);
   const extra = (o.robots ? '<meta name="robots" content="' + esc(o.robots) + '" />' : '') + (o.ld || []).map((x) => '<script type="application/ld+json">' + ldJson(x) + '</script>').join('');
   h = h.replace('</head>', () => extra + '</head>');
-  if (o.fallback) h = h.replace(/<div id="app">[\s\S]*?<\/div><\/div>(\s*<script src="js\/config\.js">)/, (mm, tail) => '<div id="app">' + o.fallback + '</div>' + tail);
+  if (o.fallback) h = h.replace(/<div id="app">[\s\S]*?<\/div><\/div>(\s*<script src="js\/config\.js(?:\?v=[A-Za-z0-9]*)?">)/, (mm, tail) => '<div id="app">' + o.fallback + '</div>' + tail);
   return h;
 }
 

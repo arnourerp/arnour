@@ -24,7 +24,7 @@ async function page(who,w=1280,h=900){
   p.on('console',m=>{ if(m.type()==='error'&&!/ERR_TUNNEL|Failed to load resource/.test(m.text())) errors.push((who||'visitor')+': '+m.text()); });
   p.on('pageerror',e=>errors.push((who||'visitor')+' PAGEERR: '+e.message));
   await p.exposeFunction('__sb',be.handle);
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); return p;
 }
@@ -37,7 +37,7 @@ await be.db.query('insert into auth.users values ($1,$2)',[U.adm,'ahmed.salem@ar
 const admPage=async()=>{ const ctx=await browser.newContext({viewport:{width:1280,height:900}});
   await ctx.addInitScript(([id])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:'ahmed.salem@arnour.com',user_metadata:{}}})); }catch(e){} },[U.adm]);
   const p=await ctx.newPage(); p.on('console',m=>{ if(m.type()==='error'&&!/ERR_TUNNEL|Failed to load resource/.test(m.text())) errors.push('adm: '+m.text()); }); p.on('pageerror',e=>errors.push('adm PAGEERR: '+e.message));
-  await p.exposeFunction('__sb',be.handle); await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK})); await p.route('**/fonts.googleapis.com/**',r=>r.abort());
+  await p.exposeFunction('__sb',be.handle); await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK})); await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); return p; };
 const dlg=async(p,note)=>{ if(note!==undefined) await p.fill('#dlg-note',note); await p.click('#dlg-ok'); await p.waitForTimeout(500); };
 

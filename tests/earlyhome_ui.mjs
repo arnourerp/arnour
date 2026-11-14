@@ -13,7 +13,7 @@ async function open(init){
   const ctx=await browser.newContext({viewport:{width:1280,height:800}});
   const p=await ctx.newPage();
   await p.exposeFunction('__sb',async(...a)=>{ await new Promise(r=>setTimeout(r,DELAY)); return be.handle(...a); });
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   if(init) await p.addInitScript(init);
   return p;
@@ -81,7 +81,7 @@ async function openFailing(){
   const ctx=await browser.newContext({viewport:{width:390,height:800}});
   const p=await ctx.newPage();
   await p.exposeFunction('__sb',async()=>{ await new Promise(r=>setTimeout(r,600)); throw new Error('net::ERR_CERT_AUTHORITY_INVALID'); });
-  await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+  await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
   await p.route('**/fonts.googleapis.com/**',r=>r.abort());
   return p;
 }

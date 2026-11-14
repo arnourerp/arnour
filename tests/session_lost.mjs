@@ -9,7 +9,7 @@ const errors=[]; const BASE='http://localhost:'+(process.env.PORT_LIVE||8123)+'/
 const ctx=await browser.newContext({viewport:{width:390,height:800}}); const p=await ctx.newPage();
 p.on('pageerror',e=>errors.push(e.message));
 await p.exposeFunction('__sb',be.handle);
-await p.route('**/js/vendor/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
+await p.route('**/js/vendor/supabase.js*',r=>r.fulfill({contentType:'application/javascript',body:MOCK}));
 await p.route('**/fonts.googleapis.com/**',r=>r.abort());
 const go=async h=>{ await p.evaluate(x=>{location.hash=x},h); await p.waitForTimeout(300); };
 // sign up on "the laptop", confirm on "the phone" (this page) with the email link
