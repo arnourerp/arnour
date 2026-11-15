@@ -5,14 +5,18 @@ import fs from 'fs'; import {createRequire} from 'module';
 const require=createRequire(import.meta.url);
 const {chromium}=require('playwright');
 const MOCK=fs.readFileSync(process.env.ARNOUR_TESTS+'/mock-client.js','utf8');
-const CFG=fs.readFileSync(process.env.ARNOUR_ROOT+'/js/config.js','utf8');
+const CFG_REAL=fs.readFileSync(process.env.ARNOUR_ROOT+'/js/config.js','utf8');
+const ADS_RE=/ads: \{[^}]*\}/;
+/* the live config now carries the real Ads values, so every case below starts from a copy with the Ads line emptied */
+const CFG=CFG_REAL.replace(ADS_RE,"ads: { id: '', convC: '', convE: '' }");
 const be=await makeBackend(); const db=be.db; const browser=await chromium.launch();
 await db.exec(`alter table auth.users add column if not exists raw_user_meta_data jsonb default '{}'::jsonb`);
 for (const f of ['024_traffic','033_campaigns']) await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f+'.sql','utf8'));
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,500):'');}else console.log('ok  ',n); };
 const errors=[]; const ROOTURL='http://localhost:'+(process.env.PORT_LIVE||8123)+'/';
 const withAds=CFG.replace("ads: { id: '', convC: '', convE: '' }","ads: { id: 'AW-123456789', convC: 'AbCdEfGhIjK', convE: 'ZyXwVuTsRq1' }");
-t('the test can switch the Ads ID on in config.js',withAds!==CFG&&/ads: \{ id: '', convC: '', convE: '' \}/.test(CFG));
+t('the test can switch the Ads ID on in config.js',withAds!==CFG&&ADS_RE.test(CFG_REAL));
+t('the live config holds a well-formed Ads ID and two labels, or all three empty',(()=>{const m=CFG_REAL.match(/ads: \{ id: '([^']*)', convC: '([^']*)', convE: '([^']*)' \}/); if(!m) return false; if(!m[1]&&!m[2]&&!m[3]) return true; return /^AW-\d{6,}$/.test(m[1])&&/^[A-Za-z0-9_-]{10,}$/.test(m[2])&&/^[A-Za-z0-9_-]{10,}$/.test(m[3])&&m[2]!==m[3];})(),CFG_REAL.match(ADS_RE));
 async function page(ads,who,query,init){
   const ctx=await browser.newContext({viewport:{width:1280,height:900}});
   await ctx.addInitScript(()=>{ window.__cls=0; try{ new PerformanceObserver(l=>{ for(const e of l.getEntries()) if(!e.hadRecentInput) window.__cls+=e.value; }).observe({type:'layout-shift',buffered:true}); }catch(e){} });
