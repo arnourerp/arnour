@@ -17,8 +17,9 @@ const errors=[]; const ROOTURL='http://localhost:'+(process.env.PORT_LIVE||8123)
 const withAds=CFG.replace("ads: { id: '', convC: '', convE: '' }","ads: { id: 'AW-123456789', convC: 'AbCdEfGhIjK', convE: 'ZyXwVuTsRq1' }");
 t('the test can switch the Ads ID on in config.js',withAds!==CFG&&ADS_RE.test(CFG_REAL));
 t('the live config holds a well-formed Ads ID and two labels, or all three empty',(()=>{const m=CFG_REAL.match(/ads: \{ id: '([^']*)', convC: '([^']*)', convE: '([^']*)' \}/); if(!m) return false; if(!m[1]&&!m[2]&&!m[3]) return true; return /^AW-\d{6,}$/.test(m[1])&&/^[A-Za-z0-9_-]{10,}$/.test(m[2])&&/^[A-Za-z0-9_-]{10,}$/.test(m[3])&&m[2]!==m[3];})(),CFG_REAL.match(ADS_RE));
+let TZ_ID='Europe/Berlin'; /* European visitors are asked first; the default-on cases below switch this to Dubai or Cairo */
 async function page(ads,who,query,init){
-  const ctx=await browser.newContext({viewport:{width:1280,height:900}});
+  const ctx=await browser.newContext({viewport:{width:1280,height:900},timezoneId:TZ_ID});
   await ctx.addInitScript(()=>{ window.__cls=0; try{ new PerformanceObserver(l=>{ for(const e of l.getEntries()) if(!e.hadRecentInput) window.__cls+=e.value; }).observe({type:'layout-shift',buffered:true}); }catch(e){} });
   if(init) await ctx.addInitScript(init);
   if(who) await ctx.addInitScript(([id,em])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:em,user_metadata:{role:'consultant'}}})); }catch(e){} },who);
@@ -68,12 +69,43 @@ const cookies=async(p)=>(await p.context().cookies()).map(c=>c.name);
   t('a professional profile is reported with its label',await p.evaluate(()=>ArnourConsent.conversion('c'))&&await p.evaluate(()=>{ const e=window.dataLayer.map(a=>Array.from(a)).filter(a=>a[0]==='event'); return e.length===1&&e[0][1]==='conversion'&&e[0][2].send_to==='AW-123456789/AbCdEfGhIjK'; }));
   t('a company profile uses the other label',await p.evaluate(()=>ArnourConsent.conversion('e'))&&await p.evaluate(()=>window.dataLayer.map(a=>Array.from(a)).filter(a=>a[0]==='event')[1][2].send_to==='AW-123456789/ZyXwVuTsRq1'));
   await p.evaluate(()=>{location.hash='#/privacy'}); await p.waitForTimeout(300);
-  t('with an ID the privacy page explains the Google measurement and the choice',await p.evaluate(()=>/Only if you press Accept/.test(document.body.innerText)&&/Ad measurement choice/.test(document.body.innerText)&&!/We do not use advertising cookies or third-party tracking/.test(document.body.innerText)));
+  t('with an ID the privacy page explains the Google measurement and the choice',await p.evaluate(()=>/send nothing unless you press Accept/.test(document.body.innerText)&&/switch this off, or on, at any time/.test(document.body.innerText)&&/Ad measurement choice/.test(document.body.innerText)&&!/We do not use advertising cookies or third-party tracking/.test(document.body.innerText)));
   await p.reload(); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready); await p.waitForTimeout(400);
   t('on the next visit the tag loads without asking again',await p.locator('#consent-bar').count()===0&&p.__g.filter(u=>/gtag\/js/.test(u)).length===2);
   await p.click('[data-action="consent-open"]'); await p.click('#consent-bar [data-consent="no"]'); await p.waitForTimeout(200);
   t('changing to Decline is remembered and conversions stop',await p.evaluate(()=>JSON.parse(localStorage.getItem('arnour-consent')).v==='no'&&ArnourConsent.conversion('c')===false));
   await p.context().close(); }
+/* ---- visitors outside Europe: measured by default, no bar, anyone can switch it off ---- */
+for (const tz of ['Asia/Dubai','Africa/Cairo','Asia/Riyadh']) {
+  TZ_ID=tz;
+  const p=await page(true,null,''); /* no campaign on these links: the per-campaign table below counts the tagged visits above and must not change */
+  t(tz+': no bar, and the Google tag is requested by default with the ID',await p.locator('#consent-bar').count()===0&&p.__g.filter(u=>/gtag\/js\?id=AW-123456789$/.test(u)).length===1,p.__g);
+  const dl=await p.evaluate(()=>(window.dataLayer||[]).map(a=>Array.from(a)));
+  t(tz+': consent is for ad measurement only (no personalisation)',dl.length>1&&dl[0][1]==='default'&&dl[0][2].ad_personalization==='denied'&&dl[1][1]==='update'&&dl[1][2].ad_storage==='granted'&&!('ad_personalization' in dl[1][2]),dl.slice(0,3));
+  t(tz+': a finished profile is reported without any choice made',await p.evaluate(()=>ArnourConsent.conversion('c'))&&await p.evaluate(()=>window.dataLayer.map(a=>Array.from(a)).filter(a=>a[0]==='event').slice(-1)[0][2].send_to==='AW-123456789/AbCdEfGhIjK'));
+  t(tz+': nothing about a choice is stored until the person makes one',await p.evaluate(()=>localStorage.getItem('arnour-consent')===null));
+  t(tz+': the footer link to switch it off is there',await p.locator('[data-action="consent-open"]').count()===1);
+  await p.evaluate(()=>{location.hash='#/privacy'}); await p.waitForTimeout(300);
+  t(tz+': the privacy page says the tag is loaded on a visit, asks first in Europe, and names the switch',await p.evaluate(()=>/tag is loaded when you visit/.test(document.body.innerText)&&/we ask first and send nothing unless you press Accept/.test(document.body.innerText)&&/Ad measurement choice/.test(document.body.innerText)));
+  if (tz==='Asia/Dubai') {
+    await p.click('[data-action="consent-open"]'); await p.waitForTimeout(200);
+    t('Dubai: the footer link opens the bar so the person can switch measurement off',await p.locator('#consent-bar').count()===1);
+    await p.click('#consent-bar [data-consent="no"]'); await p.waitForTimeout(300);
+    t('Dubai: switching off is remembered, conversions stop and the bar is gone',await p.evaluate(()=>JSON.parse(localStorage.getItem('arnour-consent')).v==='no'&&ArnourConsent.conversion('c')===false)&&await p.locator('#consent-bar').count()===0);
+    const before=p.__g.length;
+    await p.reload(); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready); await p.waitForTimeout(400);
+    t('Dubai: after switching off, the next visit loads no Google tag and shows no bar',p.__g.length===before&&await p.locator('#consent-bar').count()===0&&await p.evaluate(()=>ArnourConsent.conversion('c')===false));
+  }
+  await p.context().close();
+}
+TZ_ID='Europe/Berlin';
+/* a visitor whose time zone is in Europe is asked first, in a few places */
+for (const tz of ['Europe/London','Europe/Paris','Atlantic/Canary']) {
+  TZ_ID=tz; const p=await page(true,null,'');
+  t(tz+': asked first: bar shown, no Google request, conversion not sent',await p.locator('#consent-bar').count()===1&&p.__g.length===0&&await p.evaluate(()=>ArnourConsent.conversion('c')===false&&typeof window.gtag==='undefined'));
+  await p.context().close();
+}
+TZ_ID='Europe/Berlin';
 /* a profile completed in the app calls the conversion (accepted beforehand) */
 { const p=await page(true,null,'',()=>{ try{ localStorage.setItem('arnour-consent',JSON.stringify({v:'yes',t:Date.now()})); }catch(e){} });
   await p.evaluate(()=>{ APP.backend.noteProfileDone('consultant'); APP.backend.noteProfileDone('employer'); });

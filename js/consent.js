@@ -1,11 +1,13 @@
 /* Arnour — consent for advertising measurement (Google Ads conversion tag).
    Nothing here does anything until a Google Ads ID is set in js/config.js (ARNOUR_CONFIG.ads.id, e.g. 'AW-123456789').
    With an ID set:
-   - a small bar at the bottom asks once; the default is NO: until the person presses Accept, no Google script is loaded,
-     no cookie is set and nothing is sent. Decline is remembered too (the bar does not come back; the footer link reopens it).
-   - after Accept the Google tag is loaded with consent for ad measurement only (no ad personalisation), and a finished
+   - visitors whose browser says they are in Europe (time zone Europe/* or the Atlantic islands that belong to it) are asked
+     once with a small bar; for them the default is NO: no Google script, no cookie, nothing sent until Accept.
+   - everyone else is measured by default (no bar); the Privacy page says so, and the footer link "Ad measurement choice" lets
+     anyone switch it off (or on) at any time. A choice made there is remembered and wins over the default.
+   - measurement means: the Google tag is loaded with consent for ad measurement only (no ad personalisation), and a finished
      profile is reported as a conversion (labels in ARNOUR_CONFIG.ads.convC for professionals, .convE for companies).
-   The choice is kept in this browser under "arnour-consent" ("yes" or "no" and the date). The IDs and labels are public values. */
+   A choice is kept in this browser under "arnour-consent" ("yes" or "no" and the date). The IDs and labels are public values. */
 (function () {
   'use strict';
   var CFG = (window.ARNOUR_CONFIG && window.ARNOUR_CONFIG.ads) || {};
@@ -15,8 +17,13 @@
   function read() { try { var o = JSON.parse(window.localStorage.getItem(KEY) || 'null'); return o && (o.v === 'yes' || o.v === 'no') ? o : null; } catch (e) { return null; } }
   function write(v) { try { window.localStorage.setItem(KEY, JSON.stringify({ v: v, t: Date.now() })); return true; } catch (e) { return false; } }
   C.on = function () { return !!ID; };                       /* is there anything to ask about? */
-  C.state = function () { var o = read(); return o ? o.v : ''; };
-  C.granted = function () { return !!ID && C.state() === 'yes'; };
+  /* does this visitor have to be asked first? (best guess from the browser's time zone; when in doubt for Europe we ask) */
+  C.asks = function () {
+    try { var z = String(Intl.DateTimeFormat().resolvedOptions().timeZone || ''); return /^Europe\//.test(z) || /^Atlantic\/(Reykjavik|Canary|Madeira|Azores|Faroe)$/.test(z); }
+    catch (e) { return true; }
+  };
+  C.state = function () { var o = read(); return o ? o.v : ''; };                    /* the person's own choice: 'yes', 'no' or '' */
+  C.granted = function () { var v = C.state(); return !!ID && (v ? v === 'yes' : !C.asks()); };
   function gtag() { window.dataLayer.push(arguments); }
   /* the click id Google put on the ad link was noted by js/attribution.js on the first visit; after consent it is handed to the
      Google tag in the cookie that tag reads, because the address no longer carries it by the time the person accepts */
@@ -56,7 +63,7 @@
     if (!ID || bar()) return;
     var b = document.createElement('div');
     b.id = 'consent-bar'; b.className = 'consent-bar'; b.setAttribute('role', 'region'); b.setAttribute('aria-label', 'Advertising measurement');
-    b.innerHTML = '<p>May we measure whether our Google ads work? If you accept, Google learns that someone who clicked an ad created a profile here. No ad personalisation. <a href="#/privacy">Privacy</a></p>' +
+    b.innerHTML = '<p>May we measure whether our Google ads work? If you accept, Google learns that someone who clicked an ad created a profile here. No ad personalisation. You can change this any time at the bottom of the page. <a href="#/privacy">Privacy</a></p>' +
       '<div class="consent-btns"><button type="button" class="btn btn-outline btn-sm" data-consent="no">Decline</button><button type="button" class="btn btn-outline btn-sm" data-consent="yes">Accept</button></div>';
     b.addEventListener('click', function (e) {
       var t = e.target && e.target.closest ? e.target.closest('[data-consent]') : null; if (!t) return;
@@ -70,7 +77,7 @@
     if (v === 'yes') load();
     else if (loaded && window.gtag) window.gtag('consent', 'update', { ad_storage: 'denied', ad_user_data: 'denied' }); /* changed their mind: stop for the rest of the visit */
   };
-  C.start = function () { if (!ID) return; if (C.state() === 'yes') load(); else if (!C.state()) C.show(); };
+  C.start = function () { if (!ID) return; if (C.granted()) load(); else if (!C.state()) C.show(); };
   window.ArnourConsent = C;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', C.start); else C.start();
 })();
