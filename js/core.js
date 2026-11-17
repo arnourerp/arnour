@@ -1877,9 +1877,11 @@ APP.certBadgeHtml = function (c) {
     ? '<span class="vbadge" title="' + (APP.LIVE ? 'Certified (self-declared) in at least one SAP module' : 'SAP-certified in at least one module') + '" aria-label="' + (APP.LIVE ? 'Certified, self-declared' : 'SAP-certified') + '">' + APP.icon('check', 11) + '</span>'
     : '';
 };
-APP.matchPillHtml = function (score) {
+APP.matchPillHtml = function (score, cid, jid) {
   if (typeof score !== 'number') return '';
   const b = APP.matchBand(score);
+  /* with a professional and a role the percentage is a button that opens the match breakdown (same as the "Match breakdown" link) */
+  if (cid && jid) return '<button type="button" class="match match-btn ' + b.cls + '" data-action="match-drawer" data-cid="' + APP.h(cid) + '" data-jid="' + APP.h(jid) + '" title="' + b.label + ' match: tap to see the breakdown" aria-label="' + score + '% match, show the match breakdown">' + score + '% Match <span class="match-go" aria-hidden="true">›</span></button>';
   return '<span class="match ' + b.cls + '" title="' + b.label + ' match">' + score + '% Match</span>';
 };
 /* Top-N pills (neutral style) + a quiet "+N more" that opens the full page. */
@@ -2031,7 +2033,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
     (!isExt && co && co._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Confidential</span>' : '') +
     (invited ? ' <span class="pill inv">' + APP.icon('check', 12) + ' Invited</span>' : '') + '</h3>' +
     '</div>' +
-    '<div class="card-side">' + APP.matchPillHtml(score) + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.h(APP.fmtRange(job)) + '</span>' : '') + '</div>' +
+    '<div class="card-side">' + APP.matchPillHtml(score, canBreak ? fitC.id : '', job.id) + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.h(APP.fmtRange(job)) + '</span>' : '') + '</div>' +
     '</div>' +
     meta +
     '<div class="card-pills">' + APP.pillsHtml(reqLabels, 4, link) + '</div>' +
@@ -2085,7 +2087,7 @@ APP.talentCard = function (c, opts) {
     '<p class="card-name"><a class="person-link" href="' + profile + '">' + APP.h(name) + '</a>' + APP.certBadgeHtml(c) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Anonymous</span>' : '') + (opts.note || '') + '</p>' +
     '<h3 class="card-title">' + APP.h(c.headline || APP.roleTypeLabel(c.roleType) || c.level || '') + '</h3>' +
     '</div>' +
-    '<div class="card-side">' + (hasScore ? APP.matchPillHtml(opts.score) : '') + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.rateHtml(c) + '</span>' : '') + '</div>' +
+    '<div class="card-side">' + (hasScore ? APP.matchPillHtml(opts.score, c.id, opts.job.id) : '') + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.rateHtml(c) + '</span>' : '') + '</div>' +
     '</div>' +
     meta +
     '<div class="card-pills">' + APP.pillsHtml(APP.skillPillLabels(c.skills, opts.job), 4, profile) + '</div>' +

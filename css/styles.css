@@ -1049,6 +1049,12 @@ a.job-card:active, a.stat-card:active, a.app-item:active, .role-card:active, .de
 .card-rate { font-size: 13px; font-weight: var(--fw-semibold); color: var(--text-primary); white-space: nowrap; }
 .card-rate small { font-size: 12px; font-weight: var(--fw-regular); color: var(--text-muted); }
 .card .match { font-size: 12px; font-weight: var(--fw-semibold); padding: 3px 10px; }
+/* the percentage on a card is a button that opens the match breakdown */
+.match-btn { position: relative; border: 0; font-family: inherit; line-height: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: filter .15s; }
+.match-btn::before { content: ''; position: absolute; inset: -9px -6px; } /* 44 px tap area */
+.match-btn:hover { filter: brightness(.95); }
+.match-btn:focus-visible { outline: 2px solid var(--accent-blue, #2563eb); outline-offset: 2px; }
+.match-go { font-size: 15px; line-height: 1; font-weight: 700; margin-top: -1px; }
 .vbadge { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--accent-blue); color: #fff; flex: none; }
 .card-meta { overflow: hidden; margin-top: var(--space-3); font-size: 13px; color: var(--text-secondary); }
 .card-meta .mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; margin-left: -18px; }
