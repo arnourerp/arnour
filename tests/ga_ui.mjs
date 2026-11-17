@@ -30,6 +30,7 @@ async function open(cfg,tz,url,app=true){
   await p.waitForTimeout(500); return p;
 }
 const dl=(p)=>p.evaluate(()=>(window.dataLayer||[]).map(a=>Array.from(a)));
+const sets=async(p)=>(await dl(p)).filter(a=>a[0]==='set').map(a=>a[1]);
 const pv=async(p)=>(await dl(p)).filter(a=>a[0]==='event'&&a[1]==='page_view').map(a=>a[2]);
 const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x;},h); await p.waitForTimeout(450); };
 
@@ -46,10 +47,12 @@ const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x;},h); await p.waitFo
   t('GA config: no automatic page view, no Google signals, no ad personalisation',cfg&&cfg[2].send_page_view===false&&cfg[2].allow_google_signals===false&&cfg[2].allow_ad_personalization_signals===false,cfg);
   t('no automatic page view from the Ads config either',(await dl(p)).every(a=>a[0]!=='config'||!/^AW-/.test(a[1])||a[2]&&a[2].send_page_view===false));
   t('no Ads config without an Ads ID',!d.some(a=>a[0]==='config'&&/^AW-/.test(a[1])));
-  const v=await pv(p);
-  t('first page view is the page type, with only allowlisted campaign parameters',v.length===1&&v[0].page_path==='/app/landing'&&/utm_source=facebook&utm_medium=group&gclid=ZZ99/.test(v[0].page_location)&&!/email|a%40b/.test(JSON.stringify(v)),v);
+  const st=await sets(p), idxSet=d.findIndex(a=>a[0]==='set'), idxCfg=d.findIndex(a=>a[0]==='config');
+  t('the page type is set BEFORE the config calls, so Google\'s own automatic first page view carries it, not the real title or address',idxSet>=0&&idxSet<idxCfg&&st[0].page_path==='/app/landing'&&st[0].page_title==='landing',d.slice(0,6));
+  t('that first view has only allowlisted campaign parameters',/utm_source=facebook&utm_medium=group&gclid=ZZ99/.test(st[0].page_location)&&!/email|a%40b|chk/.test(JSON.stringify(st)),st);
+  t('no second manual page_view for the first screen',(await pv(p)).length===0,await pv(p));
   await go(p,'#/jobs'); await go(p,'#/job/abc-123-secret'); await go(p,'#/talent/some-person-id'); await go(p,'#/community/q/xyz-999');
-  const v2=(await pv(p)).slice(1);
+  const v2=await pv(p);
   t('later screens are page types: jobs, job-detail, talent-public, community-q',v2.map(x=>x.page_path).join()==='/app/jobs,/app/job-detail,/app/talent-public,/app/community-q',v2.map(x=>x.page_path));
   t('no id, name or email ever reaches Google',!/abc-123|secret|some-person|xyz-999|a%40b/.test(JSON.stringify(await dl(p))));
   t('in-app referrer is the previous page type, without query',v2[0].page_referrer&&!/\?/.test(v2[0].page_referrer),v2[0]);
@@ -67,8 +70,8 @@ const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x;},h); await p.waitFo
   t('Europe: bar shown, no Google request, no data layer, no page view',await p.locator('#consent-bar').count()===1&&p.__g.length===0&&await p.evaluate(()=>typeof window.gtag==='undefined'));
   await go(p,'#/jobs'); t('Europe: moving around before a choice sends nothing',p.__g.length===0&&await p.evaluate(()=>typeof window.gtag==='undefined'));
   await p.click('#consent-bar [data-consent="yes"]'); await p.waitForTimeout(600);
-  const v=await pv(p);
-  t('Europe: after Accept the tag loads and the current screen is reported as a page type',p.__g.length===1&&v.length===1&&v[0].page_path==='/app/jobs',{g:p.__g,v});
+  const st=await sets(p);
+  t('Europe: after Accept the tag loads and the current screen is the page type Google sees',p.__g.length===1&&st.length>=1&&st[0].page_path==='/app/jobs'&&(await pv(p)).length===0,{g:p.__g,st});
   await p.context().close(); }
 { const p=await open(GA_ONLY,'Europe/Berlin',''); await p.click('#consent-bar [data-consent="no"]'); await p.waitForTimeout(300); await go(p,'#/jobs');
   t('Europe: Decline keeps Google out for good',p.__g.length===0&&await p.evaluate(()=>typeof window.gtag==='undefined')); await p.context().close(); }
@@ -80,8 +83,8 @@ const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x;},h); await p.waitFo
 
 /* ---- the static landing pages ---- */
 { const p=await open(GA_ONLY,'Asia/Dubai','sap-jobs/?utm_source=linkedin&utm_medium=group&utm_campaign=x1&token=secret',false);
-  const v=await pv(p);
-  t('landing page: its own page view with the campaign, nothing else, and no bar',v.length===1&&v[0].page_path==='/sap-jobs/'&&/utm_source=linkedin&utm_medium=group&utm_campaign=x1/.test(v[0].page_location)&&!/secret/.test(JSON.stringify(v))&&await p.locator('#consent-bar').count()===0,v);
+  const v=await sets(p);
+  t('landing page: its own page type with the campaign, nothing else, and no bar',v.length===1&&v[0].page_path==='/sap-jobs/'&&/utm_source=linkedin&utm_medium=group&utm_campaign=x1/.test(v[0].page_location)&&!/secret/.test(JSON.stringify(v))&&await p.locator('#consent-bar').count()===0,v);
   await p.context().close(); }
 { const p=await open(GA_ONLY,'Europe/Berlin','about/',false);
   t('landing page in Europe: nothing is sent and no bar is drawn',p.__g.length===0&&await p.locator('#consent-bar').count()===0&&await p.evaluate(()=>typeof window.gtag==='undefined')); await p.context().close(); }

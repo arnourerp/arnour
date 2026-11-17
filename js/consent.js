@@ -38,6 +38,27 @@
       document.cookie = '_gcl_aw=GCL.' + secs + '.' + ft.gc + '; path=/; max-age=7776000; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
     } catch (e) { /* ignore */ }
   }
+  var lastLoc = '';
+  function query() {
+    var keep = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'gclid'], out = [], q = String(window.location.search || '').replace(/^\?/, '').split('&');
+    for (var i = 0; i < q.length; i++) { var kv = q[i].split('='); if (keep.indexOf(kv[0]) >= 0 && /^[A-Za-z0-9._~%+-]{1,100}$/.test(kv[1] || '')) out.push(kv[0] + '=' + kv[1]); }
+    return out.length ? '?' + out.join('&') : '';
+  }
+  /* what Google may see for this screen: the page TYPE as title, a made-up path, and only allowlisted campaign tags */
+  var autoView = '';
+  function place(view, landing) {
+    view = String(view || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30) || 'app';
+    var path = landing ? '/' + view + '/' : '/app/' + view, ref = lastLoc;
+    if (!ref) { var m = String(document.referrer || '').match(/^(https?:\/\/[^/?#]+)/i); ref = m && m[1] !== window.location.origin ? m[1] + '/' : ''; }
+    var p = { page_location: window.location.origin + path + (lastLoc ? '' : query()), page_path: path, page_title: view };
+    if (ref) p.page_referrer = ref;
+    return { p: p, view: view, base: window.location.origin + path };
+  }
+  function nowView() {
+    if (LP) return { v: LP[1], l: true };
+    try { var r = window.APP && APP.parseRoute && APP.parseRoute(); if (r && r.view) return { v: r.view, l: false }; } catch (e) { /* ignore */ }
+    return { v: 'app', l: false };
+  }
   function load() {
     if (loaded || !C.granted()) return;
     loaded = true;
@@ -48,6 +69,11 @@
     window.gtag('consent', 'update', upd);
     if (ID) clickCookie();
     window.gtag('js', new Date());
+    /* Google's own tag sends one automatic page view when it starts, with the real page title and full address (a role title, an id,
+       any query). Whatever it reads comes from here, so the sanitized values are set BEFORE the config calls; that automatic view then
+       is our page view of this screen and page() below does not send a second one. */
+    var nv = nowView(), pl = place(nv.v, nv.l); lastLoc = pl.base; autoView = pl.view;
+    window.gtag('set', pl.p);
     /* no automatic page view from either tag: it would carry the real page title and address (a role title, an id) into Analytics; our own sanitized page_view replaces it */
     if (ID) window.gtag('config', ID, { send_page_view: false });
     /* Analytics: no automatic page view (the app is one page, we send our own with page types), no Google signals, no ad personalisation */
@@ -65,23 +91,16 @@
     return true;
   };
   /* ---- Google Analytics: page types and a few events, nothing personal ---- */
-  var lastLoc = '';
-  function query() {
-    var keep = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'gclid'], out = [], q = String(window.location.search || '').replace(/^\?/, '').split('&');
-    for (var i = 0; i < q.length; i++) { var kv = q[i].split('='); if (keep.indexOf(kv[0]) >= 0 && /^[A-Za-z0-9._~%+-]{1,100}$/.test(kv[1] || '')) out.push(kv[0] + '=' + kv[1]); }
-    return out.length ? '?' + out.join('&') : '';
-  }
   /* view = a page type such as 'job-detail' or 'jobs'; landing = true for the static pages (/about/, /sap-jobs/, /sap-consultants/) */
   C.page = function (view, landing) {
-    view = String(view || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
-    if (!GID || !view || !C.granted()) return false;
-    load();
-    var path = landing ? '/' + view + '/' : '/app/' + view, loc = window.location.origin + path + (lastLoc ? '' : query()), ref = lastLoc;
-    if (!ref) { var m = String(document.referrer || '').match(/^(https?:\/\/[^/?#]+)/i); ref = m && m[1] !== window.location.origin ? m[1] + '/' : ''; }
-    var p = { page_location: loc, page_path: path, page_title: view };
-    if (ref) p.page_referrer = ref;
-    lastLoc = loc.split('?')[0];
-    window.gtag('event', 'page_view', p);
+    if (!GID || !C.granted()) return false;
+    var wasLoaded = loaded; load();
+    var pl = place(view, landing);
+    if (!wasLoaded || autoView === pl.view) { autoView = ''; return true; }   /* the automatic view of this load already carries it */
+    autoView = '';
+    lastLoc = pl.base;
+    window.gtag('set', pl.p);
+    window.gtag('event', 'page_view', pl.p);
     return true;
   };
   /* events: only these names, and only these two plain parameters */
