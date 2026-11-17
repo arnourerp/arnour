@@ -335,7 +335,7 @@ APP.jobFilterPanelHtml = function (f, active, nShown) {
     '<label class="field"><span class="label">Language</span><select name="lang" class="input"><option value="">Any</option>' + APP.opt(APP.languages.map(l => [l, l]), f.lang) + '</select></label>';
   const postedBody = '<label class="field"><span class="label">Posted</span><select name="posted" class="input"><option value="">Any time</option>' + APP.opt([['1', 'Last 24 hours'], ['7', 'Last 7 days'], ['30', 'Last 30 days']], String(f.posted || '')) + '</select></label>';
   return '<form data-form="job-filters" class="filters card' + (APP.state.tfMobile ? ' tf-open' : '') + '" id="tf-panel">' +
-    '<div class="card-h">Filters' + (active.length ? ' <span class="count-pill">' + active.length + '</span>' : '') + ' <button type="button" class="link" data-action="filters-reset">Reset</button></div>' +
+    '<div class="card-h">Filters' + (active.length ? ' <span class="count-pill">' + active.length + '</span>' : '') + ' <button type="button" class="link" data-action="filters-reset">Reset</button>' + APP.tfCloseBtn() + '</div>' +
     APP.tfSection('jrole', 'Role type', cnt('jrole'), true, roleBody) +
     APP.tfSection('jskills', 'SAP products & modules', cnt('jskills'), true, skillBody) +
     APP.tfSection('jtype', 'Job type', cnt('jtype'), true, chips('types', APP.jobTypes)) +
@@ -345,7 +345,7 @@ APP.jobFilterPanelHtml = function (f, active, nShown) {
     APP.tfSection('jreq', 'Certification & language', cnt('jreq'), false, reqBody) +
     APP.tfSection('jemp', 'Who is hiring', cnt('jemp'), false, '<div class="field">' + chips('direct', [{ id: 'yes', name: 'Direct employers only' }], true) + '<p class="field-hint">Hides roles posted by SI/Partners and recruiters.</p></div>') +
     APP.tfSection('jposted', 'Date posted', cnt('jposted'), false, postedBody) +
-    '<button type="button" class="btn btn-primary btn-block tf-show" data-action="tf-toggle">Show ' + nShown + ' role' + (nShown === 1 ? '' : 's') + '</button>' +
+    APP.tfFootHtml('Show ' + nShown + ' role' + (nShown === 1 ? '' : 's')) +
     '</form>';
 };
 

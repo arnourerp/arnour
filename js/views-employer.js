@@ -326,7 +326,10 @@ APP.activeFilterBarHtml = function (active) {
     '<button type="button" class="link af-clear" data-action="talent-reset">Clear all</button></div>';
 };
 
-APP.talentFilterPanelHtml = function (f, active) {
+/* Phones and tablets: the filter panel is a full-screen sheet with a fixed top bar (Reset, close) and a fixed bottom button (see css, "Filter sheet"). */
+APP.tfCloseBtn = function () { return '<button type="button" class="tf-close" data-action="tf-toggle" aria-label="Close filters">✕</button>'; };
+APP.tfFootHtml = function (label) { return '<div class="tf-foot"><button type="button" class="btn btn-primary btn-block tf-show" data-action="tf-toggle">' + APP.h(label) + '</button></div>'; };
+APP.talentFilterPanelHtml = function (f, active, nShown) {
   const cnt = (s) => APP.tfCount(active, s);
   const sel = (name, opts, cur, any) => '<select name="' + name + '" class="input" aria-label="' + APP.h(any) + '"><option value="">' + APP.h(any) + '</option>' + opts + '</select>';
   const roleBody = '<select name="roleType" class="input" aria-label="Role type"><option value="">Any role type</option>' + APP.roleTypes.map(t => '<option value="' + t.id + '"' + (f.roleType === t.id ? ' selected' : '') + '>' + APP.h(t.name) + '</option>').join('') + '</select>';
@@ -351,7 +354,7 @@ APP.talentFilterPanelHtml = function (f, active) {
     '<label class="field"><span class="label">Nationality</span><select name="nationality" class="input"><option value="">Any</option>' + APP.opt(APP.nationalities.map(n => [n, n]), f.nationality) + '</select></label>' +
     '<label class="field"><span class="label">Gender</span><select name="gender" class="input"><option value="">Any</option>' + APP.opt(APP.genders, f.gender) + '</select></label>';
   return '<form data-form="talent-search" class="filters card' + (APP.state.tfMobile ? ' tf-open' : '') + '" id="tf-panel">' +
-    '<div class="card-h">Filters' + (active.length ? ' <span class="count-pill">' + active.length + '</span>' : '') + ' <button type="button" class="link" data-action="talent-reset">Reset</button></div>' +
+    '<div class="card-h">Filters' + (active.length ? ' <span class="count-pill">' + active.length + '</span>' : '') + ' <button type="button" class="link" data-action="talent-reset">Reset</button>' + APP.tfCloseBtn() + '</div>' +
     APP.tfSection('role', 'Role type', cnt('role'), true, roleBody) +
     APP.tfSection('products', 'SAP products & modules', cnt('products'), true, prodBody) +
     APP.tfSection('specialties', 'Specialties', cnt('specialties'), false, specBody) +
@@ -360,6 +363,7 @@ APP.talentFilterPanelHtml = function (f, active) {
     APP.tfSection('availability', 'Availability', cnt('availability'), false, availBody) +
     APP.tfSection('location', 'Location & work style', cnt('location'), false, locBody) +
     APP.tfSection('people', 'Language, nationality & gender', cnt('people'), false, peopleBody) +
+    APP.tfFootHtml('Show ' + nShown + ' professional' + (nShown === 1 ? '' : 's')) +
     '</form>';
 };
 
@@ -378,7 +382,7 @@ APP.views['e-talent'] = function () {
     '<span class="grow"></span><label class="rb-sort"><span>Sort</span>' + sortSel + '</label></div>' +
     '</form>';
   return '<div class="search-layout">' +
-    APP.talentFilterPanelHtml(f, active) +
+    APP.talentFilterPanelHtml(f, active, results.length) +
     '<section>' + bar + APP.activeFilterBarHtml(active) +
     '<div id="tf-results">' + (list || APP.emptyStateHtml({ icon: 'filter', title: 'No SAP professionals match these criteria', text: 'Try removing module filters or widening your location search.', action: 'reset-filters', actionLabel: 'Reset all filters' })) + '</div>' +
     '</section></div>';

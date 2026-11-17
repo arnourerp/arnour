@@ -1419,6 +1419,37 @@ button.chip:active { transform: scale(.97); }
 /* ---- Job search (v18): same shell as talent search ---- */
 .tf-show { display: none; margin-top: var(--space-4); }
 @media (max-width: 900px) { .filters.tf-open .tf-show { display: flex; justify-content: center; } }
+
+/* ---- Filter sheet (phones and tablets): full screen, fixed top bar (Reset, close) and fixed bottom button ---- */
+.tf-close, .tf-foot { display: none; }
+@media (max-width: 900px) {
+  .filters.tf-open {
+    position: fixed; inset: 0; z-index: 95; display: flex; flex-direction: column; margin: 0; padding: 0; max-height: none;
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    border: 0; border-radius: 0; box-shadow: none; background: var(--card, #fff);
+  }
+  body:has(.filters.tf-open) { overflow: hidden; }
+  .filters.tf-open > * { flex: none; }
+  .filters.tf-open .card-h {
+    position: sticky; top: 0; z-index: 3; margin: 0; background: var(--card, #fff);
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid var(--border-subtle);
+    font-size: 17px;
+  }
+  .filters.tf-open .card-h .link { min-height: 44px; display: inline-flex; align-items: center; }
+  .filters.tf-open .tf-close {
+    display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none;
+    border: 0; border-radius: 50%; background: var(--bg-subtle, #f1f5f9); color: var(--text-primary, #0f1729);
+    font-size: 18px; line-height: 1; cursor: pointer;
+  }
+  .filters.tf-open > .tf-sec { margin: 0 16px; }
+  .filters.tf-open > .tf-sec:first-of-type { border-top: 0; }
+  .filters.tf-open .tf-foot {
+    display: block; position: sticky; bottom: 0; z-index: 3; margin-top: auto; padding-top: 12px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--card, #fff);
+    border-top: 1px solid var(--border-subtle); box-shadow: 0 -4px 14px rgba(15, 23, 41, .06);
+  }
+  .filters.tf-open .tf-show { margin-top: 0; min-height: 48px; }
+}
 .search-layout .hidden-note { margin: 0 0 var(--space-3); }
 .search-layout .signup-strip { margin: 0 0 var(--space-3); }
 

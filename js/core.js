@@ -3437,8 +3437,10 @@ APP.render = function () {
   const chrome = bare ? '' : route.auth || (APP.db.session && (noChrome.indexOf(route.view) < 0 || route.view === 'notfound')) ? APP.navbar() : APP.pubHeader();
   const footer = route.auth || bare ? '' : APP.footerHtml();
   const keepY = navBackY != null ? navBackY : bare && APP._lastRoute === location.hash.split('?')[0] ? window.scrollY : 0;
+  const tfOld = document.getElementById('tf-panel'), tfTop = tfOld && APP.state.tfMobile ? tfOld.scrollTop : 0; /* the filter sheet scrolls by itself */
   document.getElementById('app').innerHTML =
     chrome + (bare || chrome.indexOf('class="nav"') < 0 ? '' : APP.bannerHtml()) + '<main class="main" id="main">' + body + '</main>' + footer;
+  if (tfTop) { const tfNew = document.getElementById('tf-panel'); if (tfNew) tfNew.scrollTop = tfTop; }
   APP.a11yPass();
   APP._shownHash = location.hash;
   APP.captureEditBase();
@@ -3499,6 +3501,24 @@ APP.footerHtml = function () {
 };
 
 /* Re-render after an in-page interaction (chip, add/remove row) without jumping to the top or dropping keyboard focus */
+/* Filter sheet (phones, tablets). fromButton: closed with the close or Show button, so go back one history step if we added one. */
+APP.closeFilterSheet = function (fromButton) {
+  if (fromButton && APP._tfPushed) { APP._tfPushed = false; APP._tfBack = true; history.back(); return; }
+  APP._tfPushed = false;
+  if (!APP.state.tfMobile) return;
+  APP.state.tfMobile = false;
+  APP.renderKeep('.tf-mobile-btn');
+  const bar = document.querySelector('.results-bar');
+  if (bar && bar.getBoundingClientRect().top < 0) window.scrollTo({ top: bar.getBoundingClientRect().top + window.scrollY - 60, left: 0, behavior: 'instant' });
+};
+window.addEventListener('popstate', function () {
+  if (APP._tfBack) { APP._tfBack = false; APP._tfPushed = false; APP.closeFilterSheet(false); return; }
+  if (APP.state.tfMobile) { APP._tfPushed = false; APP.closeFilterSheet(false); }
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && APP.state && APP.state.tfMobile && !document.querySelector('#dlg-root .dlg-back, #dlg-root .modal')) APP.closeFilterSheet(true);
+});
+
 APP.renderKeep = function (focusSel) {
   const y = window.scrollY;
   APP.render();
@@ -3581,7 +3601,7 @@ window.addEventListener('beforeunload', function (e) { try { if (APP.editDirty()
 
 APP.start = function () {
   APP.load();
-  window.addEventListener('hashchange', () => { if (APP.editNavGuard()) return; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
+  window.addEventListener('hashchange', () => { if (APP.editNavGuard()) return; APP.state.tfMobile = false; APP._tfPushed = false; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
   APP.bindGlobal();
   APP.render();
 };
@@ -4780,8 +4800,11 @@ APP.onClick = function (el, e) {
     }
 
     case 'tf-toggle':
-      APP.state.tfMobile = !APP.state.tfMobile;
-      APP.renderKeep();
+      if (!APP.state.tfMobile) { /* open the sheet; the Back button / swipe closes it before it leaves the page */
+        APP.state.tfMobile = true;
+        try { history.pushState({ arnourTf: 1 }, ''); APP._tfPushed = true; } catch (e) { APP._tfPushed = false; }
+        APP.renderKeep('.tf-close');
+      } else APP.closeFilterSheet(true);
       break;
 
     case 'wiz-back': {

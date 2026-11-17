@@ -1511,7 +1511,7 @@
     }).then(function () {
       var keepY = early && !leftHome ? window.scrollY : null; /* the early home page may have been scrolled while the data loaded */
       finish();
-      window.addEventListener('hashchange', function () { if (APP.editNavGuard()) return; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
+      window.addEventListener('hashchange', function () { if (APP.editNavGuard()) return; APP.state.tfMobile = false; APP._tfPushed = false; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
       if (!bound) APP.bindGlobal();
       APP.render();
       if (keepY) window.scrollTo(0, keepY);
