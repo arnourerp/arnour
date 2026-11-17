@@ -48,7 +48,8 @@
     window.gtag('consent', 'update', upd);
     if (ID) clickCookie();
     window.gtag('js', new Date());
-    if (ID) window.gtag('config', ID);
+    /* no automatic page view from either tag: it would carry the real page title and address (a role title, an id) into Analytics; our own sanitized page_view replaces it */
+    if (ID) window.gtag('config', ID, { send_page_view: false });
     /* Analytics: no automatic page view (the app is one page, we send our own with page types), no Google signals, no ad personalisation */
     if (GID) window.gtag('config', GID, { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false });
     var s = document.createElement('script');

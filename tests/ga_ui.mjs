@@ -44,6 +44,7 @@ const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x;},h); await p.waitFo
   t('consent: all denied first, then only analytics granted (no ad storage)',d[0][1]==='default'&&d[0][2].analytics_storage==='denied'&&d[0][2].ad_storage==='denied'&&d[1][1]==='update'&&d[1][2].analytics_storage==='granted'&&d[1][2].ad_storage===undefined,d.slice(0,2));
   const cfg=d.find(a=>a[0]==='config'&&a[1]==='G-TEST12345');
   t('GA config: no automatic page view, no Google signals, no ad personalisation',cfg&&cfg[2].send_page_view===false&&cfg[2].allow_google_signals===false&&cfg[2].allow_ad_personalization_signals===false,cfg);
+  t('no automatic page view from the Ads config either',(await dl(p)).every(a=>a[0]!=='config'||!/^AW-/.test(a[1])||a[2]&&a[2].send_page_view===false));
   t('no Ads config without an Ads ID',!d.some(a=>a[0]==='config'&&/^AW-/.test(a[1])));
   const v=await pv(p);
   t('first page view is the page type, with only allowlisted campaign parameters',v.length===1&&v[0].page_path==='/app/landing'&&/utm_source=facebook&utm_medium=group&gclid=ZZ99/.test(v[0].page_location)&&!/email|a%40b/.test(JSON.stringify(v)),v);
@@ -74,7 +75,7 @@ const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x;},h); await p.waitFo
 
 /* ---- both tags together ---- */
 { const p=await open(BOTH,'Asia/Dubai',''); const d=await dl(p);
-  t('both IDs: one script, ads and analytics consent granted, both configured',p.__g.length===1&&d[1][2].ad_storage==='granted'&&d[1][2].analytics_storage==='granted'&&d.some(a=>a[0]==='config'&&a[1]==='AW-123456789')&&d.some(a=>a[0]==='config'&&a[1]==='G-TEST12345'));
+  t('both IDs: one script, ads and analytics consent granted, both configured',p.__g.length===1&&d[1][2].ad_storage==='granted'&&d[1][2].analytics_storage==='granted'&&d.some(a=>a[0]==='config'&&a[1]==='AW-123456789'&&a[2]&&a[2].send_page_view===false)&&d.some(a=>a[0]==='config'&&a[1]==='G-TEST12345'));
   t('a profile still reports the Ads conversion',await p.evaluate(()=>ArnourConsent.conversion('c'))&&(await dl(p)).some(a=>a[0]==='event'&&a[1]==='conversion')); await p.context().close(); }
 
 /* ---- the static landing pages ---- */
