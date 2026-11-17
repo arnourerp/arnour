@@ -361,7 +361,7 @@ APP.jobSearchHtml = function (o) {
     '<div class="rb-search"><span class="nav-search-ico">' + APP.icon('search') + '</span><input name="q" type="search" value="' + APP.h(f.q) + '" placeholder="Search title, company or SAP module…" aria-label="Search roles"><button type="submit" class="btn btn-primary btn-sm">Search</button></div>' +
     '<div class="rb-row"><button type="button" class="btn btn-outline btn-sm tf-mobile-btn" data-action="tf-toggle" aria-controls="tf-panel" aria-expanded="' + (APP.state.tfMobile ? 'true' : 'false') + '">Filters' + (active.length ? ' (' + active.length + ')' : '') + '</button>' +
     '<span class="rb-count" role="status" aria-live="polite"><strong>' + n + '</strong> open role' + (n === 1 ? '' : 's') + (o.ranked ? ' · ranked by fit with your profile' : '') + '</span>' +
-    '<span class="grow"></span>' + sortSel + '</div></form>';
+    '<span class="grow"></span><button type="button" class="btn btn-ghost btn-sm rb-share" data-action="share-search" aria-label="Share this search" title="Share this search">' + APP.shareIcon('native', 16) + ' Share</button>' + sortSel + '</div></form>';
   const chipsBar = active.length
     ? '<div class="af-bar" role="region" aria-label="Active filters"><span class="af-label">Active filters</span>' +
       active.map(a => '<button type="button" class="chip chip-on af-chip" data-action="filter-remove" data-key="' + a[0] + '" data-value="' + APP.h(a[1]) + '" aria-label="Remove filter ' + APP.h(a[2]) + '">' + APP.h(a[2]) + ' <span aria-hidden="true">✕</span></button>').join('') +

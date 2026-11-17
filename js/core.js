@@ -2600,6 +2600,166 @@ APP.doShare = function (channel, item, el) {
   else location.href = href;
 };
 
+/* ---------------------------- shared searches ----------------------------
+   A search on the roles board can be shared as a plain link: https://arnour.com/jobs?country=eg&product=s4public&module=sd
+   The edge function netlify/edge-functions/jobs-search.js serves that address (link preview with a live count); the app then reads the
+   filters out of the address once at start-up (APP.applyEntrySearch). The same rules, in Node form, are in netlify/edge-lib/searchlink.mjs;
+   tests/searchlink_test.mjs proves the two agree. The link carries filters only: never the sort, an id or anything personal. */
+APP.SEARCH_ORDER = ['country', 'region', 'role', 'product', 'module', 'type', 'level', 'mode', 'industry', 'cert', 'lang', 'posted', 'direct', 'q'];
+APP.SEARCH_ROLE_WORD = { functional: 'functional', technical: 'technical', basis: 'Basis & cloud', architect: 'architect', delivery: 'project / delivery', support: 'support & AMS', keyuser: 'key user', junior: 'junior' };
+APP.SEARCH_CERT_WORD = { none: 'no certification needed', preferred: 'certification preferred', required: 'certification required' };
+APP.SEARCH_POSTED_WORD = { 1: 'posted in the last 24 hours', 7: 'posted in the last 7 days', 30: 'posted in the last 30 days' };
+APP.SEARCH_TAGS = { ae: '#UAE', sa: '#SaudiArabia', gb: '#UK', us: '#USA' };
+
+/* the filters as the readable part of a link (no "?"); empty values are left out */
+APP.searchQuery = function (f) {
+  f = f || {};
+  const enc = encodeURIComponent, out = [];
+  const add = (k, v) => { if (v !== '' && v != null) out.push(k + '=' + enc(v)); };
+  const addList = (k, a) => { if (Array.isArray(a) && a.length) out.push(k + '=' + a.map(x => enc(x)).join(',')); };
+  add('country', f.country);
+  if (f.region && f.region !== 'all') add('region', f.region);
+  add('role', f.roleType);
+  add('product', f.product);
+  if (f.product) add('module', f.module);
+  addList('type', f.types);
+  addList('level', f.levels);
+  add('mode', f.workMode);
+  addList('industry', f.industries);
+  add('cert', f.cert);
+  add('lang', f.lang);
+  add('posted', f.posted ? String(f.posted) : '');
+  if (f.direct) add('direct', '1');
+  add('q', f.q ? String(f.q).trim() : '');
+  return out.join('&');
+};
+
+/* Read the filters out of an address (?country=eg&module=sd...). Every value is checked against this site's own lists;
+   anything unknown or malformed is ignored. Returns { f (a full filter object), any (at least one filter understood) }. */
+APP.searchFilters = function (search) {
+  const f = APP.JF_DEFAULTS(), first = {};
+  const dec = (s) => { try { return decodeURIComponent(String(s).replace(/\+/g, ' ')); } catch (e) { return ''; } };
+  String(search || '').replace(/^\?/, '').split('&').forEach(kv => {
+    if (!kv) return;
+    const i = kv.indexOf('='), k = i < 0 ? kv : kv.slice(0, i);
+    if (APP.SEARCH_ORDER.indexOf(k) >= 0 && !(k in first)) first[k] = i < 0 ? '' : kv.slice(i + 1);
+  });
+  const one = (k, re) => { if (!(k in first)) return ''; const v = dec(first[k]).trim(); return re.test(v) ? v : ''; };
+  const list = (k, ok) => { if (!(k in first)) return []; return first[k].split(',').map(x => dec(x).trim()).filter(ok).filter((v, i, a) => a.indexOf(v) === i).slice(0, 12); };
+  const ID = /^[A-Za-z0-9_-]{1,40}$/;
+  const country = one('country', ID).toLowerCase(); if (country && APP.countriesById[country]) f.country = country;
+  const region = one('region', ID).toLowerCase(); if (region && region !== 'all' && APP.regions[region]) f.region = region;
+  const role = one('role', ID).toLowerCase(); if (role && APP.roleTypeById[role]) f.roleType = role;
+  const product = one('product', ID).toLowerCase(), prod = product ? APP.product(product) : null;
+  if (prod && (prod.modules || []).length) {
+    f.product = product;
+    const module = one('module', ID).toLowerCase();
+    if (module && prod.modules.some(m => m.id === module)) f.module = module;
+  }
+  const types = list('type', x => APP.jobTypes.indexOf(x) >= 0); if (types.length) f.types = types;
+  const levels = list('level', x => APP.levels.indexOf(x) >= 0); if (levels.length) f.levels = levels;
+  const mode = one('mode', /^[a-z]{1,10}$/); if (mode === 'remote' || mode === 'onsite') f.workMode = mode;
+  const inds = list('industry', x => APP.industries.indexOf(x) >= 0); if (inds.length) f.industries = inds;
+  const cert = one('cert', /^[a-z]{1,12}$/); if (APP.SEARCH_CERT_WORD[cert]) f.cert = cert;
+  const lang = one('lang', /^[\p{L}]{2,30}$/u), lg = lang ? APP.languages.find(l => l.toLowerCase() === lang.toLowerCase()) : '';
+  if (lg) f.lang = lg;
+  const posted = one('posted', /^[0-9]{1,2}$/); if (APP.SEARCH_POSTED_WORD[posted]) f.posted = posted;
+  if (one('direct', /^[a-z0-9]{1,5}$/) === '1') f.direct = 'yes';
+  if ('q' in first) { const q = dec(first.q).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80); if (q) f.q = q; }
+  const any = !!(f.country || (f.region && f.region !== 'all') || f.roleType || f.product || f.types.length || f.levels.length || f.workMode || f.industries.length || f.cert || f.lang || f.posted || f.direct || f.q);
+  return { f: f, any: any };
+};
+
+/* "SD (Sales & Distribution)" -> "SD", "Sales (SD)" -> "SD", "Central Finance (cFin)" -> "Central Finance", "Fiori / UI5 Development" stays whole */
+APP.searchModShort = function (n) {
+  const s = String(n || '').trim(), m = /^(.+?) \((.+)\)$/.exec(s);
+  if (!m) return s;
+  return /^[A-Z0-9][A-Z0-9/ +&.-]{1,9}$/.test(m[2]) && /[a-z]/.test(m[1]) ? m[2] : m[1].trim();
+};
+
+/* The words for a search: { head: "SAP S/4HANA Public Cloud SD functional roles in Egypt", extras[], text, tags }. */
+APP.searchPhrase = function (f) {
+  f = f || {};
+  const bits = [], p = f.product ? String(APP.productShort(f.product) || '').trim() : '';
+  if (p) bits.push(p);
+  const m = p && f.module ? APP.searchModShort(APP.skillName(f.product, f.module)) : '';
+  if (m) bits.push(m);
+  let skill = bits.join(' ');
+  if (!/^SAP\b/i.test(skill)) skill = 'SAP' + (skill ? ' ' + skill : '');
+  const role = f.roleType && APP.SEARCH_ROLE_WORD[f.roleType] ? ' ' + APP.SEARCH_ROLE_WORD[f.roleType] : '';
+  let where = '';
+  if (f.country) where = String(APP.countryName(f.country) || '').trim();
+  else if (f.region && f.region !== 'all') where = String(APP.regionName(f.region) || '').trim();
+  const head = skill + role + ' roles' + (where ? ' in ' + where : '');
+  const extras = [];
+  if (f.workMode === 'remote') extras.push('remote-friendly'); else if (f.workMode === 'onsite') extras.push('on-site');
+  if ((f.types || []).length) extras.push(f.types.join(' / ').toLowerCase());
+  if ((f.levels || []).length) extras.push(f.levels.join(' / ').toLowerCase() + ' level');
+  if ((f.industries || []).length) extras.push(f.industries.slice(0, 2).join(' / ') + (f.industries.length > 2 ? ' +' + (f.industries.length - 2) : ''));
+  if (f.cert && APP.SEARCH_CERT_WORD[f.cert]) extras.push(APP.SEARCH_CERT_WORD[f.cert]);
+  if (f.lang) extras.push(f.lang);
+  if (f.posted && APP.SEARCH_POSTED_WORD[f.posted]) extras.push(APP.SEARCH_POSTED_WORD[f.posted]);
+  if (f.direct) extras.push('direct employers only');
+  if (f.q) extras.push('matching “' + f.q + '”');
+  const text = 'Open ' + head + (extras.length ? ' (' + extras.join(', ') + ')' : '') + ' on Arnour';
+  const tags = '#SAP #SAPJobs' + (f.country && where ? ' ' + (APP.SEARCH_TAGS[f.country] || '#' + where.replace(/[^A-Za-z]/g, '')) : '');
+  return { head: head, extras: extras, text: text, tags: tags };
+};
+
+/* the link for the search on screen */
+APP.searchLinkUrl = function (f) {
+  const q = APP.searchQuery(f);
+  if (APP.LIVE) return (location.origin || 'https://arnour.com') + '/jobs' + (q ? '?' + q : '');
+  let base = (location.origin || '') + (location.pathname || '');
+  if (/index\.html$/i.test(base)) base = base.replace(/index\.html.*$/i, '');
+  if (!/\/$/.test(base)) base += '/';
+  return base + (q ? '?' + q : '') + '#/jobs'; /* the offline practice copy has no /jobs address */
+};
+
+APP.shareSearchItem = function () {
+  const f = APP.state.jobFilters, ph = APP.searchPhrase(f);
+  return { title: ph.head.charAt(0).toUpperCase() + ph.head.slice(1), text: ph.text, url: APP.searchLinkUrl(f), tags: ph.tags };
+};
+
+/* "Share" in the results bar: a small sheet with the words, the link and the usual share buttons */
+APP.openShareSearch = function () {
+  APP.syncFormsToDrafts(null); /* a keyword typed but not yet searched is part of the search */
+  const it = APP.shareSearchItem(), E = APP.h;
+  const attrs = ' data-share-url="' + E(it.url) + '" data-share-title="' + E(it.title) + '" data-share-text="' + E(it.text) + '" data-share-tags="' + E(it.tags) + '"';
+  const mobile = APP.isMobileUA();
+  const icons = APP.shareChannels.filter(ch => ch[0] !== 'sms' || mobile).map(ch =>
+    '<button type="button" class="share-ic share-' + ch[0] + '" data-action="share" data-channel="' + ch[0] + '"' + attrs + ' aria-label="Share on ' + ch[1] + '" title="' + ch[1] + '">' + APP.shareIcon(ch[0]) + '</button>').join('');
+  const body =
+    '<div class="ss-text">' + E(it.text) + '</div>' +
+    '<label class="field"><span class="label">Link</span><input type="text" class="input ss-link" id="ss-link" readonly value="' + E(it.url) + '" aria-label="Link to this search"></label>' +
+    '<div class="share-row" role="group" aria-label="Share this search">' +
+    (APP.canNativeShare() ? '<button type="button" class="share-pill share-native" data-action="share" data-channel="native"' + attrs + '>' + APP.shareIcon('native', 16) + ' Share…</button>' : '') +
+    icons +
+    '<button type="button" class="share-pill" data-action="share" data-channel="post"' + attrs + ' title="Copies the words, the link and hashtags">' + APP.shareIcon('post', 16) + ' <span class="share-pill-t">Copy post text</span></button>' +
+    '</div>' +
+    '<p class="field-hint">To put it in a comment on LinkedIn or Facebook, copy the link or the post text and paste it there. Whoever opens it sees the roles open at that moment; no sign-in needed.</p>';
+  APP.openDialog({ title: 'Share this search', body: body, confirmLabel: 'Copy link', cancelLabel: 'Close', onConfirm: () => APP.doShare('copy', it, null) });
+  const inp = document.getElementById('ss-link');
+  if (inp) inp.addEventListener('focus', () => { try { inp.select(); } catch (e) { /* ignore */ } });
+};
+
+/* A person arriving by a shared search link (arnour.com/jobs?country=eg&module=sd, served as /?country=eg&module=sd#/jobs):
+   take the filters out of the address once, and clean them off it so a reload shows the normal board. A signed-in professional
+   continues on their own Find roles page (ranked by their own match). Returns true when filters were applied. */
+APP.applyEntrySearch = function () {
+  try {
+    if (typeof location === 'undefined' || (location.hash || '') !== '#/jobs' || !location.search) return false;
+    const r = APP.searchFilters(location.search);
+    if (!r.any) return false;
+    APP.state.jobFilters = r.f;
+    const keep = location.search.replace(/^\?/, '').split('&').filter(kv => kv && APP.SEARCH_ORDER.indexOf(kv.split('=')[0]) < 0).join('&');
+    const s = APP.db && APP.db.session;
+    const hash = s && s.role === 'consultant' ? '#/c/jobs' : '#/jobs';
+    try { history.replaceState(null, '', location.pathname + (keep ? '?' + keep : '') + hash); } catch (e) { /* ignore */ }
+    return true;
+  } catch (e) { return false; }
+};
+
 APP._copyText = function (text) {
   if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).catch(function () { APP._copyFallback(text); });
@@ -3604,6 +3764,7 @@ window.addEventListener('beforeunload', function (e) { try { if (APP.editDirty()
 
 APP.start = function () {
   APP.load();
+  APP.applyEntrySearch();
   window.addEventListener('hashchange', () => { if (APP.editNavGuard()) return; APP.state.tfMobile = false; APP._tfPushed = false; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
   APP.bindGlobal();
   APP.render();
@@ -3988,6 +4149,10 @@ APP.onClick = function (el, e) {
 
     case 'share':
       APP.doShare(d.channel, { title: d.shareTitle || '', text: d.shareText || '', url: d.shareUrl || location.href, tags: d.shareTags || '' }, el);
+      break;
+
+    case 'share-search':
+      APP.openShareSearch();
       break;
 
     case 'login': {

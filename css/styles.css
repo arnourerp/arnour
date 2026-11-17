@@ -2307,3 +2307,9 @@ a.sr-title:hover { text-decoration: underline; }
 body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
 @media (max-width: 600px) { body:has(.publish-bar) .consent-bar { bottom: auto; top: 64px; } }
 @media (max-width: 600px) { .consent-bar { bottom: 72px; } .consent-btns { width: 100%; } .consent-btns .btn { flex: 1; min-height: 44px; } }
+
+/* ---- Share this search (results bar button and sheet) ---- */
+.rb-share { display: inline-flex; align-items: center; gap: 6px; }
+.ss-text { font-weight: var(--fw-semibold); margin-bottom: var(--space-3); overflow-wrap: anywhere; }
+.ss-link { font-size: 13px; text-overflow: ellipsis; }
+.dlg .share-row { margin-top: var(--space-3); flex-wrap: wrap; }

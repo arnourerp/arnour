@@ -1513,6 +1513,7 @@
       finish();
       window.addEventListener('hashchange', function () { if (APP.editNavGuard()) return; APP.state.tfMobile = false; APP._tfPushed = false; APP.closeMatchDrawer(true); APP.closeDialog(true); APP.render(); });
       if (!bound) APP.bindGlobal();
+      APP.applyEntrySearch(); /* a shared search link (/jobs?country=eg&module=sd): take its filters once */
       APP.render();
       if (keepY) window.scrollTo(0, keepY);
       B.startPolling();
