@@ -282,6 +282,7 @@
     (p.otherSkills || []).forEach(function (x) { if (own.indexOf(x) === -1 && own.length < 8) own.push(x); });
     if (own.length > own0) d.otherSkills = own;
     if (put('summary', p.summary)) parts.push('a short summary');
+    try { if (APP.gaEvent) APP.gaEvent('cv_import'); } catch (e) { /* ignore */ }
     w.cvImp = { done: true, found: { parts: parts, estimated: nMod > 0 && (rp.skills === 'full' || rp.skills === 'optional') } };
     APP.backend.saveWizardDraft('consultant');
     APP._formSyncSkip = ['wiz-c'];

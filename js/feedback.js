@@ -47,6 +47,12 @@
   function trackRoute() {
     var seg = String(location.hash || '#/').replace(/^#\/?/, '').split(/[/?]/)[0].toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24) || 'home';
     track('v:' + seg);
+    /* Google Analytics gets the page TYPE (e.g. job-detail), never the id; only if the visitor's choice allows it and not for the admin */
+    try {
+      if (window.ArnourConsent && ArnourConsent.on() && !(APP.isAdminSession && APP.isAdminSession())) {
+        var r = APP.parseRoute && APP.parseRoute(); ArnourConsent.page(r && r.view ? r.view : seg);
+      }
+    } catch (e) { /* never break the page */ }
   }
   window.addEventListener('hashchange', trackRoute);
   /* the first page view waits until the site knows who is signed in, so the admin's own visits are not counted (gives up after 8 s) */
@@ -61,8 +67,10 @@
       if (cmp) APP.trackEvent('lc:' + cmp);
     }
   } catch (e) { /* ignore */ }
-  var oExt = APP.openExternalApply; if (oExt) APP.openExternalApply = function () { track('ext_apply'); lastSeen = ''; return oExt.apply(this, arguments); };
-  var oApply = APP.applyToJob; if (oApply) APP.applyToJob = function () { track('apply'); lastSeen = ''; return oApply.apply(this, arguments); };
+  function gaEv(n, role, ch) { try { if (window.ArnourConsent && ArnourConsent.on() && !(APP.isAdminSession && APP.isAdminSession())) ArnourConsent.event(n, role, ch); } catch (e) { /* ignore */ } }
+  APP.gaEvent = gaEv;
+  var oExt = APP.openExternalApply; if (oExt) APP.openExternalApply = function () { track('ext_apply'); gaEv('apply_click'); lastSeen = ''; return oExt.apply(this, arguments); };
+  var oApply = APP.applyToJob; if (oApply) APP.applyToJob = function () { track('apply'); gaEv('apply_click'); lastSeen = ''; return oApply.apply(this, arguments); };
 
   /* ---------- the report form ---------- */
   var F = { open: false, busy: false, err: '', done: false, cat: 'problem', text: '', email: '', fileName: '' };

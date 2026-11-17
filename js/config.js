@@ -14,5 +14,7 @@ window.ARNOUR_CONFIG = {
      id:    the Google Ads tag ID, e.g. 'AW-123456789'
      convC: conversion label for "professional profile completed" (the part after the slash in AW-123456789/AbCdEfGhIjK)
      convE: conversion label for "company profile completed" */
-  ads: { id: 'AW-18576363880', convC: 'qJ_4CIm17LgdEOii85lF', convE: 'dgS4CIy17LgdEOii85lF' }
+  ads: { id: 'AW-18576363880', convC: 'qJ_4CIm17LgdEOii85lF', convE: 'dgS4CIy17LgdEOii85lF' },
+  /* Google Analytics 4 (Measurement ID, a public value). Same consent rules as the ads tag; page types only, never ids, names or emails. */
+  ga: { id: 'G-C405JSQ41Y' }
 };

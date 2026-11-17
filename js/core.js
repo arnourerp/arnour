@@ -2556,6 +2556,7 @@ APP._flashBtn = function (el, label) {
 };
 
 APP.doShare = function (channel, item, el) {
+  try { if (APP.gaEvent) APP.gaEvent('share', '', channel); } catch (e) { /* ignore */ }
   const enc = encodeURIComponent;
   const url = APP.tagUrl(item.url, channel === 'copy' || channel === 'post' ? 'copy' : channel);
   const hashtags = item.tags || '#SAP';

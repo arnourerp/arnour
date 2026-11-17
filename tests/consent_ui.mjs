@@ -8,7 +8,8 @@ const MOCK=fs.readFileSync(process.env.ARNOUR_TESTS+'/mock-client.js','utf8');
 const CFG_REAL=fs.readFileSync(process.env.ARNOUR_ROOT+'/js/config.js','utf8');
 const ADS_RE=/ads: \{[^}]*\}/;
 /* the live config now carries the real Ads values, so every case below starts from a copy with the Ads line emptied */
-const CFG=CFG_REAL.replace(ADS_RE,"ads: { id: '', convC: '', convE: '' }");
+const GA_RE=/ga: \{[^}]*\}/;
+const CFG=CFG_REAL.replace(ADS_RE,"ads: { id: '', convC: '', convE: '' }").replace(GA_RE,"ga: { id: '' }");
 const be=await makeBackend(); const db=be.db; const browser=await chromium.launch();
 await db.exec(`alter table auth.users add column if not exists raw_user_meta_data jsonb default '{}'::jsonb`);
 for (const f of ['024_traffic','033_campaigns']) await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f+'.sql','utf8'));
@@ -69,7 +70,7 @@ const cookies=async(p)=>(await p.context().cookies()).map(c=>c.name);
   t('a professional profile is reported with its label',await p.evaluate(()=>ArnourConsent.conversion('c'))&&await p.evaluate(()=>{ const e=window.dataLayer.map(a=>Array.from(a)).filter(a=>a[0]==='event'); return e.length===1&&e[0][1]==='conversion'&&e[0][2].send_to==='AW-123456789/AbCdEfGhIjK'; }));
   t('a company profile uses the other label',await p.evaluate(()=>ArnourConsent.conversion('e'))&&await p.evaluate(()=>window.dataLayer.map(a=>Array.from(a)).filter(a=>a[0]==='event')[1][2].send_to==='AW-123456789/ZyXwVuTsRq1'));
   await p.evaluate(()=>{location.hash='#/privacy'}); await p.waitForTimeout(300);
-  t('with an ID the privacy page explains the Google measurement and the choice',await p.evaluate(()=>/send nothing unless you press Accept/.test(document.body.innerText)&&/switch this off, or on, at any time/.test(document.body.innerText)&&/Ad measurement choice/.test(document.body.innerText)&&!/We do not use advertising cookies or third-party tracking/.test(document.body.innerText)));
+  t('with an ID the privacy page explains the Google measurement and the choice',await p.evaluate(()=>/send nothing unless you press Accept/.test(document.body.innerText)&&/switch this off, or on, at any time/.test(document.body.innerText)&&/Measurement choice/.test(document.body.innerText)&&!/We do not use advertising cookies or third-party tracking/.test(document.body.innerText)));
   await p.reload(); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready); await p.waitForTimeout(400);
   t('on the next visit the tag loads without asking again',await p.locator('#consent-bar').count()===0&&p.__g.filter(u=>/gtag\/js/.test(u)).length===2);
   await p.click('[data-action="consent-open"]'); await p.click('#consent-bar [data-consent="no"]'); await p.waitForTimeout(200);
@@ -86,7 +87,7 @@ for (const tz of ['Asia/Dubai','Africa/Cairo','Asia/Riyadh']) {
   t(tz+': nothing about a choice is stored until the person makes one',await p.evaluate(()=>localStorage.getItem('arnour-consent')===null));
   t(tz+': the footer link to switch it off is there',await p.locator('[data-action="consent-open"]').count()===1);
   await p.evaluate(()=>{location.hash='#/privacy'}); await p.waitForTimeout(300);
-  t(tz+': the privacy page says the tag is loaded on a visit, asks first in Europe, and names the switch',await p.evaluate(()=>/tag is loaded when you visit/.test(document.body.innerText)&&/we ask first and send nothing unless you press Accept/.test(document.body.innerText)&&/Ad measurement choice/.test(document.body.innerText)));
+  t(tz+': the privacy page says the tag is loaded on a visit, asks first in Europe, and names the switch',await p.evaluate(()=>/tag is loaded when you visit/.test(document.body.innerText)&&/we ask first and send nothing unless you press Accept/.test(document.body.innerText)&&/Measurement choice/.test(document.body.innerText)));
   if (tz==='Asia/Dubai') {
     await p.click('[data-action="consent-open"]'); await p.waitForTimeout(200);
     t('Dubai: the footer link opens the bar so the person can switch measurement off',await p.locator('#consent-bar').count()===1);
