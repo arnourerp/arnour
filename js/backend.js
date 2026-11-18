@@ -1440,6 +1440,15 @@
   APP.views['talent-public'] = function (ctx) {
     var id = ctx && ctx.p && ctx.p[0];
     if (id && !APP.db.consultants[id]) {
+      /* the admin has no directory loaded (no marketplace profile): fetch it once; private professionals arrive redacted, as other users see them */
+      if (B.isAdmin && !B.admFetch) {
+        B.admFetch = 'loading';
+        B.sb.rpc('list_consultants').then(function (r) {
+          unwrap(r, 'list_consultants').forEach(function (c) { if (c && c.id && !APP.db.consultants[c.id]) APP.db.consultants[c.id] = c; });
+          B.admFetch = 'done'; APP.render();
+        }, function () { B.admFetch = 'done'; APP.render(); });
+      }
+      if (B.isAdmin && B.admFetch === 'loading') return '<div class="live-splash"><p class="muted">Loading profile…</p></div>';
       if (!B.fetched[id]) {
         B.fetched[id] = true;
         rpc('get_public_profile', { p_id: id }).then(function (p) {
