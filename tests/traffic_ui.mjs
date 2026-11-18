@@ -6,6 +6,8 @@ const {chromium}=require('playwright');
 const MOCK=fs.readFileSync(process.env.ARNOUR_TESTS+'/mock-client.js','utf8');
 const be=await makeBackend(); const browser=await chromium.launch();
 await be.db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/024_traffic.sql','utf8'));
+await be.db.exec(`alter table auth.users add column if not exists raw_user_meta_data jsonb default '{}'::jsonb`);
+await be.db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/034_hourly_traffic.sql','utf8'));
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,300):'');}else console.log('ok  ',n); };
 const errors=[]; const BASE='http://localhost:'+(process.env.PORT_LIVE||8123)+'/index.html';
 const U={adm:'aaaaaaaa-0000-0000-0000-000000000001',pro:'bbbbbbbb-0000-0000-0000-000000000002'};
@@ -35,7 +37,7 @@ t('the chart has a legend',await A.evaluate(()=>/Profile completed/.test(documen
 t('Traffic is in the sidebar',await A.evaluate(()=>!![...document.querySelectorAll('.adm-tab')].find(a=>/Traffic/.test(a.textContent))));
 
 await go(A,'#/admin/traffic'); await A.waitForSelector('.adm-total',{timeout:10000}).catch(async e=>{ console.log('MAIN:',(await A.textContent('.adm-main')).slice(0,300)); throw e; });
-t('14 days by default, the switch offers 7 / 14 / 30',await A.evaluate(()=>{ const c=[...document.querySelectorAll('[data-action=adm-traffic-days]')]; return c.length===3&&c.find(x=>/14/.test(x.textContent)).classList.contains('chip-on'); }));
+t('14 days by default, the switch offers 7 / 14 / 30',await A.evaluate(()=>{ const c=[...document.querySelectorAll('[data-action=adm-traffic-days]')]; return c.length===4&&/24 hours/.test(c[0].textContent)&&c.find(x=>/14/.test(x.textContent)).classList.contains('chip-on'); }));
 const tot=await A.evaluate(()=>[...document.querySelectorAll('.adm-total td')].map(x=>x.textContent.trim()));
 t('totals: 2 visitors, 3 page views (admin views left out), 1 sign-up page view, 2 accounts, 1 profile',tot[1]==='2'&&tot[2]==='4'&&tot[5]==='1'&&tot[6]==='2'&&tot[7]==='1'&&tot[8]==='1'&&tot[9]==='1',tot);
 t('the funnel lists the five steps',await A.evaluate(()=>['New visitors','Views of the sign-up page','Accounts created','Profile completed','Applied or clicked apply'].every(s=>document.querySelector('.adm-main').textContent.indexOf(s)>-1)));
@@ -43,6 +45,14 @@ t('sources table shows facebook',await A.evaluate(()=>/facebook/.test(document.q
 t('the Admin row is not listed in the pages table',await A.evaluate(()=>!/Admin \(your own visits\)/.test([...document.querySelectorAll('.adm-main h2')].find(h=>/Pages/.test(h.textContent)).nextElementSibling.textContent)));
 await A.click('[data-action=adm-traffic-days][data-n="7"]'); await A.waitForTimeout(800);
 t('switching to 7 days gives 7 day rows',await A.evaluate(()=>document.querySelectorAll('.adm-table-num')[0].querySelectorAll('tbody tr').length===8));
+
+await A.click('[data-action=adm-traffic-days][data-n="h24"]'); await A.waitForSelector('.adm-total',{timeout:10000}).catch(async e=>{ console.log('MAIN24:',(await A.textContent('.adm-main')).slice(0,300)); throw e; }); await A.waitForTimeout(500);
+t('24 hours: hour-by-hour table with 24 rows, Dubai time',await A.evaluate(()=>{ const tb=document.querySelectorAll('.adm-table-num')[0]; return tb.querySelectorAll('tbody tr').length===25&&/Hour \(Dubai\)/.test(tb.textContent)&&/Hour by hour/.test(document.querySelector('.adm-main').textContent); }));
+const t24=await A.evaluate(()=>[...document.querySelectorAll('.adm-total td')].map(x=>x.textContent.trim()));
+t('24 hours totals: 2 visitors, 2 accounts, 1 profile',t24[1]==='2'&&t24[6]==='2'&&t24[7]==='1',t24);
+t('the 24 hours chip is on',await A.evaluate(()=>document.querySelector('[data-action=adm-traffic-days][data-n=h24]').classList.contains('chip-on')));
+await A.click('[data-action=adm-traffic-days][data-n="14"]'); await A.waitForTimeout(800);
+t('back to 14 days: day table again',await A.evaluate(()=>/Day by day/.test(document.querySelector('.adm-main').textContent)));
 
 /* plain labels in Health */
 await go(A,'#/admin/health'); await A.waitForSelector('.adm-table',{timeout:10000}); await A.waitForTimeout(500);

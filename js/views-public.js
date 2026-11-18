@@ -790,11 +790,15 @@ APP.views['talent-public'] = function (ctx) {
     document.title = 'Private profile · Arnour';
     const sx = APP.db.session;
     /* another professional: the anonymous profile (skills first, name second) — no name, photo, LinkedIn, CV, about, city or availability */
-    if (sx && sx.role === 'consultant' && sx.consultantId !== c.id) {
+    const isAdm = !sx && APP.isAdminSession();
+    if (isAdm || (sx && sx.role === 'consultant' && sx.consultantId !== c.id)) {
       const a = Object.assign({}, APP.cv(c, true), { availability: '', gender: '' });
+      const btn = isAdm
+        ? '<button class="btn btn-primary btn-sm" data-action="adm-message" data-id="' + c.id + '">' + APP.icon('clip', 14) + ' Message as Arnour team</button>'
+        : '<button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button>';
       return '<div class="narrow">' + APP.peopleCrumb() + '' +
-        '<div class="card anon-note">' + APP.icon('lock', 16) + '<span><b>Private profile</b> — name and contact details are hidden until they choose to share them. You can still send a message.</span></div>' +
-        APP.consultantProfileHtml(a, { public: true, headActions: '<button class="btn btn-primary btn-sm" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', 14) + ' Message</button>' + (APP.modTools ? APP.modTools('profile', c.id, false) : '') }) +
+        '<div class="card anon-note">' + APP.icon('lock', 16) + '<span><b>Private profile</b> — ' + (isAdm ? 'this is what other users see: name and contact details are hidden. Names and e-mails are in Admin → People.' : 'name and contact details are hidden until they choose to share them. You can still send a message.') + '</span></div>' +
+        APP.consultantProfileHtml(a, { public: true, headActions: btn + (APP.modTools ? APP.modTools('profile', c.id, false) : '') }) +
         '</div>';
     }
     return '<div class="narrow">' + APP.peopleCrumb() + '<div class="card empty anon-empty">' + APP.icon('lock', 28) +

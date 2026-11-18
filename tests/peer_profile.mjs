@@ -32,5 +32,11 @@ t('visitor still sees the private card',/This profile is private/.test(tx)&&/Sig
 // company view unchanged
 await p.evaluate(()=>{ const co=Object.values(APP.db.companies).find(x=>!APP.revealed(window.__o,x.id)); APP.db.session={role:'employer',companyId:co.id}; APP.render(); }); await p.waitForTimeout(200);
 t('company still offered the anonymous company view',await p.locator('a[href="#/e/talent/'+ids.o+'"]').count()===1);
+// admin (signed in as admin, no marketplace session): the same anonymous profile, with the team message button
+await p.evaluate(()=>{ APP.db.session=null; APP.backend=Object.assign(APP.backend||{},{isAdmin:true}); APP.render(); }); await go('#/talent/'+ids.o);
+tx=await main();
+t('admin sees the anonymous profile, not an empty card',!/This profile is private/.test(tx)&&/Private profile/.test(tx),tx.slice(0,300));
+t('admin: skills shown, no name/about/city/LinkedIn/CV',tx.includes(ids.mod)&&!/Zelda|Quinn|SECRET SUMMARY|Sharjah|LinkedIn|Available now|zq\.pdf/.test(tx),tx.slice(0,500));
+t('admin: Message as Arnour team button, no start-chat',await p.locator('#main [data-action=adm-message][data-id="'+ids.o+'"]').count()===1&&await p.locator('#main [data-action=start-chat]').count()===0);
 t('no page errors',errs.length===0,errs);
 await b.close(); process.exit(f?1:0);

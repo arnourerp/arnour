@@ -334,11 +334,13 @@
   APP.adminUsageLabel = usageLabel;
 
   function vTraffic() {
-    var days = A.trafficDays || 14;
-    var w = need('traffic:' + days, 'admin_traffic', { p_days: days }); if (w) return w;
-    var T = A.data['traffic:' + days], use = T.usage || [], acc = T.accounts || [];
+    var days = A.trafficDays || 14, hrs = days === 'h24';
+    var w = need('traffic:' + days, hrs ? 'admin_traffic_hours' : 'admin_traffic', hrs ? {} : { p_days: days }); if (w) return w;
+    var T = A.data['traffic:' + days], use = T.usage || [], acc = (T.accounts || []).map(function (a) { return { d: a.d || a.h, n: a.n, p: a.p }; });
     var by = {}, tot = {};
-    use.forEach(function (u) { (by[u.d] = by[u.d] || {})[u.name] = u.n; tot[u.name] = (tot[u.name] || 0) + u.n; });
+    use.forEach(function (u) { var k = u.d || u.h; (by[k] = by[k] || {})[u.name] = u.n; tot[u.name] = (tot[u.name] || 0) + u.n; });
+    /* the 24-hour view: hours are shown in Dubai time (the database keeps them in UTC) */
+    function hourLabel(iso) { var dt = new Date(iso); return dt.toLocaleString('en-GB', { timeZone: 'Asia/Dubai', day: '2-digit', month: 'short' }) + ' ' + dt.toLocaleString('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit', hour12: false }); }
     function sumPrefix(o, re) { var t = 0; Object.keys(o).forEach(function (k) { if (re.test(k)) t += o[k]; }); return t; }
     var dayList = acc.map(function (a) { return a.d; });
     function rowOf(d, a) {
@@ -349,7 +351,8 @@
     var rows = acc.map(function (a) { return rowOf(a.d, a); });
     var T0 = { visitors: 0, views: 0, home: 0, jobs: 0, reg: 0, acc: 0, prof: 0, applied: 0, ext: 0 };
     rows.forEach(function (r) { Object.keys(T0).forEach(function (k) { T0[k] += r[k]; }); });
-    var chips = [7, 14, 30].map(function (n) { return '<button type="button" class="chip' + (days === n ? ' chip-on' : '') + '" data-action="adm-traffic-days" data-n="' + n + '">' + n + ' days</button>'; }).join('');
+    var chips = '<button type="button" class="chip' + (hrs ? ' chip-on' : '') + '" data-action="adm-traffic-days" data-n="h24">Last 24 hours</button>' +
+      [7, 14, 30].map(function (n) { return '<button type="button" class="chip' + (days === n ? ' chip-on' : '') + '" data-action="adm-traffic-days" data-n="' + n + '">' + n + ' days</button>'; }).join('');
     function pct(a, b) { return b ? Math.round(a / b * 100) + '%' : '—'; }
     var steps = [
       ['New visitors', T0.visitors, 'People who arrived for the first time on this browser (counted once per browser).'],
@@ -361,10 +364,10 @@
     var funnel = '<table class="adm-table"><thead><tr><th>Step</th><th>Total</th><th></th></tr></thead><tbody>' + steps.map(function (s) {
       return '<tr><td>' + h(s[0]) + '<div class="fb-meta">' + h(s[2]) + '</div></td><td><strong>' + s[1] + '</strong></td><td></td></tr>';
     }).join('') + '</tbody></table><p class="muted small">Of the accounts created: ' + pct(T0.prof, T0.acc) + ' have a profile.</p>';
-    var dayTable = '<div class="adm-scroll"><table class="adm-table adm-table-num"><thead><tr><th>Day</th><th>New visitors</th><th>Page views</th><th>Home</th><th>Role pages</th><th>Sign-up page</th><th>Accounts</th><th>Profile done</th><th>Applied</th><th>External apply</th></tr></thead><tbody>' +
+    var dayTable = '<div class="adm-scroll"><table class="adm-table adm-table-num"><thead><tr><th>' + (hrs ? 'Hour (Dubai)' : 'Day') + '</th><th>New visitors</th><th>Page views</th><th>Home</th><th>Role pages</th><th>Sign-up page</th><th>Accounts</th><th>Profile done</th><th>Applied</th><th>External apply</th></tr></thead><tbody>' +
       '<tr class="adm-total"><td><strong>Total</strong></td><td>' + T0.visitors + '</td><td>' + T0.views + '</td><td>' + T0.home + '</td><td>' + T0.jobs + '</td><td>' + T0.reg + '</td><td>' + T0.acc + '</td><td>' + T0.prof + '</td><td>' + T0.applied + '</td><td>' + T0.ext + '</td></tr>' +
       rows.slice().reverse().map(function (r) {
-        return '<tr><td>' + h(r.d.slice(5)) + '</td><td>' + (r.visitors || '') + '</td><td>' + (r.views || '') + '</td><td>' + (r.home || '') + '</td><td>' + (r.jobs || '') + '</td><td>' + (r.reg || '') + '</td><td>' + (r.acc || '') + '</td><td>' + (r.prof || '') + '</td><td>' + (r.applied || '') + '</td><td>' + (r.ext || '') + '</td></tr>';
+        return '<tr><td>' + h(hrs ? hourLabel(r.d) : r.d.slice(5)) + '</td><td>' + (r.visitors || '') + '</td><td>' + (r.views || '') + '</td><td>' + (r.home || '') + '</td><td>' + (r.jobs || '') + '</td><td>' + (r.reg || '') + '</td><td>' + (r.acc || '') + '</td><td>' + (r.prof || '') + '</td><td>' + (r.applied || '') + '</td><td>' + (r.ext || '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
     var src = {};
     Object.keys(tot).forEach(function (k) {
@@ -387,14 +390,16 @@
     var cmpTable = cl.length ? '<div class="adm-scroll"><table class="adm-table adm-table-num" id="adm-campaigns"><thead><tr><th>Campaign</th><th>New visitors</th><th>Accounts</th><th>Professional profiles done</th><th>Company profiles done</th><th>Visitor to profile</th></tr></thead><tbody>' + cl.map(function (k) {
       var o = cmp[k], done = o.pc + o.pe, srcs = Object.keys(o.src).join(', ');
       return '<tr><td>' + h(k) + (srcs || o.g ? '<div class="fb-meta">' + h(srcs) + (o.g ? (srcs ? ' · ' : '') + o.g + ' from a Google ad click' : '') + '</div>' : '') + '</td><td>' + (o.v || '') + '</td><td>' + (o.n || '') + '</td><td>' + (o.pc || '') + '</td><td>' + (o.pe || '') + '</td><td>' + (o.v ? pct(done, o.v) : '—') + '</td></tr>';
-    }).join('') + '</tbody></table></div><p class="muted small">A campaign is the <code>utm_campaign</code> on the link that first brought the person (Google Ads final URLs, posts, e-mails). Visitors are counted once per browser; accounts and profiles are those created in this period. Clicks, cost and cost per profile are in Google Ads.</p>'
+    }).join('') + '</tbody></table></div><p class="muted small">A campaign is the <code>utm_campaign</code> on the link that first brought the person (Google Ads final URLs, posts, e-mails). Visitors are counted once per browser; accounts and profiles are those created in this period' + (hrs ? ' (the last 24 hours)' : '') + '. Clicks, cost and cost per profile are in Google Ads.</p>'
       : '<div class="empty">No campaign links yet. Links with <code>utm_campaign=…</code> show up here.</div>';
     var pv = Object.keys(tot).filter(function (k) { return /^v:/.test(k) && k !== 'v:admin'; }).sort(function (a, b) { return tot[b] - tot[a]; });
     var pvTable = pv.length ? '<table class="adm-table adm-table-num"><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody>' + pv.map(function (k) { return '<tr><td>' + h(usageLabel(k).replace(/ — views$/, '')) + '</td><td>' + tot[k] + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty">No data yet.</div>';
     return '<h1>Traffic</h1><div class="chip-wrap mb16">' + chips + '</div>' +
-      '<p class="muted small">Anonymous counters: no cookies, no names. Days are counted in UTC (Dubai is 4 hours ahead). A “page view” is one page opened, so one person can add several. Your own visits stop being counted from this release; earlier days still include them (except the Admin row, which is hidden here).</p>' +
+      (hrs ? '<p class="muted small">The last 24 hours, hour by hour, in Dubai time (the current hour is still filling). Anonymous counters: no cookies, no names. A “page view” is one page opened, so one person can add several.' +
+          (T.since && new Date(T.since) > new Date(T.start) ? ' Hourly counting started at ' + hourLabel(T.since) + ', so earlier hours show only accounts.' : '') + '</p>'
+        : '<p class="muted small">Anonymous counters: no cookies, no names. Days are counted in UTC (Dubai is 4 hours ahead). A “page view” is one page opened, so one person can add several. Your own visits stop being counted from this release; earlier days still include them (except the Admin row, which is hidden here).</p>') +
       '<h2>From visit to profile</h2>' + funnel +
-      '<h2>Day by day</h2>' + dayTable +
+      '<h2>' + (hrs ? 'Hour by hour' : 'Day by day') + '</h2>' + dayTable +
       '<h2>Where people came from</h2>' + srcTable +
       '<h2>By campaign</h2>' + cmpTable +
       '<h2>Pages people opened</h2>' + pvTable +
@@ -886,7 +891,7 @@
         APP.openDialog({ title: 'Send ' + ids.length + ' reminder' + (ids.length === 1 ? '' : 's') + '?', sub: 'Each person gets the reminder e-mail now.', confirmLabel: 'Send all', body: '', onConfirm: function () { act('admin_reminder_decide', { p_ids: ids, p_action: 'approve' }, 'Sent ✓', ['reminders', 'remN']); } });
         break;
       }
-      case 'adm-traffic-days': A.trafficDays = Number(d.n) || 14; APP.render(); break;
+      case 'adm-traffic-days': A.trafficDays = d.n === 'h24' ? 'h24' : (Number(d.n) || 14); if (d.n === 'h24') reload('traffic:h24'); APP.render(); break;
       case 'adm-close-conv': A.conv = null; APP.render(); break;
       case 'adm-read-conv':
         B.rpc('admin_conversation', { p_conv: d.id }).then(function (c) { A.conv = c; reload('log'); APP.render(); }, function () { APP.toast('Could not open the conversation'); });
