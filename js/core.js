@@ -2106,6 +2106,7 @@ APP.personRowHtml = function (c, opts) {
 /* Message button for a revealed profile; for an anonymous one: request / status / answer buttons */
 APP.talentContactHtml = function (c, size) {
   const s = APP.db.session, sm = size === 'sm';
+  if (!s && APP.isAdminSession()) return '<button class="btn btn-ghost btn-sm" data-action="adm-message" data-id="' + c.id + '">' + APP.icon('clip', 14) + ' Message as Arnour team</button>';
   const msg = '<button class="btn ' + (sm ? 'btn-ghost btn-sm' : 'btn-primary jd-apply') + '" data-action="start-chat" data-cid="' + c.id + '">' + APP.icon('clip', sm ? 14 : 15) + ' Message' + (sm || c._anon ? '' : ' ' + APP.h(c.firstName)) + '</button>';
   if (!c._anon || !s || s.role !== 'employer') return msg;
   const i = APP.introFor(c.id, s.companyId);
@@ -2117,7 +2118,7 @@ APP.talentCard = function (c, opts) {
   c = APP.cv(c);
   const name = APP.consultantFullName(c);
   const hasScore = typeof opts.score === 'number' && opts.job;
-  const profile = '#/e/talent/' + c.id;
+  const profile = (APP.isAdminSession() ? '#/talent/' : '#/e/talent/') + c.id; /* the admin opens the public profile page */
   const meta = APP.metaBarHtml([
     APP.h(APP.locText(c)),
     c.yearsExp != null ? APP.h(c.yearsExp) + ' yrs experience' : '',
@@ -2952,6 +2953,7 @@ APP.pubHeader = function () {
     '<form data-form="nav-search" class="nav-search" role="search"><span class="nav-search-ico">' + APP.icon('search') + '</span><input name="q" value="' + APP.h(APP.state.navQ || '') + '" placeholder="Search roles, people, companies, SAP modules…" aria-label="Search Arnour" autocomplete="off"></form>' +
     '<nav class="nav-actions">' +
     '<a class="nav-ico nav-search-m" href="#/search" title="Search" aria-label="Search">' + APP.icon('search', 20) + '</a>' +
+    (APP.isAdminSession() ? '<a class="nav-link' + (/^#\/talent(\/|$)/.test(location.hash) ? ' active' : '') + '" href="#/talent">' + APP.icon('search', 16) + ' Talent</a>' : '') +
     '<a class="nav-link' + (location.hash.indexOf('#/jobs') === 0 ? ' active' : '') + '" href="#/jobs">' + APP.icon('briefcase', 16) + ' Jobs</a>' +
     '<a class="nav-link' + (location.hash.indexOf('#/community') === 0 ? ' active' : '') + '" href="#/community">' + APP.icon('users', 16) + ' Community</a>' +
     (APP.LIVE && APP.backend && APP.backend.user
@@ -3374,6 +3376,7 @@ APP.routes = [
   { re: /^#\/community\/share$/, view: 'community-share', auth: null },
   { re: /^#\/jobs$/, view: 'jobs', auth: null },
   { re: /^#\/job\/([A-Za-z0-9-]+)$/, view: 'job-detail', auth: null },
+  { re: /^#\/talent$/, view: 'a-talent', auth: 'admin' },
   { re: /^#\/talent\/([A-Za-z0-9-]+)$/, view: 'talent-public', auth: null },
   { re: /^#\/company\/([A-Za-z0-9-]+)$/, view: 'company-public', auth: null },
   { re: /^#\/c\/dashboard$/, view: 'c-dash', auth: 'consultant' },
@@ -3575,7 +3578,7 @@ APP.pageTitle = function (view) {
   const T = { landing: 'Arnour — The SAP Talent Network', login: 'Sign in', register: 'Join Arnour', forgot: 'Reset your password', reset: 'Choose a new password', 'check-email': 'Check your email', account: 'Account',
     community: 'Community', 'community-q': 'Question', 'community-a': 'Article', 'community-ask': 'Ask a question', 'community-share': 'Share an article', 'community-people': 'People', jobs: 'Open SAP roles', 'job-detail': 'Role', 'talent-public': 'Professional profile', 'company-public': 'Company',
     'wiz-c': 'Create your profile', 'wiz-e': 'Create your company profile', 'c-dash': 'Home', 'c-profile': 'My profile', 'c-jobs': 'Jobs', 'c-saved': 'My jobs', 'c-preview': 'Profile preview', 'c-msgs': 'Messages', 'c-msg': 'Messages',
-    'e-dash': 'Home', 'e-company': 'Company profile', 'e-talent': 'Talent', 'e-talent-detail': 'Talent', 'e-jobs': 'My roles', 'e-job-new': 'Post a job', 'e-job-edit': 'Edit role', 'e-job-detail': 'Role', 'e-msgs': 'Messages', 'e-msg': 'Messages', terms: 'Terms of Use', privacy: 'Privacy Policy', admin: 'Admin', suspended: 'Account suspended' };
+    'e-dash': 'Home', 'e-company': 'Company profile', 'e-talent': 'Talent', 'a-talent': 'Talent', 'e-talent-detail': 'Talent', 'e-jobs': 'My roles', 'e-job-new': 'Post a job', 'e-job-edit': 'Edit role', 'e-job-detail': 'Role', 'e-msgs': 'Messages', 'e-msg': 'Messages', terms: 'Terms of Use', privacy: 'Privacy Policy', admin: 'Admin', suspended: 'Account suspended' };
   const t = T[view];
   return !t ? 'Arnour' : (view === 'landing' ? t : t + ' — Arnour');
 };

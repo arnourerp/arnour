@@ -388,6 +388,12 @@ APP.views['e-talent'] = function () {
     '</section></div>';
 };
 
+/* the admin's Talent search: the same page companies use, over the people list as other users see it (private professionals stay anonymous) */
+APP.views['a-talent'] = function () {
+  if (APP.backend && APP.backend.loadAdminDirectory && APP.backend.loadAdminDirectory() === 'loading') return '<div class="live-splash"><p class="muted">Loading professionals…</p></div>';
+  return APP.views['e-talent'].apply(this, arguments);
+};
+
 /* ------------------------------ talent detail ------------------------------ */
 
 APP.views['e-talent-detail'] = function (ctx) {

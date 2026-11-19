@@ -1054,7 +1054,7 @@
     /* admin pages: decided by APP.canAccessRoute (one central gate) */
     if (B.user && !B.profile) {
       if (B.isAdmin && v === 'landing' && !/^#\/home/.test(location.hash)) return '#/admin';
-      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset', 'unsubscribe', 'start'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'company-public'] : []);
+      var ok = ['wiz-c', 'wiz-e', 'account', 'terms', 'privacy', 'reset', 'unsubscribe', 'start'].concat(B.isAdmin ? ['admin', 'landing', 'jobs', 'job-detail', 'community', 'community-q', 'community-a', 'talent-public', 'a-talent', 'company-public'] : []);
       if (ok.indexOf(v) === -1) return B.isAdmin ? '#/admin' : (B.metaRole() === 'e' ? '#/onboard-e' : '#/onboard'); /* an admin never has to create a profile */
       if (v === 'wiz-c' && B.metaRole() === 'e') return '#/onboard-e';
       if (v === 'wiz-e' && B.metaRole() === 'c') return '#/onboard';
@@ -1437,18 +1437,22 @@
   /* a signed-out visitor opening a shared profile link: ask the server (it refuses private profiles) */
   var origTalent = APP.views['talent-public'];
   B.fetched = {};
+  /* admin only: the people list as other users see it (list_consultants redacts private professionals); loaded once per session, returns 'loading' or 'done' */
+  B.loadAdminDirectory = function () {
+    if (!B.admFetch) {
+      B.admFetch = 'loading';
+      B.sb.rpc('list_consultants').then(function (r) {
+        unwrap(r, 'list_consultants').forEach(function (c) { if (c && c.id && !APP.db.consultants[c.id]) APP.db.consultants[c.id] = c; });
+        B.admFetch = 'done'; APP.render();
+      }, function () { B.admFetch = 'done'; APP.render(); });
+    }
+    return B.admFetch;
+  };
   APP.views['talent-public'] = function (ctx) {
     var id = ctx && ctx.p && ctx.p[0];
     if (id && !APP.db.consultants[id]) {
       /* the admin has no directory loaded (no marketplace profile): fetch it once; private professionals arrive redacted, as other users see them */
-      if (B.isAdmin && !B.admFetch) {
-        B.admFetch = 'loading';
-        B.sb.rpc('list_consultants').then(function (r) {
-          unwrap(r, 'list_consultants').forEach(function (c) { if (c && c.id && !APP.db.consultants[c.id]) APP.db.consultants[c.id] = c; });
-          B.admFetch = 'done'; APP.render();
-        }, function () { B.admFetch = 'done'; APP.render(); });
-      }
-      if (B.isAdmin && B.admFetch === 'loading') return '<div class="live-splash"><p class="muted">Loading profile…</p></div>';
+      if (B.isAdmin && B.loadAdminDirectory() === 'loading') return '<div class="live-splash"><p class="muted">Loading profile…</p></div>';
       if (!B.fetched[id]) {
         B.fetched[id] = true;
         rpc('get_public_profile', { p_id: id }).then(function (p) {
