@@ -214,9 +214,9 @@ APP.views['wiz-c'] = function () {
 
   let body = '';
   const er = APP.wizC.err || {};
-  const sec = (key, ico, title, inner, extra) =>
+  const sec = (key, ico, title, inner, extra, hint) =>
     '<section class="wiz-sec' + (extra || '') + (er[key] || (key === 'who' && (er.firstName || er.lastName || er.headline || er.gender)) || (key === 'where' && (er.nationality || er.country)) ? ' has-err' : '') + (step === 1 && APP.wizSecDone(d)[key] ? ' done' : '') + '" data-sec="' + key + '">' +
-    '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><h2>' + title + '</h2>' + (step === 1 ? '<span class="wiz-sec-tick" aria-hidden="true">' + APP.icon('check', 13) + '</span>' : '') + '</div>' + inner + '</section>';
+    '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon(ico, 18) + '</span><h2>' + title + '</h2>' + (hint ? APP.hintHtml(hint) : '') + (step === 1 ? '<span class="wiz-sec-tick" aria-hidden="true">' + APP.icon('check', 13) + '</span>' : '') + '</div>' + inner + '</section>';
   if (step === 1) {
     const E = (k) => er[k] ? '<p class="field-error" role="alert">' + APP.h(er[k]) + '</p>' : '';
     const inv = (k) => er[k] ? ' aria-invalid="true"' : '';
@@ -236,7 +236,7 @@ APP.views['wiz-c'] = function () {
         '<label class="field"><span class="label">Last name <span class="req-star">*</span></span><input name="lastName" class="input" value="' + APP.h(d.lastName) + '" placeholder="Said"' + inv('lastName') + '>' + E('lastName') + '</label>' +
         '<div class="field"><span class="label">Gender <span class="req-star">*</span></span>' + genderSeg + E('gender') + '</div>' +
         '</div>' +
-        '<label class="field"><span class="label">Your Title/Headline <span class="req-star">*</span></span><input name="headline" class="input" value="' + APP.h(d.headline) + '" placeholder="Senior SAP S/4HANA FICO Consultant"' + inv('headline') + '>' + E('headline') + '<p class="field-hint">Used as your name if you stay private, so keep employer names out.</p></label>' +
+        '<label class="field"><span class="label">Your Title/Headline <span class="req-star">*</span>' + APP.hintHtml('Used as your name if you stay private, so keep employer names out.') + '</span><input name="headline" class="input" value="' + APP.h(d.headline) + '" placeholder="Senior SAP S/4HANA FICO Consultant"' + inv('headline') + '>' + E('headline') + '</label>' +
         '<details class="opt-more"' + (d.linkedin ? ' open' : '') + '><summary>+ Add LinkedIn <span class="muted">(optional)</span></summary>' +
         '<label class="field"><input name="linkedin" class="input" inputmode="url" autocapitalize="off" autocorrect="off" value="' + APP.h(d.linkedin) + '" placeholder="linkedin.com/in/your-profile" aria-label="LinkedIn profile"></label></details>') +
       sec('where', 'pin', 'Where you are',
@@ -281,11 +281,10 @@ APP.views['wiz-c'] = function () {
     const indLabel = { many: 'Industry Knowledge', optional: 'Industry Knowledge (optional)', one: 'Your industry' }[rp.ind];
     body = '<form data-form="wiz-c" data-step="3">' +
       sec('skills', 'spark', lead ? 'SAP products you have worked across' : 'Your SAP skills',
-        '<p class="field-hint">' + APP.icon('spark', 15) + ' ' + hint3 + '</p>' +
         '<div class="skill-rows" id="wiz-skills">' + APP.skillCardsHtml('wizC', d.skills, rp.skills) + '</div>' +
-        (er.skills ? '<p class="field-error" role="alert">' + APP.h(er.skills) + '</p>' : '')) +
+        (er.skills ? '<p class="field-error" role="alert">' + APP.h(er.skills) + '</p>' : ''), '', hint3) +
       sec('tools', 'plus', 'Other tools &amp; third-party solutions <span class="muted">(optional)</span>',
-        '<label class="field"><input name="otherTools" class="input" value="' + APP.h(Array.isArray(d.otherTools) ? d.otherTools.join(', ') : (d.otherTools || '')) + '" placeholder="e.g. Vertex, Blackline, Kinaxis, Celonis, OpenText — comma separated" aria-label="Other tools and third-party solutions"><p class="muted small">Anything that works with SAP but is not an SAP product. Companies can find you by these words in search; they do not change your match score.</p></label>') +
+        '<label class="field"><input name="otherTools" class="input" value="' + APP.h(Array.isArray(d.otherTools) ? d.otherTools.join(', ') : (d.otherTools || '')) + '" placeholder="e.g. Vertex, Blackline, Kinaxis, Celonis, OpenText — comma separated" aria-label="Other tools and third-party solutions"></label>', '', 'Anything that works with SAP but is not an SAP product. Companies can find you by these words in search; they do not change your match score.') +
       (rp.prog && !lead ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
         '<label class="field"><input name="programs" type="number" inputmode="numeric" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       (rp.ind ? sec('ind', 'building', indLabel,
@@ -296,13 +295,12 @@ APP.views['wiz-c'] = function () {
     const lead4 = APP.isLeadRole(d);
     body = '<form data-form="wiz-c" data-step="4">' +
       sec('spec', 'spark', lead4 ? 'What you are known for' : 'SAP specialties',
-        '<p class="field-hint">' + APP.icon('spark', 15) + (lead4 ? ' This is the heart of your profile: pick at least 2 specialties (up to 6 reads strongest)' : ' Pick the specialties you\'re known for' + (rp.rts[0] === 'junior' ? ' — optional for now' : ' (up to 6 reads strongest)')) + '. They sharpen matching and appear on your profile.</p>' +
         '<div class="spec-panel">' + APP.specialtyChipsHtml('wizC', d.specialties || [], null, { softMax: 6, roles: rp.rts }) + '</div>' +
-        (er.spec ? '<p class="field-error" role="alert">' + APP.h(er.spec) + '</p>' : '')) +
+        (er.spec ? '<p class="field-error" role="alert">' + APP.h(er.spec) + '</p>' : ''), '', (lead4 ? 'This is the heart of your profile: pick at least 2 specialties (up to 6 reads strongest)' : 'Pick the specialties you\'re known for' + (rp.rts[0] === 'junior' ? ' — optional for now' : ' (up to 6 reads strongest)')) + '. They sharpen matching and appear on your profile.') +
       (lead4 && rp.prog ? sec('prog', 'up', APP.h(rp.prog) + ' <span class="muted">(optional)</span>',
         '<label class="field"><input name="programs" type="number" inputmode="numeric" min="0" max="200" class="input narrow-in" value="' + (d.programs ? Number(d.programs) : '') + '" placeholder="e.g. 8" aria-label="' + APP.h(rp.prog) + '"></label>') : '') +
       sec('own', 'plus', 'Your own specialties <span class="muted">(optional)</span>',
-        '<label class="field"><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS, MDG rollout — comma separated" aria-label="Your own specialties"><p class="field-hint">Anything not on the list above — written your way, still searchable by companies.</p></label>') +
+        '<label class="field"><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS, MDG rollout — comma separated" aria-label="Your own specialties"></label>', '', 'Anything not on the list above — written your way, still searchable by companies.') +
       APP.wizNav(4, 6) +
       '</form>';
   } else if (step === 5) {
@@ -355,8 +353,7 @@ APP.views['wiz-c'] = function () {
 APP.cvSlotHtml = function () {
   /* practice copy (no backend): show the box so it can be judged, but it cannot read anything here */
   if (!APP.LIVE && APP.wizC && APP.wizC.step === 1) return '<div id="cv-slot"><section class="wiz-sec cv-import cv-demo" data-sec="cvimp">' +
-    '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Start from your CV <span class="muted">(optional)</span></h2></div>' +
-    '<p class="field-hint">Upload your CV and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.</p>' +
+    '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Start from your CV <span class="muted">(optional)</span></h2>' + APP.hintHtml('Upload your CV and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.') + '</div>' +
     '<div class="cv-zone"><span class="cv-zone-ico" aria-hidden="true">' + APP.icon('file', 30) + '</span><span class="cv-zone-t"><b>Drop your CV here, or click to choose a file</b><small>PDF or Word (.docx) · up to 5 MB</small></span><span class="cv-zone-btn">Choose file</span></div>' +
     '<p class="live-note">Practice mode: reading a CV only works on the real site.</p>' +
     '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' Read once by AI to fill this form. <a href="#/privacy" target="_blank" rel="noopener">Privacy</a></p></section></div>';

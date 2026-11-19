@@ -2313,3 +2313,12 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
 .ss-text { font-weight: var(--fw-semibold); margin-bottom: var(--space-3); overflow-wrap: anywhere; }
 .ss-link { font-size: 13px; text-overflow: ellipsis; }
 .dlg .share-row { margin-top: var(--space-3); flex-wrap: wrap; }
+
+/* project check dialog */
+.pc-list { display: flex; flex-direction: column; max-height: 52vh; overflow: auto; margin: 4px 0 0; }
+.pc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); }
+.pc-row:first-child { border-top: 0; }
+.pc-n { display: flex; flex-direction: column; min-width: 0; }
+.pc-n small { color: var(--mut); font-size: 12px; }
+.pc-row.low .pc-val { color: #B45309; }
+.pc-val { min-width: 44px; text-align: center; font-size: 17px; font-weight: 700; color: var(--blue-dark); }

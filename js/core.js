@@ -338,7 +338,7 @@ APP.roleTypePicker = function (scope, d, opts) {
       '<p class="rt-chosen' + (sel.length ? ' on' : '') + '" role="status" aria-live="polite">' + (sel.length ? APP.icon('check', 14) + ' Your role: <b>' + APP.h(APP.roleTypeLabel(sel[0])) + '</b>' : 'No role selected yet') + '</p>';
   }
   return '<div class="rt-list">' + rows + '</div>' +
-    '<p class="field-hint rt-meta"><b>' + sel.length + ' of ' + APP.RT_MAX + '</b> selected · pick up to 3 — your first pick is your primary role. Each role you add brings the fields it needs. Companies can search by any of them.</p>';
+    '<p class="field-hint rt-meta"><b>' + sel.length + ' of ' + APP.RT_MAX + '</b> selected' + APP.hintHtml('Pick up to 3. Your first pick is your primary role. Each role you add brings the fields it needs. Companies can search by any of them.') + '</p>';
 };
 
 /* ---- what each role is asked for (sign-up and Edit profile) ----
@@ -363,6 +363,50 @@ APP.normalizeLandscape = function (skills) {
   (skills || []).forEach(k => { if (k.productId && k.moduleId && k.moduleId !== '*') { out.push(k); seen[k.productId] = 1; } });
   (skills || []).forEach(k => { if (k.productId && !seen[k.productId]) { seen[k.productId] = 1; out.push(Object.assign({}, k, { moduleId: '*', projects: +k.projects || 0 })); } });
   return out;
+};
+/* Roles matched on exact modules (Functional, Technical, Support, Key user): every product needs at least one module.
+   A product-only row ('*') can be left over from another role (e.g. Junior) after the role was changed. */
+APP.needsModules = function (d) { return !!d && !APP.isLeadRole(d) && APP.roleProfile(d).skills !== 'products'; };
+APP.isRealSkill = function (k) { return !!(k && k.productId && k.moduleId && k.moduleId !== '*'); };
+/* product-only rows become empty placeholders (the product card stays on screen) or go when the product has real modules */
+APP.wildToPlaceholder = function (skills) {
+  const rows = skills || [];
+  const has = {}; rows.forEach(k => { if (APP.isRealSkill(k)) has[k.productId] = 1; });
+  const seen = {}, out = [];
+  rows.forEach(function (k) {
+    if (k && k.moduleId === '*') { if (has[k.productId] || seen[k.productId]) return; seen[k.productId] = 1; out.push(Object.assign({}, k, { moduleId: '', projects: 0, certified: false })); return; }
+    out.push(k);
+  });
+  return out;
+};
+/* names of the chosen products that still have no module */
+APP.productsMissingModule = function (skills) {
+  const have = {}, all = [];
+  (skills || []).forEach(function (k) { if (!k || !k.productId) return; if (all.indexOf(k.productId) === -1) all.push(k.productId); if (APP.isRealSkill(k)) have[k.productId] = 1; });
+  return all.filter(pid => !have[pid]).map(pid => APP.product(pid).name);
+};
+APP.moduleMissingMsg = function (names) {
+  return names.length ? 'Pick at least one module for ' + names.join(', ') + ' (or remove the product)' : 'Add at least one SAP product and its modules';
+};
+/* Modules still at 0 or 1 project: the person is asked to confirm before moving on */
+APP.lowProjectRows = function (d) {
+  if (!APP.countsTracked(d)) return [];
+  const out = []; (d.skills || []).forEach(function (k, i) { if (APP.isRealSkill(k) && (+k.projects || 0) <= 1) out.push(i); });
+  return out;
+};
+APP.projectCheckDialog = function (onContinue) {
+  const d = APP.wizC && APP.wizC.data; if (!d) return;
+  const rows = (d.skills || []).map((k, i) => ({ k: k, i: i })).filter(x => APP.isRealSkill(x.k));
+  const body = '<div class="pc-list">' + rows.map(function (x) {
+    const m = (APP.product(x.k.productId).modules || []).find(y => y.id === x.k.moduleId);
+    const n = Math.max(0, Number(x.k.projects) || 0);
+    return '<div class="pc-row' + (n <= 1 ? ' low' : '') + '" data-pc="' + x.i + '"><span class="pc-n"><b>' + APP.h(m ? APP.moduleFull(m.name) : x.k.moduleId) + '</b><small>' + APP.h(APP.product(x.k.productId).name) + '</small></span>' +
+      '<div class="ml-step" role="group" aria-label="Projects delivered">' +
+      '<button type="button" class="step-b" data-action="pc-step" data-d="-1" data-i="' + x.i + '" aria-label="One project less">&minus;</button>' +
+      '<output class="step-n pc-val">' + n + '</output>' +
+      '<button type="button" class="step-b" data-action="pc-step" data-d="1" data-i="' + x.i + '" aria-label="One project more">+</button></div></div>';
+  }).join('') + '</div>';
+  APP.openDialog({ title: 'Check your project numbers', sub: 'Companies search by how many projects you delivered per module. Please check each number is right.', body: body, confirmLabel: 'Looks right, continue', cancelLabel: 'Go back and edit', onConfirm: onContinue });
 };
 APP.ROLE_SPECIALTIES = {
   functional: ['fit-standard', 'process-mining', 'greenfield', 'brownfield', 'activate', 'data-migration', 'mdg', 'cutover', 'localization', 'testing', 'hypercare', 'training'],
@@ -1097,10 +1141,9 @@ APP.visibilityHtml = function (o) {
   const pv = priv ? o.hidden : o.shown;
   const preview = pv ? '<div class="anon-preview vis-preview"><span class="muted small">' + (priv ? 'Others will see you as' : 'Others will see') + '</span>' +
     '<div class="ap-row">' + pv.avatar + '<div><b>' + h(pv.name) + '</b><div class="muted small">' + h(pv.sub || '') + '</div></div></div>' +
-    '<p class="muted small">' + (priv ? T.hid + ' ' : '') + 'A reveal cannot be undone, so it only happens when you accept.' + (o.after || '') + '</p></div>' : '';
-  return '<div class="card privacy-card vis-card' + (o.cls ? ' ' + o.cls : '') + '"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + T.title + '</div>' +
-    '<p class="muted small vis-lead">' + T.lead + '</p>' +
-    '<div class="vis-tiles" role="group" aria-label="' + h(T.title) + '">' + tile(priv, 'private', T.a, false) + tile(!priv, 'public', T.b, false) + '</div>' + preview + '</div>';
+    ((priv ? '<p class="muted small">' + T.hid + (o.after || '') + '</p>' : (o.after ? '<p class="muted small">' + o.after.trim() + '</p>' : ''))) + '</div>' : '';
+  return '<div class="card privacy-card vis-card' + (o.cls ? ' ' + o.cls : '') + '"><div class="card-h" style="margin:0">' + APP.icon('lock', 16) + ' ' + T.title + APP.hintHtml(T.lead + ' A reveal cannot be undone, so it only happens when you accept.') + '</div>' +
+        '<div class="vis-tiles" role="group" aria-label="' + h(T.title) + '">' + tile(priv, 'private', T.a, false) + tile(!priv, 'public', T.b, false) + '</div>' + preview + '</div>';
 };
 /* professional: preview built from the (draft) profile */
 APP.visPro = function (d, ctx, extra) {
@@ -1113,9 +1156,9 @@ APP.visPro = function (d, ctx, extra) {
 };
 /* contact email of a company: shared only after an accepted introduction or request; empty = the sign-in email */
 APP.validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
-APP.contactEmailField = (d) => '<label class="field"><span class="label">Contact email <span class="muted">(optional)</span></span>' +
+APP.contactEmailField = (d) => '<label class="field"><span class="label">Contact email <span class="muted">(optional)</span>' + APP.hintHtml('Shared with the other side only when you accept an introduction or request, never before.') + '</span>' +
   '<input name="contactEmail" type="email" class="input" maxlength="120" value="' + APP.h(d.contactEmail || '') + '" placeholder="Leave empty to use your sign-in email">' +
-  '<p class="field-hint">Shared with the other side only when you accept an introduction or request, never before.</p></label>';
+  '</label>';
 APP.visPt = function (d, ctx, extra) {
   const p = d.partner || {}, nm = d.name || 'Your company', loc = (APP.countryName(d.country) || '') + (p.teamSize ? ' · ' + p.teamSize + ' consultants' : '');
   return APP.visibilityHtml(Object.assign({ kind: 'pt', ctx: ctx, priv: !!p.hideName,
@@ -3180,7 +3223,7 @@ APP.skillCardsHtml = function (target, skills, mode) {
     return '<div class="prod-card" data-prod="' + APP.h(pid) + '">' +
       '<div class="req-card-h"><label class="field prod-sel"><span class="label">SAP product</span><select class="input" data-prod-sel data-target="' + target + '" data-pid="' + APP.h(pid) + '">' + opts + '</select></label>' +
       '<button type="button" class="icon-btn" data-action="prod-rm" data-target="' + target + '" data-pid="' + APP.h(pid) + '" title="Remove this product" aria-label="Remove this product">' + APP.icon('x', 15) + '</button></div>' +
-      '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you have delivered') + ' <span class="muted">— ' + (leadT ? 'optional' : 'tick all that apply') + '</span></span>' +
+      '<div class="field"><span class="label">Modules ' + (mode === 'modules' ? 'you work with' : 'you\'ve delivered') + ' <span class="muted">(' + (leadT ? 'optional, choose any' : 'choose one or more') + ')</span></span>' +
       APP.moduleChipsHtml(pid, sel, 'data-target="' + target + '" data-pid="' + APP.h(pid) + '"', target + ':' + pid, false) + '</div>' +
       (lines ? '<div class="mod-lines"><div class="mod-lines-h">Projects delivered and SAP certification, per module' + (mode === 'optional' ? ' <span class="muted">(project numbers optional)</span>' : '') + '</div>' + lines + '</div>' : '') +
       (sel.length && !lines ? '<div class="cert-box"><div class="mod-lines-h"><b>SAP certification</b> <span class="muted">(optional)</span> <span class="muted small">— select the modules you\'re certified in</span></div><div class="chip-wrap">' + certChips + '</div></div>' : '') +
@@ -4440,6 +4483,15 @@ APP.onClick = function (el, e) {
       break;
     }
 
+    case 'pc-step': {
+      const wd = APP.wizC && APP.wizC.data; const k = wd && wd.skills ? wd.skills[+d.i] : null;
+      if (!k) break;
+      k.projects = Math.max(0, Math.min(99, (Number(k.projects) || 0) + (+d.d || 0)));
+      const row = document.querySelector('.pc-row[data-pc="' + (+d.i) + '"]');
+      if (row) { const v = row.querySelector('.pc-val'); if (v) v.textContent = k.projects; row.classList.toggle('low', k.projects <= 1); }
+      break;
+    }
+
     case 'cert-toggle': {
       const scope = APP.getScope(d.target);
       if (!scope) break;
@@ -5109,8 +5161,14 @@ APP.onClick = function (el, e) {
       if (lead0) w0.skills = APP.normalizeLandscape(w0.skills);
       const back = (st, key, msg) => { APP.wizC.step = st; APP.wizC.err = { [key]: msg }; APP.toast(msg); APP._formSyncSkip = ['wiz-c']; APP.render(); };
       if (lead0 && (w0.specialties || []).length < 2) { back(4, 'spec', 'Pick at least 2 specialties first'); return; }
-      const okSk = (w0.skills || []).some(k => k.productId && k.moduleId);
-      if (!okSk) { if (lead0) back(3, 'skills', 'Pick at least one SAP product first'); else APP.toast('Add at least one complete skill (product + module) first'); return; }
+      if (APP.needsModules(w0)) w0.skills = APP.wildToPlaceholder(w0.skills);
+      const okSk = (w0.skills || []).some(k => k.productId && k.moduleId) && (!APP.needsModules(w0) || (w0.skills.some(APP.isRealSkill) && !APP.productsMissingModule(w0.skills).length));
+      if (!okSk) { if (lead0) back(3, 'skills', 'Pick at least one SAP product first'); else back(3, 'skills', APP.moduleMissingMsg(APP.productsMissingModule(w0.skills))); return; }
+      if (!APP.wizC.projChecked && APP.lowProjectRows(w0).length) {
+        APP.wizC.step = 3; APP._formSyncSkip = ['wiz-c']; APP.render();
+        APP.projectCheckDialog(function () { APP.wizC.projChecked = true; APP.wizC.step = 6; APP.render(); const fin = document.querySelector('form[data-form="wiz-c"]'); if (fin) fin.requestSubmit(); });
+        return;
+      }
       APP.wizC.step = 6;
       APP.render();
       const fin = document.querySelector('form[data-form="wiz-c"]');
@@ -5203,13 +5261,21 @@ APP.onSubmit = function (f) {
         d.level = APP.roleProfile(d).lvl ? (g('level') || 'Mid') : (d.roleType === 'junior' ? 'Junior' : APP.levelFromYears(d.yearsExp));
         d.availability = g('availability') || APP.availability[0];
       } else if (step === 3) {
-        const pm = APP.roleProfile(d).skills, lead = APP.isLeadRole(d);
+        const pm = APP.roleProfile(d).skills, lead = APP.isLeadRole(d), needM = APP.needsModules(d);
         if (lead) d.skills = APP.normalizeLandscape(d.skills);
-        const ok = (d.skills || []).some(k => k.productId && k.moduleId && (+k.projects || 0) >= 0);
+        if (needM) d.skills = APP.wildToPlaceholder(d.skills);
+        const ok = (d.skills || []).some(k => k.productId && k.moduleId && (+k.projects || 0) >= 0) && (!needM || ((d.skills || []).some(APP.isRealSkill) && !APP.productsMissingModule(d.skills).length));
         if (!ok) {
-          const msg = (pm === 'products' || lead) ? 'Pick at least one SAP product you work with' : 'Add at least one complete skill (product + module)';
+          const msg = (pm === 'products' || lead) ? 'Pick at least one SAP product you work with' : APP.moduleMissingMsg(APP.productsMissingModule(d.skills));
           APP.wizC.err = { skills: msg }; APP.toast(msg); APP._formSyncSkip = ['wiz-c']; APP.render();
           const el = document.querySelector('.wiz-sec.has-err'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        if (!APP.wizC.projChecked && APP.lowProjectRows(d).length) {
+          APP.projectCheckDialog(function () {
+            APP.wizC.projChecked = true; APP._formSyncSkip = ['wiz-c']; APP.render();
+            const fin = document.querySelector('form[data-form="wiz-c"]'); if (fin) fin.requestSubmit();
+          });
           return;
         }
         if (f.querySelector('[name="programs"]')) d.programs = Math.max(0, +g('programs') || 0);
@@ -5233,7 +5299,7 @@ APP.onSubmit = function (f) {
         c.id = 'c' + Date.now();
         delete c._rtFor;
         if (!(c.programs > 0)) delete c.programs;
-        c.skills = (d.skills || []).filter(k => k.productId && k.moduleId).map(k => ({ productId: k.productId, moduleId: k.moduleId, projects: +k.projects || 0, certified: !!k.certified }));
+        c.skills = (APP.needsModules(d) ? (d.skills || []).filter(APP.isRealSkill) : (d.skills || []).filter(k => k.productId && k.moduleId)).map(k => ({ productId: k.productId, moduleId: k.moduleId, projects: +k.projects || 0, certified: !!k.certified }));
         c.industries = d.industries || [];
         c.workPrefs = (Array.isArray(d.workPrefs) ? d.workPrefs : APP.tagList(d.workPrefs)).filter(Boolean);
         c.specialties = (Array.isArray(d.specialties) ? d.specialties : APP.tagList(d.specialties)).filter(Boolean);
@@ -5324,6 +5390,11 @@ APP.onSubmit = function (f) {
         d.dailyRate = +g('dailyRate') || user.dailyRate;
       }
       d.summary = g('summary') || user.summary;
+      if (APP.profileDraft && APP.needsModules(d)) {
+        APP.profileDraft.skills = APP.wildToPlaceholder(APP.profileDraft.skills);
+        const miss = APP.productsMissingModule(APP.profileDraft.skills);
+        if (miss.length || !(APP.profileDraft.skills || []).some(APP.isRealSkill)) { APP.toast(APP.moduleMissingMsg(miss)); APP._formSyncSkip = ['profile-edit']; APP.peJump('skills'); return; }
+      }
       if (APP.profileDraft) { d.skills = (APP.isLeadRole(d) ? APP.normalizeLandscape(APP.profileDraft.skills) : (APP.profileDraft.skills || [])).filter(k => k.productId && k.moduleId); d.industries = APP.profileDraft.industries || []; }
       if (APP.isLeadRole(d) && !(d.skills || []).length) { APP.toast('Pick at least one SAP product you work with'); APP.peJump('skills'); return; }
       d.workPrefs = (APP.profileDraft && Array.isArray(APP.profileDraft.workPrefs) ? APP.profileDraft.workPrefs : user.workPrefs) || [];

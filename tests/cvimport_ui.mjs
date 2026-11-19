@@ -59,7 +59,7 @@ async function open(opts){ /* a new person, signed in and on step 1 of the consu
   p.errors=errors; p.email=email; return p;
 }
 const upload=async(p,name,buf)=>{ await p.setInputFiles('input[data-cv-import]',{name,mimeType:'application/octet-stream',buffer:buf}); };
-const submit=async(p)=>{ await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(250); };
+const submit=async(p)=>{ await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(250); if(await p.evaluate(()=>!!document.getElementById('dlg-ok')&&!!document.querySelector('.pc-row'))){ await p.click('#dlg-ok'); await p.waitForTimeout(400); } };
 
 /* ========== A. switched off: nothing shows, the wizard works as before ========== */
 { const p=await open({configured:false});

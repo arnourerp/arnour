@@ -74,6 +74,10 @@ for(const rt of Object.keys(modes)){
   t(rt+': industries '+(wantInd?'asked':'hidden'),h.ind===wantInd,h);
   // step 3 → 4: specialties suggested for the role
   await p.evaluate(()=>document.querySelector('form[data-form=wiz-c]').requestSubmit()); await p.waitForTimeout(150);
+  if(modes[rt]==='full'||modes[rt]==='optional'){
+    t(rt+': projects check pop-up lists the modules (low ones marked)',await ev(()=>!!document.getElementById('dlg-root')&&document.querySelectorAll('.pc-row').length>=1&&document.querySelectorAll('.pc-row.low').length>=1));
+    await p.click('#dlg-ok'); await p.waitForTimeout(400);
+  }
   if(lead){ t(rt+': after the SAP landscape comes the finish step',await ev(()=>APP.wizC.step===6),await ev(()=>APP.wizC.step));
     await ev(()=>{ APP.wizC.step=4; APP._formSyncSkip=['wiz-c']; APP.render(); }); await p.waitForTimeout(100);
     t(rt+': programmes asked on the expertise step',await ev(()=>!!document.querySelector('form[data-form=wiz-c] [name=programs]'))); }

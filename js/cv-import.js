@@ -33,8 +33,7 @@
     if (i.dismissed) return '';
     var busy = S.state === 'reading';
     return '<section class="wiz-sec cv-import" data-sec="cvimp">' +
-      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Start from your CV <span class="muted">(optional)</span></h2></div>' +
-      '<p class="field-hint">Upload your CV and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.</p>' +
+      '<div class="wiz-sec-h"><span class="wiz-sec-ico">' + APP.icon('spark', 18) + '</span><h2>Start from your CV <span class="muted">(optional)</span></h2>' + APP.hintHtml('Upload your CV and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.') + '</div>' +
       (busy
         ? '<p class="live-note cv-reading" role="status"><span class="cv-spin" aria-hidden="true"></span> Reading your CV…</p>'
         : '<label class="cv-zone" data-cv-zone><span class="cv-zone-ico" aria-hidden="true">' + APP.icon('file', 30) + '</span>' +
