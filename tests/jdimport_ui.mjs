@@ -104,6 +104,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
 
 /* ========== E. admin: read a posting into the import list ========== */
 { const p=await page('adm',{}); await go(p,'#/admin/import'); await p.waitForSelector('#jd-slot-admin textarea',{timeout:10000});
+  t('E: the admin card has no "Use a link" switch (the admin types the posting link already)',await p.evaluate(()=>!document.querySelector('#jd-slot-admin .jd-mode')));
   t('E: the admin sees "Read a job ad" above the JSON box',await p.evaluate(()=>/Read a job ad/.test(document.querySelector('#jd-slot-admin').textContent)&&!!document.querySelector('#imp-text')));
   await p.fill('#jd-slot-admin textarea',AD); await p.click('#jd-slot-admin [data-jd-act=read]'); await p.waitForTimeout(300);
   t('E: a posting link is required first',/full https link/.test(await p.textContent('#jd-slot-admin .field-error'))&&p.posts.length===0);
@@ -121,5 +122,66 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
   await p.waitForSelector('#jd-slot-admin .field-error',{timeout:10000});
   t('E: a broken list is not overwritten',/nothing was added/.test(await p.textContent('#jd-slot-admin .field-error'))&&(await p.inputValue('#imp-text')).startsWith('[ {"title"'));
   t('E: no page errors',p.errors.length===0,p.errors); await p.context().close(); }
+
+
+/* ========== F. "Use a link": the company gives the link to one job on its careers page ========== */
+const LINKTEXT='About the role\nWe need a senior finance consultant for S/4HANA programmes in banking.\n\nWhat you bring\n- 8+ years in SAP FICO\n- English required\n\nContact jobs@acme.com or https://careers.acme.com/apply/77';
+{ const p=await page('emp',{answer:{status:200,body:{job:JOB,text:LINKTEXT}}}); await go(p,'#/e/jobs/new'); await p.waitForSelector('.jd-import textarea',{timeout:8000});
+  t('F: two ways: "Paste the text" is selected, "Use a link" is next to it',await p.evaluate(()=>{ const a=document.querySelector('[data-jd-act=mode-text]'),b=document.querySelector('[data-jd-act=mode-link]'); return !!a&&!!b&&a.getAttribute('aria-pressed')==='true'&&b.getAttribute('aria-pressed')==='false'&&/Paste the text/.test(a.textContent)&&/Use a link/.test(b.textContent); }));
+  await p.fill('input[name=title]','My linked title');
+  await p.fill('.jd-import textarea','text typed before switching');
+  await p.click('[data-jd-act=mode-link]'); await p.waitForSelector('input[data-jd-link]');
+  t('F: link mode: link box, the "opens without signing in" hint, no text box, and an honest privacy note',await p.evaluate(()=>{ const c=document.querySelector('.jd-import'); return !!c.querySelector('input[type=url][data-jd-link]')&&!c.querySelector('textarea')&&/open without signing in/.test(c.textContent)&&/open the link once/i.test(c.textContent)&&/not stored by Arnour/i.test(c.textContent)&&/not used to train/i.test(c.textContent)&&document.querySelector('[data-jd-act=mode-link]').getAttribute('aria-pressed')==='true'; }));
+  await p.click('[data-jd-act=mode-text]'); await p.waitForSelector('.jd-import textarea');
+  t('F: switching back keeps the text that was typed',await p.inputValue('.jd-import textarea')==='text typed before switching'&&p.posts.length===0);
+  await p.click('[data-jd-act=mode-link]'); await p.waitForSelector('input[data-jd-link]');
+  await p.fill('input[data-jd-link]','careers.acme.com/job/77'); await p.click('[data-jd-act=read-link]');
+  await p.waitForSelector('.cv-found',{timeout:10000});
+  const post=p.posts[0];
+  t('F: one request, signed in, kind "post", the link with https added, and no text',p.posts.length===1&&/^Bearer /.test(post.headers.authorization)&&post.body.kind==='post'&&post.body.url==='https://careers.acme.com/job/77'&&!('text' in post.body)&&post.body.lists.products.some(x=>x.id==='s4onprem'),post.body);
+  t('F: the found card says it came from the link and asks for a check; the banner says so too',await p.evaluate(()=>{ const c=document.querySelector('.jd-import'); return /We read the job from your link/.test(c.textContent)&&/check every step/i.test(c.textContent)&&!c.querySelector('input')&&/Filled in from your job link/.test(document.querySelector('.cv-banner').textContent); }));
+  t('F: the form is filled like with pasted text, and what the company typed first is kept',await p.evaluate(()=>document.querySelector('input[name=title]').value==='My linked title'&&document.querySelector('select[name=roleType]').value==='functional'&&document.querySelector('select[name=country]').value==='ae'));
+  await p.evaluate(()=>APP.jobGoStep(2)); await p.waitForTimeout(300);
+  t('F: four SAP skills, one of them nice-to-have, seniority and years',await p.evaluate(()=>{ const d=APP.jobNewDraft; return d.requires.length===4&&d.requires[3].nice===true&&d.level==='Senior'&&d.minExp===8; }));
+  await p.evaluate(()=>APP.jobGoStep(3)); await p.waitForTimeout(300);
+  const desc=await p.evaluate(()=>document.querySelector('textarea[name=description]').value);
+  t('F: the description is the job text from the link, line breaks kept, contact details and links removed',/About the role\nWe need a senior finance consultant/.test(desc)&&/What you bring\n- 8\+ years/.test(desc)&&!/@|https?:|careers\.acme/.test(desc),desc);
+  t('F: the link is NOT turned into an apply link: candidates still apply on Arnour',await p.evaluate(()=>!APP.jobNewDraft.applyUrl));
+  await p.evaluate(()=>document.querySelector('form[data-form=job-post]').requestSubmit()); await p.waitForFunction(()=>/^#\/e\/jobs\/j/.test(location.hash),null,{timeout:8000}); await p.waitForTimeout(800);
+  const rows=await sql(`select status,data from jobs where data->>'title'='My linked title'`);
+  t('F: saved as the company checked it, with no link stored anywhere in the role',rows.length===1&&rows[0].data.requires.length===4&&!rows[0].data.applyUrl&&JSON.stringify(rows[0].data).indexOf('careers.acme.com')===-1,rows[0]&&Object.keys(rows[0].data));
+  t('F: no page errors',p.errors.length===0,p.errors); await p.context().close(); }
+
+{ /* Enter key, an http link, and the "save as draft" path stay normal */
+  const p=await page('emp',{answer:{status:200,body:{job:JOB,text:LINKTEXT}}}); await go(p,'#/e/jobs/new'); await p.waitForSelector('.jd-import textarea',{timeout:8000});
+  await p.click('[data-jd-act=mode-link]'); await p.waitForSelector('input[data-jd-link]');
+  await p.fill('input[data-jd-link]','http://careers.acme.com/job/78'); const hash=await p.evaluate(()=>location.hash); await p.press('input[data-jd-link]','Enter');
+  await p.waitForSelector('.cv-found',{timeout:10000});
+  t('F: Enter in the link box reads the link (and does not submit the form); an http link is sent as https',p.posts.length===1&&p.posts[0].body.url==='https://careers.acme.com/job/78'&&await p.evaluate(()=>location.hash)===hash);
+  await p.evaluate(()=>APP.jobGoStep(3)); await p.waitForTimeout(300);
+  await p.click('[data-action=job-draft]'); await p.waitForTimeout(1200);
+  const dr=await sql(`select status,data from jobs where data->>'title'='SAP FICO Consultant' and status='draft'`);
+  t('F: "Save as draft" after a link read keeps a draft with the skills',dr.length>=1&&dr[0].data.requires.length===4,dr.length);
+  t('F: no page errors',p.errors.length===0,p.errors); await p.context().close(); }
+
+{ /* a link that cannot be used on the device: nothing is sent */
+  const p=await page('emp',{}); await go(p,'#/e/jobs/new'); await p.waitForSelector('.jd-import textarea',{timeout:8000});
+  await p.click('[data-jd-act=mode-link]'); await p.waitForSelector('input[data-jd-link]');
+  for(const bad of ['','hello','hello world','https://']){ await p.fill('input[data-jd-link]',bad); await p.click('[data-jd-act=read-link]'); await p.waitForTimeout(150);
+    t('F: "'+bad+'" is refused on the device with the example link, nothing sent',/https:\/\/careers\.yourcompany\.com\/job\/123/.test(await p.textContent('.jd-import .field-error'))&&p.posts.length===0&&await p.inputValue('input[data-jd-link]')===bad); }
+  await p.click('[data-jd-act=dismiss]'); await p.waitForTimeout(200); t('F: "No thanks" hides the card in link mode too',await p.evaluate(()=>!document.querySelector('.jd-import')));
+  t('F: no page errors',p.errors.length===0,p.errors); await p.context().close(); }
+
+{ const MSG={ bad_link:[422,/full link to one job/], blocked_site:[422,/LinkedIn, Indeed and Glassdoor/], link_unreachable:[422,/could not open that link/], link_blocked:[422,/did not let us open/], not_page:[422,/PDF or a file/], unreadable:[422,/could not find the job text/], many_jobs:[422,/lists several jobs/], not_a_job:[422,/could not find a SAP job/], limit:[429,/used all of today/], busy:[503,/very busy/], signin:[401,/sign in again/], ai:[502,/could not read this job ad/] };
+  for(const [code,[st,re]] of Object.entries(MSG)){
+    const p=await page('emp',{answer:{status:st,body:{error:code}}}); await go(p,'#/e/jobs/new'); await p.waitForSelector('.jd-import textarea',{timeout:8000});
+    await p.fill('input[name=title]','Keep me'); await p.click('[data-jd-act=mode-link]'); await p.waitForSelector('input[data-jd-link]');
+    await p.fill('input[data-jd-link]','https://careers.acme.com/job/77'); await p.click('[data-jd-act=read-link]'); await p.waitForSelector('.jd-import .field-error',{timeout:8000});
+    t('F: "'+code+'" says what happened, keeps the link and the form, and the paste option is one click away',re.test(await p.textContent('.jd-import .field-error'))&&await p.inputValue('input[data-jd-link]')==='https://careers.acme.com/job/77'&&await p.inputValue('input[name=title]')==='Keep me'&&await p.locator('[data-jd-act=mode-text]').count()===1);
+    await p.context().close(); }
+  { const p=await page('emp',{answer:{status:200,body:{job:JOB,text:LINKTEXT}}}); await go(p,'#/e/jobs/new'); await p.waitForSelector('.jd-import textarea',{timeout:8000});
+    await p.click('[data-jd-act=mode-link]'); await p.fill('input[data-jd-link]','https://careers.acme.com/job/77'); await p.click('[data-jd-act=read-link]');
+    await p.waitForSelector('.cv-found',{timeout:10000});
+    t('F: no page errors',p.errors.length===0,p.errors); await p.context().close(); } }
 
 console.log(fails?'FAILED '+fails:'ALL OK'); await browser.close(); process.exit(fails?1:0);

@@ -1,7 +1,8 @@
 /* ============================================================================
    ARNOUR — JOB-DESCRIPTION IMPORT ("Paste a job description" on Post a role, and on Admin → Import jobs)
    Loaded on demand by views-employer.js: only on the live site, only when one of those two pages opens.
-   1. The person pastes the text of a job ad. This page removes email addresses, phone numbers and web links.
+   1. The person pastes the text of a job ad (this page removes email addresses, phone numbers and web links), OR gives the link to one job
+      on their own careers page: jd-parse opens the link itself and sends the job's text back with the role.
    2. The text goes to /.netlify/functions/jd-parse, which asks Claude to fill in a role using Arnour's own
       product / module / specialty / country lists (so nothing outside the catalog can come back).
    3. Post a role: the answer fills the form (the ad stays as the description). The company checks every step and publishes as usual.
@@ -12,7 +13,7 @@
   'use strict';
   var FN = '/.netlify/functions/jd-parse';
   var MAX_CHARS = 20000, MAX_DESC = 8000;
-  var S = APP.jdImp = { ready: false, configured: false, state: 'idle', msg: '', text: '', done: null, adminMsg: '', admin: { employer: '', url: '', source: 'Company career page' }, dismissed: false };
+  var S = APP.jdImp = { ready: false, configured: false, state: 'idle', msg: '', text: '', mode: 'text', link: '', done: null, adminMsg: '', admin: { employer: '', url: '', source: 'Company career page' }, dismissed: false };
   var esc = function (s) { return APP.h(s == null ? '' : s); };
 
   APP.jdImpInit = function () {
@@ -37,11 +38,19 @@
       if (S.done && S.done.draft === d) return foundHtml(S.done);
       if (S.dismissed) return '';
     }
-    var ph = 'Paste the job ad here (English)…';
+    var ph = 'Paste the job ad here (English)…', link = !admin && S.mode === 'link';
+    var modes = admin || busy ? '' : '<div class="jd-mode" role="group" aria-label="How to add the job ad">' +
+      '<button type="button" class="btn btn-sm ' + (link ? 'btn-outline' : 'btn-primary') + '" data-jd-act="mode-text" aria-pressed="' + (!link) + '">Paste the text</button>' +
+      '<button type="button" class="btn btn-sm ' + (link ? 'btn-primary' : 'btn-outline') + '" data-jd-act="mode-link" aria-pressed="' + link + '">Use a link</button></div>';
     return '<section class="card form-sec cv-import jd-import" data-sec="jdimp">' +
       '<div class="sec-h"><div><h3>' + (admin ? 'Read a job ad' : 'Start from a job description') + (admin ? '' : ' <span class="muted">(optional)</span>') + '</h3>' +
-      '<p class="muted small">' + (admin ? 'Paste one posting, add the employer and the link, and the role is added to the list below. Check it, then import.' : 'Paste your job ad and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.') + '</p></div></div>' +
-      (busy ? '<p class="live-note cv-reading" role="status"><span class="cv-spin" aria-hidden="true"></span> Reading the ad…</p>'
+      '<p class="muted small">' + (admin ? 'Paste one posting, add the employer and the link, and the role is added to the list below. Check it, then import.' : 'Paste your job ad, or give us the link to it on your careers page, and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.') + '</p></div></div>' +
+      modes +
+      (busy ? '<p class="live-note cv-reading" role="status"><span class="cv-spin" aria-hidden="true"></span> ' + (S.src === 'link' ? 'Opening the link and reading the ad…' : 'Reading the ad…') + '</p>'
+        : link ? '<label class="field"><span class="label">Link to the job</span><input class="input" type="url" inputmode="url" data-jd-link aria-label="Link to the job" value="' + esc(S.link) + '" placeholder="https://careers.yourcompany.com/job/123"></label>' +
+          '<p class="muted small">Use the link to one job on your own careers page or HR system. It must open without signing in.</p>' +
+          '<div class="cv-import-row"><button type="button" class="btn btn-primary btn-sm" data-jd-act="read-link">' + APP.icon('spark', 14) + ' Fill in the role from the link</button>' +
+          '<button type="button" class="link-btn" data-jd-act="dismiss">No thanks, I will fill it in myself</button></div>'
         : '<textarea class="input" rows="6" data-jd-text aria-label="Job description" placeholder="' + ph + '">' + esc(S.text) + '</textarea>' +
           (admin ? '<div class="form-grid"><label class="field"><span class="label">Employer name</span><input class="input" data-jd-admin="employer" value="' + esc(S.admin.employer) + '" placeholder="Leave empty to use the name in the ad"></label>' +
             '<label class="field"><span class="label">Link to the posting *</span><input class="input" data-jd-admin="url" value="' + esc(S.admin.url) + '" placeholder="https://careers.example.com/job/123"></label>' +
@@ -50,11 +59,11 @@
           (admin ? '' : '<button type="button" class="link-btn" data-jd-act="dismiss">No thanks, I will fill it in myself</button>') + '</div>') +
       (S.state === 'error' && S.msg ? '<p class="field-error" role="alert">' + esc(S.msg) + '</p>' : '') +
       (admin && S.adminMsg ? '<p class="live-note" role="status">' + esc(S.adminMsg) + '</p>' : '') +
-      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + ' We read the ad once with AI (Anthropic\'s Claude) to fill in the form. Email addresses, phone numbers and web links are removed first. The text is not stored by Arnour and not used to train AI. English ads only.</p>' +
+      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + (link ? ' We open the link once to read the job, then read the ad with AI (Anthropic\'s Claude) to fill in the form. Email addresses, phone numbers and web links are removed. The page is not stored by Arnour and not used to train AI. English ads only.' : ' We read the ad once with AI (Anthropic\'s Claude) to fill in the form. Email addresses, phone numbers and web links are removed first. The text is not stored by Arnour and not used to train AI. English ads only.') + '</p>' +
       '</section>';
   };
   function foundHtml(done) {
-    return '<section class="card form-sec cv-import cv-found jd-import" data-sec="jdimp"><div class="sec-h"><div><h3>' + APP.icon('check', 16) + ' We read your job description</h3></div></div>' +
+    return '<section class="card form-sec cv-import cv-found jd-import" data-sec="jdimp"><div class="sec-h"><div><h3>' + APP.icon('check', 16) + (done.src === 'link' ? ' We read the job from your link' : ' We read your job description') + '</h3></div></div>' +
       (done.parts.length ? '<p>We filled in ' + esc(done.parts.join(', ')) + '. <b>Please check every step</b> before you publish. Nothing is published until you press Publish role.</p>' : '<p>We could not find much to fill in. Please complete the form yourself.</p>') +
       (done.short ? '<p class="muted small">The ad was longer than 8,000 characters, so the description was shortened. Please check the end of it.</p>' : '') +
       '</section>';
@@ -62,7 +71,7 @@
   APP.jdBannerHtml = function (step) {
     var d = APP.jobNewDraft;
     if (!S.done || !d || S.done.draft !== d || d.editId || step > 2) return '';
-    return '<p class="live-note cv-banner">' + APP.icon('check', 14) + ' Filled in from your job description. Please check it.</p>';
+    return '<p class="live-note cv-banner">' + APP.icon('check', 14) + (S.done.src === 'link' ? ' Filled in from your job link. Please check it.' : ' Filled in from your job description. Please check it.') + '</p>';
   };
 
   /* ---------- clicks and typing ---------- */
@@ -70,13 +79,19 @@
     var t = e.target; if (!t || !t.matches) return;
     if (t.matches('textarea[data-jd-text]')) S.text = t.value;
     else if (t.matches('[data-jd-admin]')) S.admin[t.getAttribute('data-jd-admin')] = t.value;
+    else if (t.matches('input[data-jd-link]')) S.link = t.value;
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target && e.target.matches && e.target.matches('input[data-jd-link]')) { e.preventDefault(); runLink(); }
   });
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('[data-jd-act]');
     if (!b) return;
     var a = b.getAttribute('data-jd-act'), admin = !!b.closest('#jd-slot-admin');
     if (a === 'dismiss') { S.dismissed = true; S.state = 'idle'; S.msg = ''; refresh(); }
+    if (a === 'mode-text' || a === 'mode-link') { var ta = document.querySelector('textarea[data-jd-text]'), li = document.querySelector('input[data-jd-link]'); if (ta) S.text = ta.value; if (li) S.link = li.value; S.mode = a === 'mode-link' ? 'link' : 'text'; S.state = 'idle'; S.msg = ''; refresh(); }
     if (a === 'read') run(admin ? 'admin' : 'post');
+    if (a === 'read-link') runLink();
   });
 
   var MSG = {
@@ -87,7 +102,14 @@
     signin: 'Please sign in again, then try once more.',
     employers_only: 'Reading a job ad is available to companies.',
     not_allowed: 'Reading a job ad here is for the Arnour admin only.',
-    network: 'Could not reach the server. Check your connection and try again.'
+    network: 'Could not reach the server. Check your connection and try again.',
+    bad_link: 'Enter the full link to one job, for example https://careers.yourcompany.com/job/123.',
+    blocked_site: 'LinkedIn, Indeed and Glassdoor do not allow automatic reading. Use the job on your own careers page, or paste the text instead.',
+    link_unreachable: 'We could not open that link. Check it, or paste the text of the job instead.',
+    link_blocked: 'That site did not let us open the page. Paste the text of the job instead.',
+    not_page: 'That link is not a web page we can read (for example a PDF or a file). Paste the text of the job instead.',
+    unreadable: 'We could not find the job text on that page. It may need you to sign in, or load its text with scripts. Paste the text instead.',
+    many_jobs: 'That page lists several jobs. Open one job and use its own link.'
   };
   function fail(code, text) { S.state = 'error'; S.msg = text || MSG[code] || 'We could not read this job ad. Please try again, or fill in the form yourself.'; refresh(); }
 
@@ -125,6 +147,31 @@
       }, function () { clearTimeout(to); throw { code: 'network' }; });
   }
 
+  function postLink(url, token) {
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctl) ctl.abort(); }, 70000);
+    return fetch(FN, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token }, body: JSON.stringify({ url: url, kind: 'post', lists: lists() }), signal: ctl ? ctl.signal : undefined })
+      .then(function (r) {
+        clearTimeout(to);
+        return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.job) throw { code: (j && j.error) || 'service' }; return j; });
+      }, function () { clearTimeout(to); throw { code: 'network' }; });
+  }
+  /* Post a role, "Use a link": the server opens the link and sends back the role and the job's own text (for the description) */
+  function runLink() {
+    if (S.state === 'reading') return;
+    var inp = document.querySelector('input[data-jd-link]'); if (inp) S.link = inp.value;
+    if (!APP.jobNewDraft || APP.jobNewDraft.editId) return;
+    var u = APP.normUrl(S.link).replace(/^http:\/\//i, 'https://');
+    if (!/^https:\/\/[^\s\/]+\.[^\s\/]+/.test(u) || /\s/.test(u)) return fail('bad_link');
+    S.state = 'reading'; S.msg = ''; S.src = 'link'; refresh();
+    APP.backend.ensureSession().then(function (s) {
+      if (!s || !s.access_token) throw { code: 'signin' };
+      return postLink(u, s.access_token);
+    }).then(function (r) {
+      S.state = 'idle'; S.msg = '';
+      applyToForm(r.job, shorten(clean(r.text || '')), 'link'); S.link = '';
+    }).catch(function (e) { S.src = ''; fail(e && e.code); });
+  }
+
   function run(kind) {
     if (S.state === 'reading') return;
     var ta = document.querySelector('textarea[data-jd-text]'); if (ta) S.text = ta.value;
@@ -136,7 +183,7 @@
     } else if (!APP.jobNewDraft || APP.jobNewDraft.editId) return;
     var text = clean(S.text);
     if (text.length < 150) return fail('no_text');
-    S.state = 'reading'; S.msg = ''; S.adminMsg = ''; refresh();
+    S.state = 'reading'; S.msg = ''; S.adminMsg = ''; S.src = 'text'; refresh();
     APP.backend.ensureSession().then(function (s) {
       if (!s || !s.access_token) throw { code: 'signin' };
       return post(text, s.access_token, kind);
@@ -161,7 +208,7 @@
   function plural(n, w, pl) { return n + ' ' + (n === 1 ? w : (pl || w + 's')); }
 
   /* ---------- 2a. Post a role: fill the form (the ad's own values replace the form's defaults; anything the company typed is kept) ---------- */
-  function applyToForm(p, desc) {
+  function applyToForm(p, desc, src) {
     var d = APP.jobNewDraft; if (!d || d.editId) return;
     APP.syncFormsToDrafts(null); /* keep whatever was typed while the ad was being read */
     var parts = [], blank = function (v) { return v == null || v === '' || (Array.isArray(v) && !v.length); };
@@ -208,7 +255,7 @@
     if (p.minPrograms && !(+d.minPrograms) && APP.LEAD_RTS.indexOf(d.roleType) !== -1) d.minPrograms = p.minPrograms;
     if (blank(d.description) && desc.text) { d.description = desc.text; parts.push('the description'); }
     APP.jobRowsAnyModule(d);
-    S.done = { draft: d, parts: parts, short: desc.short };
+    S.done = { draft: d, parts: parts, short: desc.short, src: src || 'text' };
     APP.state.jobErr = null;
     APP._formSyncSkip = ['job-post'];
     APP.render();
