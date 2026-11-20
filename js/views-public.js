@@ -21,7 +21,7 @@ APP.views.landing = function () {
 
   const cSteps = [
     ['Start from your CV', 'Upload a PDF or Word CV and the wizard fills in your products, modules and projects. You check every step.'],
-    ['Get matched, instantly', 'Your feed is ranked against every open role — you only see work that fits your stack.'],
+    ['Get matched, instantly', 'Every open role gets a match % with a breakdown, ranked for you — you only see work that fits your stack.'],
     ['Reveal only when you choose', 'Companies see your skills, not your name. Share your name and CV in one click, after you accept an introduction.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
 
@@ -72,6 +72,29 @@ APP.views.landing = function () {
     stage(2, 'Introduction', 'Companies can ask to connect, and you can show interest in a role. Neither side is named yet.', 'You can ask a professional to connect and receive interest in your role. Still no names.', 'm2') +
     stage(3, 'Mutual Reveal', 'Accepting an introduction reveals both sides at once. You see the company name, website and contact.', 'Name, photo, LinkedIn and CV.', 'm3') +
     '</div></section>';
+  /* "Built for the SAP ecosystem": profiles and roles are SAP product + module, and every pair gets a match %. The role card is an illustration (labelled Example), not real data. */
+  const sapPoint = (ico, ttl, txt) =>
+    '<div class="sap-point"><span class="sap-ico">' + APP.icon(ico, 20) + '</span><div><h3>' + ttl + '</h3><p class="muted">' + txt + '</p></div></div>';
+  const sapExample =
+    '<div class="sap-example" role="img" aria-label="Example of a role card with an 86 percent match and a list of what fits and what is missing">' +
+    '<span class="sap-ex-tag">Example</span>' +
+    '<div class="sap-ex-top"><div class="sap-ex-title"><b>SAP Finance Consultant</b><small>Confidential company</small></div>' +
+    '<div class="sap-ring" style="--p:86"><span>86%</span><small>Match</small></div></div>' +
+    '<div class="sap-ex-chips"><span>S/4HANA Private Cloud</span><span>FI</span><span>CO</span></div>' +
+    '<ul class="sap-ex-list">' +
+    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>S/4HANA · FI</b> on your profile</span><em>Must</em></li>' +
+    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>CO</b> on your profile</span><em>Must</em></li>' +
+    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>Arabic, English</b></span><em>Must</em></li>' +
+    '<li class="gap"><span class="sap-tick">!</span><span><b>BTP</b> not on your profile</span><em>Nice</em></li>' +
+    '</ul></div>';
+  const sapSection =
+    '<section class="section sap-section" id="built-for-sap"><div class="section-head center"><span class="mr-kicker">' + APP.icon('spark', 14) + ' Smart matching</span>' +
+    '<h2>Built for the SAP ecosystem</h2></div>' +
+    '<div class="sap-grid"><div class="sap-points">' +
+    sapPoint('briefcase', 'Built on SAP products and modules', 'Every profile and role is described by product, module and projects delivered: ' + prods + ' SAP products and ' + mods + ' modules, plus certifications, role type and seniority.') +
+    sapPoint('spark', 'A match % on every role and professional', 'See how well a role fits your skills, or a professional fits your brief. Tap the percentage to see what matches and what is missing.') +
+    sapPoint('check', 'Must-haves and nice-to-haves', 'A missed must-have is flagged and caps the score. Nice-to-haves add to it, and never hide a role.') +
+    '</div>' + sapExample + '</div></section>';
   /* on a first visit the page is drawn before the data arrives: leave out the numbers that come from the database until then */
   const dataReady = !(APP.backend && APP.backend.earlyHome);
   const liveRoles = APP.PAGED && APP.backend && APP.backend.openTotal != null ? APP.backend.openTotal : Object.values(APP.db.jobs).filter(j => j.status === 'open').length;
@@ -80,7 +103,7 @@ APP.views.landing = function () {
     '<section class="hero">' +
     '<div class="hero-inner">' +
     '<h1>Skills first, <span class="hl">names second.</span></h1>' +
-    '<p class="hero-sub">The SAP network for the Middle East and beyond, where professionals and companies stay anonymous until both say yes. Search by exact product and module, like “S/4HANA FICO”, and reveal who you are only when it is mutual.</p>' +
+    '<p class="hero-sub">The SAP network for the Middle East and beyond. Profiles and roles built on SAP products and modules, matched with a score you can trust. Stay anonymous until both say yes.</p>' +
     '<div class="hero-split">' +
     '<a class="hero-card hero-card-co" href="#/onboard-e"><span class="hero-card-ico">' + APP.icon('building', 20) + '</span><strong>I\'m a company</strong><span>SAP Customers, SI/Partners and recruiters. Post a precise role or search professionals by exact module. You stay anonymous until you accept an introduction.</span><span class="btn btn-light btn-lg">Create company profile →</span></a>' +
     '<a class="hero-card hero-card-pro" href="#/onboard"><span class="hero-card-ico">' + APP.icon('users', 20) + '</span><strong>I\'m an SAP professional</strong><span>Upload your CV and your profile fills itself in minutes. Get roles ranked by fit while you stay discreet.</span><span class="btn btn-sky btn-lg">Create my profile →</span></a>' +
@@ -89,6 +112,7 @@ APP.views.landing = function () {
     '<p class="hero-proof"><span>' + prods + ' SAP products</span><span>' + mods + ' modules</span><span>Built for Egypt, the GCC and MENA talent</span></p>' +
     '</div></section>' +
 
+    sapSection +
     reveal +
 
     '<section class="section how-section"><div class="section-head"><h2>How it works</h2></div>' +
