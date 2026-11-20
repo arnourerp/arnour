@@ -36,7 +36,8 @@ const state=(p)=>p.evaluate(()=>({splash:!!document.querySelector('#app .live-sp
   t('after the data arrives the numbers appear',/Browse \d+ SAP roles from the market/.test(s2.link),[s2.proof,s2.link]);
   t('the scroll position is kept when the data fills in',Math.abs(s2.y-y0)<40,[y0,s2.y]);
   t('no "Companies on Arnour" section on the home page (hidden until there are enough employers)',!(await p.evaluate(()=>/Companies on Arnour/.test(document.body.innerText)||!!document.querySelector('#app .logo-row'))));
-  t('home page: company card, no community section, two final buttons',await p.evaluate(()=>{const b=document.body.innerText;return /I'm a company/.test(b)&&!/I'm hiring/.test(b)&&!/Fresh from the community/.test(b)&&!!document.querySelector('.cta-btns a[href="#/register/e"]')&&/Middle East/.test(b)}));
+  t('home page: company card, no community section, both hero buttons',await p.evaluate(()=>{const b=document.body.innerText;return /I'm a company/.test(b)&&!/I'm hiring/.test(b)&&!/Fresh from the community/.test(b)&&!!document.querySelector('.hero-card-co[href="#/onboard-e"]')&&!!document.querySelector('.hero-card-pro[href="#/onboard"]')&&/Middle East/.test(b)}));
+  t('home page (2026-11-20 refresh): no "Why" strip, no closing band, no Mutual Reveal intro or note, three picture cards',await p.evaluate(()=>{const b=document.body.innerText;return !/Why SAP people choose/.test(b)&&!document.querySelector('.cta-band')&&!/Be found for your skills/.test(b)&&!/A reveal cannot be undone, so it only ever/.test(b)&&!/nobody needs a name to judge fit/.test(b)&&/Hidden until you both say yes/.test(b)&&document.querySelectorAll('.mr-stage .mr-mini').length===3&&document.querySelectorAll('.how-card').length===2}));
   await p.context().close();
 }
 /* 2. went to another page before the data arrived */

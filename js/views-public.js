@@ -19,14 +19,6 @@ APP.views.landing = function () {
     ['0', 'general noise']
   ].map(s => '<div class="stat-tile"><strong>' + APP.h(s[0]) + '</strong><small>' + APP.h(s[1]) + '</small></div>').join('');
 
-  const why = [
-    ['Skills are the identity', 'Every profile and job is tagged by SAP product, module and projects delivered. That is enough to judge fit, so the name can wait.', 'spark'],
-    ['A direct line', 'Built-in inbox with unread badges and one-click CV sharing. No email ping-pong, no middlemen.', 'msg'],
-    ['Matched, and alerted', 'Professionals land on roles that already fit their skills and get an alert when a new one matches. Companies see talent that already fits the brief.', 'check']
-  ].map(w =>
-    '<div class="why-card card"><span class="why-ico">' + APP.icon(w[2], 22) + '</span><h3>' + APP.h(w[0]) + '</h3><p class="muted">' + APP.h(w[1]) + '</p></div>'
-  ).join('');
-
   const cSteps = [
     ['Start from your CV', 'Upload a PDF or Word CV and the wizard fills in your products, modules and projects. You check every step.'],
     ['Get matched, instantly', 'Your feed is ranked against every open role — you only see work that fits your stack.'],
@@ -59,24 +51,27 @@ APP.views.landing = function () {
         '<p class="muted small">' + APP.h(APP.communityAuthorName(q.authorId)) + ' · ' + APP.h(tag) + ' · ' + ans + ' answer' + (ans === 1 ? '' : 's') + '</p></a></div>';
     }).join('');
 
+  /* small picture at the top of each Mutual Reveal step: grey bars = hidden, readable text = revealed (generic words only, no invented companies) */
+  const mini = {
+    m1: '<div class="mr-mini" aria-hidden="true"><div class="mr-mini-top"><span class="mr-ava">' + APP.icon('lock', 16) + '</span><div class="mr-mini-lines"><span class="mr-bar w70"></span><span class="mr-bar w45"></span></div></div>' +
+      '<div class="mr-mini-tags"><span>S/4HANA</span><span>FI</span><span>CO</span></div></div>',
+    m2: '<div class="mr-mini" aria-hidden="true"><div class="mr-mini-top"><span class="mr-ava">' + APP.icon('lock', 16) + '</span><div class="mr-mini-lines"><span class="mr-bar w70"></span><span class="mr-bar w45"></span></div></div>' +
+      '<div class="mr-mini-tags"><span class="mr-ask">' + APP.icon('msg', 12) + ' Introduction requested</span></div></div>',
+    m3: '<div class="mr-mini mr-mini-on" aria-hidden="true"><div class="mr-mini-top"><span class="mr-ava">' + APP.icon('check', 16) + '</span><div class="mr-mini-lines"><b>Company name</b><small>Website · Contact</small></div></div>' +
+      '<div class="mr-mini-tags"><span class="mr-ok">' + APP.icon('check', 12) + ' Revealed to both</span></div></div>'
+  };
   const stage = (n, ttl, pro, co, cls) =>
-    '<div class="mr-stage ' + cls + '"><span class="mr-n">' + n + '</span><h3>' + ttl + '</h3>' +
+    '<div class="mr-stage ' + cls + '"><div class="mr-stage-top"><span class="mr-n">' + n + '</span><h3>' + ttl + '</h3></div>' + mini[cls] +
     '<div class="mr-row"><span class="mr-who">' + APP.icon('users', 14) + ' Professional sees</span><p>' + pro + '</p></div>' +
     '<div class="mr-row"><span class="mr-who">' + APP.icon('building', 14) + ' Company sees</span><p>' + co + '</p></div></div>';
   const reveal =
     '<section class="section mr-section" id="mutual-reveal"><div class="section-head center"><span class="mr-kicker">' + APP.icon('lock', 14) + ' Mutual Reveal</span>' +
-    '<h2>Hidden until you both say yes</h2>' +
-    '<p class="muted">Because every profile and role is described by exact product, module and projects, nobody needs a name to judge fit. Names are shared only when both sides agree.</p></div>' +
+    '<h2>Hidden until you both say yes</h2></div>' +
     '<div class="mr-flow">' +
     stage(1, 'Hidden', 'The role, with a “Confidential company” label.', 'Skills, projects and headline. No name, photo or CV.', 'm1') +
     stage(2, 'Introduction', 'Companies can ask to connect, and you can show interest in a role. Neither side is named yet.', 'You can ask a professional to connect and receive interest in your role. Still no names.', 'm2') +
     stage(3, 'Mutual Reveal', 'Accepting an introduction reveals both sides at once. You see the company name, website and contact.', 'Name, photo, LinkedIn and CV.', 'm3') +
-    '</div>' +
-    '<div class="mr-both">' +
-    '<div class="card mr-card"><h3>' + APP.icon('users', 18) + ' For SAP professionals</h3><p class="muted">Look for your next role discreetly. Companies find you by what you do, not by your name. You decide who gets your name and CV, and only after you accept.</p></div>' +
-    '<div class="card mr-card"><h3>' + APP.icon('building', 18) + ' For companies</h3><p class="muted">Open a role without telling the market who is hiring or why. Whether you are an SAP Customer, a partner or a recruiter, you reveal your name only to the people you accept.</p></div>' +
-    '</div>' +
-    '<p class="mr-note">A reveal cannot be undone, so it only ever happens when you accept. Free to use, and you can switch it on or off any time in your profile.</p></section>';
+    '</div></section>';
   /* on a first visit the page is drawn before the data arrives: leave out the numbers that come from the database until then */
   const dataReady = !(APP.backend && APP.backend.earlyHome);
   const liveRoles = APP.PAGED && APP.backend && APP.backend.openTotal != null ? APP.backend.openTotal : Object.values(APP.db.jobs).filter(j => j.status === 'open').length;
@@ -87,17 +82,16 @@ APP.views.landing = function () {
     '<h1>Skills first, <span class="hl">names second.</span></h1>' +
     '<p class="hero-sub">The SAP network for the Middle East and beyond, where professionals and companies stay anonymous until both say yes. Search by exact product and module, like “S/4HANA FICO”, and reveal who you are only when it is mutual.</p>' +
     '<div class="hero-split">' +
-    '<a class="hero-card" href="#/onboard-e"><strong>I\'m a company</strong><span>SAP Customers, SI/Partners and recruiters. Post a precise role, search professionals by exact module, or get found for what your team delivers. You stay anonymous until you accept an introduction.</span><span class="btn btn-light btn-lg">Create company profile →</span></a>' +
-    '<a class="hero-card" href="#/onboard"><strong>I\'m an SAP professional</strong><span>Upload your CV and your profile fills itself in minutes. Get roles ranked by fit while you stay discreet.</span><span class="btn btn-outline-light btn-lg">Create my profile →</span></a>' +
+    '<a class="hero-card hero-card-co" href="#/onboard-e"><span class="hero-card-ico">' + APP.icon('building', 20) + '</span><strong>I\'m a company</strong><span>SAP Customers, SI/Partners and recruiters. Post a precise role or search professionals by exact module. You stay anonymous until you accept an introduction.</span><span class="btn btn-light btn-lg">Create company profile →</span></a>' +
+    '<a class="hero-card hero-card-pro" href="#/onboard"><span class="hero-card-ico">' + APP.icon('users', 20) + '</span><strong>I\'m an SAP professional</strong><span>Upload your CV and your profile fills itself in minutes. Get roles ranked by fit while you stay discreet.</span><span class="btn btn-sky btn-lg">Create my profile →</span></a>' +
     '</div>' +
     '<a class="hero-jobs-link" href="#/jobs">Browse ' + (dataReady ? liveRoles + ' SAP roles' : 'SAP roles') + ' from the market →</a>' +
-    '<p class="hero-proof">' + prods + ' SAP products · ' + mods + ' modules · built for Egypt, the GCC and MENA talent</p>' +
+    '<p class="hero-proof"><span>' + prods + ' SAP products</span><span>' + mods + ' modules</span><span>Built for Egypt, the GCC and MENA talent</span></p>' +
     '</div></section>' +
 
     reveal +
-    '<section class="section alt"><div class="section-head"><h2>Why SAP people choose Arnour</h2></div><div class="why-grid">' + why + '</div></section>' +
 
-    '<section class="section"><div class="section-head"><h2>How it works</h2></div>' +
+    '<section class="section how-section"><div class="section-head"><h2>How it works</h2></div>' +
     '<div class="how-grid">' +
     '<div class="card how-card"><div class="how-title">' + APP.icon('users', 18) + ' For SAP professionals</div>' + cSteps + '</div>' +
     '<div class="card how-card"><div class="how-title">' + APP.icon('building', 18) + ' For companies</div>' + eSteps + '</div>' +
@@ -108,12 +102,7 @@ APP.views.landing = function () {
 
     (APP.SHOW_HOME_COMMUNITY ? '<section class="section alt"><div class="section-head"><h2>Fresh from the community</h2><p class="muted">Open questions from SAP people — in their own words, with real answers.</p></div>' +
     '<div class="why-grid fresh-grid">' + fresh + '</div>' +
-    '<p class="center mt16"><a class="btn btn-primary" href="#/community">Browse the community</a></p></section>' : '') +
-
-    '<section class="cta-band"><div class="cta-inner">' +
-    '<h2>Be found for your skills. Be known when you choose.</h2>' +
-    '<div class="cta-btns"><a class="btn btn-light btn-lg" href="#/register">I\'m an SAP professional →</a> <a class="btn btn-outline-light btn-lg" href="#/register/e">I\'m a company →</a></div>' +
-    '</div></section>';
+    '<p class="center mt16"><a class="btn btn-primary" href="#/community">Browse the community</a></p></section>' : '');
 };
 
 APP.views.notfound = function () {
