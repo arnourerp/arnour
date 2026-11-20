@@ -52,7 +52,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
 
 /* ========== B. a company pastes a job ad, checks the form and publishes ========== */
 { const p=await page('emp',{}); await go(p,'#/e/jobs/new'); await p.waitForSelector('.jd-import textarea',{timeout:8000});
-  t('B: the card shows with the privacy promise',await p.evaluate(()=>{ const c=document.querySelector('.jd-import'); return /Start from a job description/.test(c.textContent)&&/not stored by Arnour/i.test(c.textContent)&&/not used to train/i.test(c.textContent)&&/English ads only/.test(c.textContent); }));
+  t('B: the card shows the title with "or job link", a short privacy line, and the explanations sit behind ⓘ hints (no grey paragraph)',await p.evaluate(()=>{ const c=document.querySelector('.jd-import'); const vis=c.querySelector('.cv-consent').textContent; return /Start from a job description or job link/.test(c.querySelector('h3').textContent)&&/Read once by AI/.test(vis)&&/Not stored, not used to train AI/.test(vis)&&c.querySelectorAll('.hint-i').length===1&&/Nothing is stored by Arnour or used to train AI/.test(c.querySelector('.hint-pop').textContent)&&!c.querySelector('.sec-h p'); }));
   await p.fill('input[name=title]','My own title');
   await p.fill('.jd-import textarea',AD); await p.click('[data-jd-act=read]');
   await p.waitForSelector('.cv-found',{timeout:10000});
@@ -104,7 +104,7 @@ const sql=async(s,a)=>(await be.db.query(s,a)).rows;
 
 /* ========== E. admin: read a posting into the import list ========== */
 { const p=await page('adm',{}); await go(p,'#/admin/import'); await p.waitForSelector('#jd-slot-admin textarea',{timeout:10000});
-  t('E: the admin card has no "Use a link" switch (the admin types the posting link already)',await p.evaluate(()=>!document.querySelector('#jd-slot-admin .jd-mode')));
+  t('E: the admin card has no "Use a link" switch (the admin types the posting link already) and keeps its own explanation',await p.evaluate(()=>!document.querySelector('#jd-slot-admin .jd-mode')&&/Paste one posting/.test(document.querySelector('#jd-slot-admin').textContent)&&/not stored by Arnour/i.test(document.querySelector('#jd-slot-admin').textContent)));
   t('E: the admin sees "Read a job ad" above the JSON box',await p.evaluate(()=>/Read a job ad/.test(document.querySelector('#jd-slot-admin').textContent)&&!!document.querySelector('#imp-text')));
   await p.fill('#jd-slot-admin textarea',AD); await p.click('#jd-slot-admin [data-jd-act=read]'); await p.waitForTimeout(300);
   t('E: a posting link is required first',/full https link/.test(await p.textContent('#jd-slot-admin .field-error'))&&p.posts.length===0);
@@ -131,7 +131,8 @@ const LINKTEXT='About the role\nWe need a senior finance consultant for S/4HANA 
   await p.fill('input[name=title]','My linked title');
   await p.fill('.jd-import textarea','text typed before switching');
   await p.click('[data-jd-act=mode-link]'); await p.waitForSelector('input[data-jd-link]');
-  t('F: link mode: link box, the "opens without signing in" hint, no text box, and an honest privacy note',await p.evaluate(()=>{ const c=document.querySelector('.jd-import'); return !!c.querySelector('input[type=url][data-jd-link]')&&!c.querySelector('textarea')&&/open without signing in/.test(c.textContent)&&/open the link once/i.test(c.textContent)&&/not stored by Arnour/i.test(c.textContent)&&/not used to train/i.test(c.textContent)&&document.querySelector('[data-jd-act=mode-link]').getAttribute('aria-pressed')==='true'; }));
+  t('F: link mode: link box with its own ⓘ hint ("must open without signing in"), no text box, no grey explanation, the short privacy line',await p.evaluate(()=>{ const c=document.querySelector('.jd-import'); const hints=c.querySelectorAll('.hint-i'); return !!c.querySelector('input[type=url][data-jd-link]')&&!c.querySelector('textarea')&&hints.length===2&&/open without signing in/.test(c.querySelector('label.field .hint-pop').textContent)&&/we open the page once/i.test(c.querySelector('h3 .hint-pop').textContent)&&!c.querySelector('p.muted.small:not(.cv-consent)')&&/Not stored, not used to train AI/.test(c.querySelector('.cv-consent').textContent)&&document.querySelector('[data-jd-act=mode-link]').getAttribute('aria-pressed')==='true'; }));
+  await p.click('.jd-import label.field .hint-i'); t('F: tapping the ⓘ next to the link box shows its text',await p.evaluate(()=>getComputedStyle(document.querySelector('.jd-import label.field .hint-pop')).display==='block'));
   await p.click('[data-jd-act=mode-text]'); await p.waitForSelector('.jd-import textarea');
   t('F: switching back keeps the text that was typed',await p.inputValue('.jd-import textarea')==='text typed before switching'&&p.posts.length===0);
   await p.click('[data-jd-act=mode-link]'); await p.waitForSelector('input[data-jd-link]');

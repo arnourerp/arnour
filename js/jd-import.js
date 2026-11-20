@@ -43,12 +43,11 @@
       '<button type="button" class="btn btn-sm ' + (link ? 'btn-outline' : 'btn-primary') + '" data-jd-act="mode-text" aria-pressed="' + (!link) + '">Paste the text</button>' +
       '<button type="button" class="btn btn-sm ' + (link ? 'btn-primary' : 'btn-outline') + '" data-jd-act="mode-link" aria-pressed="' + link + '">Use a link</button></div>';
     return '<section class="card form-sec cv-import jd-import" data-sec="jdimp">' +
-      '<div class="sec-h"><div><h3>' + (admin ? 'Read a job ad' : 'Start from a job description') + (admin ? '' : ' <span class="muted">(optional)</span>') + '</h3>' +
-      '<p class="muted small">' + (admin ? 'Paste one posting, add the employer and the link, and the role is added to the list below. Check it, then import.' : 'Paste your job ad, or give us the link to it on your careers page, and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.') + '</p></div></div>' +
+      '<div class="sec-h"><div><h3>' + (admin ? 'Read a job ad' : 'Start from a job description or job link <span class="muted">(optional)</span>' + APP.hintHtml('Paste your job ad, or give us the link to it on your careers page, and we fill in this form for you, so you only check and correct it. It takes about 10 seconds.<br><br>With a link we open the page once to read the job. Email addresses, phone numbers and web links are removed, then the ad is read once by AI (Anthropic\'s Claude). Nothing is stored by Arnour or used to train AI. English ads only.')) + '</h3>' +
+      (admin ? '<p class="muted small">Paste one posting, add the employer and the link, and the role is added to the list below. Check it, then import.</p>' : '') + '</div></div>' +
       modes +
       (busy ? '<p class="live-note cv-reading" role="status"><span class="cv-spin" aria-hidden="true"></span> ' + (S.src === 'link' ? 'Opening the link and reading the ad…' : 'Reading the ad…') + '</p>'
-        : link ? '<label class="field"><span class="label">Link to the job</span><input class="input" type="url" inputmode="url" data-jd-link aria-label="Link to the job" value="' + esc(S.link) + '" placeholder="https://careers.yourcompany.com/job/123"></label>' +
-          '<p class="muted small">Use the link to one job on your own careers page or HR system. It must open without signing in.</p>' +
+        : link ? '<label class="field"><span class="label">Link to the job' + APP.hintHtml('Use the link to one job on your own careers page or HR system. It must open without signing in.') + '</span><input class="input" type="url" inputmode="url" data-jd-link aria-label="Link to the job" value="' + esc(S.link) + '" placeholder="https://careers.yourcompany.com/job/123"></label>' +
           '<div class="cv-import-row"><button type="button" class="btn btn-primary btn-sm" data-jd-act="read-link">' + APP.icon('spark', 14) + ' Fill in the role from the link</button>' +
           '<button type="button" class="link-btn" data-jd-act="dismiss">No thanks, I will fill it in myself</button></div>'
         : '<textarea class="input" rows="6" data-jd-text aria-label="Job description" placeholder="' + ph + '">' + esc(S.text) + '</textarea>' +
@@ -59,7 +58,7 @@
           (admin ? '' : '<button type="button" class="link-btn" data-jd-act="dismiss">No thanks, I will fill it in myself</button>') + '</div>') +
       (S.state === 'error' && S.msg ? '<p class="field-error" role="alert">' + esc(S.msg) + '</p>' : '') +
       (admin && S.adminMsg ? '<p class="live-note" role="status">' + esc(S.adminMsg) + '</p>' : '') +
-      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + (link ? ' We open the link once to read the job, then read the ad with AI (Anthropic\'s Claude) to fill in the form. Email addresses, phone numbers and web links are removed. The page is not stored by Arnour and not used to train AI. English ads only.' : ' We read the ad once with AI (Anthropic\'s Claude) to fill in the form. Email addresses, phone numbers and web links are removed first. The text is not stored by Arnour and not used to train AI. English ads only.') + '</p>' +
+      '<p class="muted small cv-consent">' + APP.icon('lock', 13) + (admin ? ' We read the ad once with AI (Anthropic\'s Claude) to fill in the form. Email addresses, phone numbers and web links are removed first. The text is not stored by Arnour and not used to train AI. English ads only.' : ' Read once by AI (Anthropic\'s Claude) to fill this form. Not stored, not used to train AI.') + '</p>' +
       '</section>';
   };
   function foundHtml(done) {
