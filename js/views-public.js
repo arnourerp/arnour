@@ -108,7 +108,7 @@ APP.views.landing = function () {
     '<a class="hero-card hero-card-co" href="#/onboard-e"><span class="hero-card-ico">' + APP.icon('building', 20) + '</span><strong>I\'m a company</strong><span>SAP Customers, SI/Partners and recruiters. Post a precise role or search professionals by exact module. You stay anonymous until you accept an introduction.</span><span class="btn btn-light btn-lg">Create company profile →</span></a>' +
     '<a class="hero-card hero-card-pro" href="#/onboard"><span class="hero-card-ico">' + APP.icon('users', 20) + '</span><strong>I\'m an SAP professional</strong><span>Upload your CV and your profile fills itself in minutes. Get roles ranked by fit while you stay discreet.</span><span class="btn btn-sky btn-lg">Create my profile →</span></a>' +
     '</div>' +
-    '<a class="hero-jobs-link" href="#/jobs">Browse ' + (dataReady ? liveRoles + ' SAP roles' : 'SAP roles') + ' from the market →</a>' +
+    '<a class="hero-jobs-link" href="#/jobs"><span class="hjl-dot" aria-hidden="true"></span><span class="hjl-text"><strong>Browse ' + (dataReady ? liveRoles + ' SAP roles' : 'SAP roles') + ' from the market</strong><small>Free to browse · no login needed</small></span><span class="hjl-arrow" aria-hidden="true">→</span></a>' +
     '<p class="hero-proof"><span>' + prods + ' SAP products</span><span>' + mods + ' modules</span><span>Built for Egypt, the GCC and MENA talent</span></p>' +
     '</div></section>' +
 
