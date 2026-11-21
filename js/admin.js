@@ -325,6 +325,7 @@
     if ((m = /^v:(.+)$/.exec(n))) return (VIEW_LABEL[m[1]] || m[1]) + ' — views';
     if (n === 'apply') return 'Applied to a role on Arnour';
     if (n === 'ext_apply') return 'Clicked an external apply link';
+    if ((m = /^mn:(seen|go|no|open):(list|job|apply|save)$/.exec(n))) return 'Match prompt (visitors): ' + ({ seen: 'shown', go: 'tapped Create my profile', no: 'closed it (Not now)', open: 'tapped Open a role' })[m[1]] + ' — ' + ({ list: 'slide-up on the role list', job: 'slide-up on a role page', apply: 'popup after Apply', save: 'popup after Save' })[m[2]];
     if ((m = /^lnd:(.+)$/.exec(n))) return 'New visitors from ' + m[1];
     if ((m = /^lc:(.+)$/.exec(n))) return 'New visitors from the campaign ' + m[1];
     if ((m = /^conv:c:(.+)$/.exec(n))) return 'Professional profiles completed, from ' + m[1];
@@ -392,6 +393,13 @@
       return '<tr><td>' + h(k) + (srcs || o.g ? '<div class="fb-meta">' + h(srcs) + (o.g ? (srcs ? ' · ' : '') + o.g + ' from a Google ad click' : '') + '</div>' : '') + '</td><td>' + (o.v || '') + '</td><td>' + (o.n || '') + '</td><td>' + (o.pc || '') + '</td><td>' + (o.pe || '') + '</td><td>' + (o.v ? pct(done, o.v) : '—') + '</td></tr>';
     }).join('') + '</tbody></table></div><p class="muted small">A campaign is the <code>utm_campaign</code> on the link that first brought the person (Google Ads final URLs, posts, e-mails). Visitors are counted once per browser; accounts and profiles are those created in this period' + (hrs ? ' (the last 24 hours)' : '') + '. Clicks, cost and cost per profile are in Google Ads.</p>'
       : '<div class="empty">No campaign links yet. Links with <code>utm_campaign=…</code> show up here.</div>';
+    /* visitor match prompt (slide-up and popup): shown / tapped Create my profile / closed */
+    var mnRows = [['list', 'Slide-up on the role list'], ['job', 'Slide-up on a role page'], ['apply', 'Popup after Apply'], ['save', 'Popup after Save']];
+    var mnAny = mnRows.some(function (r) { return tot['mn:seen:' + r[0]]; });
+    var mnTable = mnAny ? '<table class="adm-table adm-table-num" id="adm-mnudge"><thead><tr><th>Where</th><th>Shown</th><th>Tapped Create my profile</th><th>Closed (Not now)</th><th>Tapped Open a role</th></tr></thead><tbody>' + mnRows.map(function (r) {
+      var sn = tot['mn:seen:' + r[0]] || 0, go = tot['mn:go:' + r[0]] || 0;
+      return '<tr><td>' + h(r[1]) + '</td><td>' + (sn || '') + '</td><td>' + (go ? go + ' (' + pct(go, sn) + ')' : '') + '</td><td>' + (tot['mn:no:' + r[0]] || '') + '</td><td>' + (r[0] === 'list' ? (tot['mn:open:list'] || '') : '') + '</td></tr>';
+    }).join('') + '</tbody></table><p class="muted small">The slide-up shows once per browser. Tapped Create my profile counts the tap, not a finished profile: compare with the funnel above and the campaign table.</p>' : '<div class="empty">No prompt shown yet.</div>';
     var pv = Object.keys(tot).filter(function (k) { return /^v:/.test(k) && k !== 'v:admin'; }).sort(function (a, b) { return tot[b] - tot[a]; });
     var pvTable = pv.length ? '<table class="adm-table adm-table-num"><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody>' + pv.map(function (k) { return '<tr><td>' + h(usageLabel(k).replace(/ — views$/, '')) + '</td><td>' + tot[k] + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty">No data yet.</div>';
     return '<h1>Traffic</h1><div class="chip-wrap mb16">' + chips + '</div>' +
@@ -402,6 +410,7 @@
       '<h2>' + (hrs ? 'Hour by hour' : 'Day by day') + '</h2>' + dayTable +
       '<h2>Where people came from</h2>' + srcTable +
       '<h2>By campaign</h2>' + cmpTable +
+      '<h2>Match prompt for visitors</h2>' + mnTable +
       '<h2>Pages people opened</h2>' + pvTable +
       '<p class="muted small">For real visitor totals, search impressions and clicks, see Netlify Analytics and Google Search Console.</p>';
   }

@@ -15,7 +15,7 @@ for(const k of ['adm','pro']){ be.users[k+'@t.com']={id:U[k],email:k+'@t.com',pa
 await be.db.query(`insert into admin_emails(email) values ('adm@t.com')`);
 await be.db.exec(`reset role; select set_config('request.jwt.claim.sub','${U.pro}',false); set role authenticated;`);
 await be.db.query(`select claim_profile('consultant','{"firstName":"Pia","lastName":"Pro"}'::jsonb)`); await be.db.exec('reset role');
-for(const n of ['v:home','v:home','v:job','v:register','lnd:facebook','lnd:facebook','conv:c:facebook','apply','ext_apply','v:admin']) await be.db.query(`select track_usage($1)`,[n]);
+for(const n of ['v:home','v:home','v:job','v:register','lnd:facebook','lnd:facebook','conv:c:facebook','apply','ext_apply','v:admin','mn:seen:list','mn:seen:list','mn:go:list','mn:seen:apply','mn:no:list']) await be.db.query(`select track_usage($1)`,[n]);
 async function page(who){
   const ctx=await browser.newContext({viewport:{width:1280,height:900}});
   if(who) await ctx.addInitScript(([id,em])=>{ try{ if(!localStorage.getItem('mock-session')) localStorage.setItem('mock-session',JSON.stringify({access_token:'x',user:{id,email:em,user_metadata:{role:'consultant'}}})); }catch(e){} },[U[who],who+'@t.com']);
@@ -41,6 +41,7 @@ t('14 days by default, the switch offers 7 / 14 / 30',await A.evaluate(()=>{ con
 const tot=await A.evaluate(()=>[...document.querySelectorAll('.adm-total td')].map(x=>x.textContent.trim()));
 t('totals: 2 visitors, 3 page views (admin views left out), 1 sign-up page view, 2 accounts, 1 profile',tot[1]==='2'&&tot[2]==='4'&&tot[5]==='1'&&tot[6]==='2'&&tot[7]==='1'&&tot[8]==='1'&&tot[9]==='1',tot);
 t('the funnel lists the five steps',await A.evaluate(()=>['New visitors','Views of the sign-up page','Accounts created','Profile completed','Applied or clicked apply'].every(s=>document.querySelector('.adm-main').textContent.indexOf(s)>-1)));
+t('the match prompt table: list shown 2, tapped 1 (50%), closed 1; apply popup shown 1',await A.evaluate(()=>{ const tb=document.getElementById('adm-mnudge'); if(!tb) return false; const r=[...tb.querySelectorAll('tbody tr')].map(x=>[...x.children].map(c=>c.textContent.trim())); return r[0][1]==='2'&&/^1 \(50%\)/.test(r[0][2])&&r[0][3]==='1'&&r[2][1]==='1'; }));
 t('sources table shows facebook',await A.evaluate(()=>/facebook/.test(document.querySelector('.adm-main').textContent)));
 t('the Admin row is not listed in the pages table',await A.evaluate(()=>!/Admin \(your own visits\)/.test([...document.querySelectorAll('.adm-main h2')].find(h=>/Pages/.test(h.textContent)).nextElementSibling.textContent)));
 await A.click('[data-action=adm-traffic-days][data-n="7"]'); await A.waitForTimeout(800);

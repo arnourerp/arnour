@@ -4,6 +4,22 @@
 
 /* ------------------------------ landing ------------------------------ */
 
+/* the Example role card (86% ring, must / nice rows): an illustration, not real data. Used on the home page, in the visitor popup and on the visitor role page. */
+APP.exampleMatchCardHtml = function () {
+  return '<div class="sap-example" role="img" aria-label="Example of a role card with an 86 percent match and a list of what fits and what is missing">' +
+    '<span class="sap-ex-tag">Example</span>' +
+    '<div class="sap-ex-top"><div class="sap-ex-title"><b>SAP Finance Consultant</b><small>Confidential company</small></div>' +
+    '<div class="sap-ring" style="--p:86"><span>86%</span><small>Match</small></div></div>' +
+    '<div class="sap-ex-chips"><span>S/4HANA Private Cloud</span><span>FI</span><span>CO</span></div>' +
+    '<ul class="sap-ex-list">' +
+    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>S/4HANA · FI</b> on your profile</span><em>Must</em></li>' +
+    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>CO</b> on your profile</span><em>Must</em></li>' +
+    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>Arabic, English</b></span><em>Must</em></li>' +
+    '<li class="gap"><span class="sap-tick">!</span><span><b>BTP</b> not on your profile</span><em>Nice</em></li>' +
+    '</ul></div>';
+};
+
+
 /* "Companies on Arnour" on the home page: hidden until there are enough real employers to show (set to true to bring it back) */
 APP.SHOW_HOME_COMPANIES = false;
 /* Turn on when the community has real questions to show */
@@ -75,18 +91,7 @@ APP.views.landing = function () {
   /* "Built for the SAP ecosystem": profiles and roles are SAP product + module, and every pair gets a match %. The role card is an illustration (labelled Example), not real data. */
   const sapPoint = (ico, ttl, txt) =>
     '<div class="sap-point"><span class="sap-ico">' + APP.icon(ico, 20) + '</span><div><h3>' + ttl + '</h3><p class="muted">' + txt + '</p></div></div>';
-  const sapExample =
-    '<div class="sap-example" role="img" aria-label="Example of a role card with an 86 percent match and a list of what fits and what is missing">' +
-    '<span class="sap-ex-tag">Example</span>' +
-    '<div class="sap-ex-top"><div class="sap-ex-title"><b>SAP Finance Consultant</b><small>Confidential company</small></div>' +
-    '<div class="sap-ring" style="--p:86"><span>86%</span><small>Match</small></div></div>' +
-    '<div class="sap-ex-chips"><span>S/4HANA Private Cloud</span><span>FI</span><span>CO</span></div>' +
-    '<ul class="sap-ex-list">' +
-    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>S/4HANA · FI</b> on your profile</span><em>Must</em></li>' +
-    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>CO</b> on your profile</span><em>Must</em></li>' +
-    '<li class="ok"><span class="sap-tick">' + APP.icon('check', 12) + '</span><span><b>Arabic, English</b></span><em>Must</em></li>' +
-    '<li class="gap"><span class="sap-tick">!</span><span><b>BTP</b> not on your profile</span><em>Nice</em></li>' +
-    '</ul></div>';
+  const sapExample = APP.exampleMatchCardHtml();
   const sapSection =
     '<section class="section sap-section" id="built-for-sap"><div class="section-head center"><span class="mr-kicker">' + APP.icon('spark', 14) + ' Smart matching</span>' +
     '<h2>Built for the SAP ecosystem</h2></div>' +
@@ -759,11 +764,14 @@ APP.views['job-detail'] = function (ctx) {
       '<p class="muted small">Based on your profile, so keep it up to date. <a class="link" href="#/c/profile">Edit profile</a></p>' +
       '</div>') + '</aside>';
   } else if (!sess) {
+    /* visitor: Apply and Save open the "see your own match" popup (action match-gate); the match card is the Example card */
     side = '<aside class="jd-side"><div class="card jd-act">' +
-      (open ? '<a class="btn btn-primary jd-apply" href="#/register" data-action="remember-job" data-id="' + job.id + '">Sign up to apply</a>' : '<div class="jd-applied closed">This role is closed</div>') +
+      (open ? '<button type="button" class="btn btn-primary jd-apply" data-action="match-gate" data-where="apply" data-id="' + job.id + '">Sign up to apply</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" data-action="match-gate" data-where="save" data-id="' + job.id + '">☆ Save</button>' : '<div class="jd-applied closed">This role is closed</div>') +
       '<div class="btn-row"><a class="btn btn-ghost btn-sm" href="#/login" data-action="remember-job" data-id="' + job.id + '">Sign in</a></div></div>' +
-      '<div class="card jd-match jd-match-anon"><h2>Your match</h2><p class="muted">Create a free profile to see how well you match this role, what fits and what to check, before you apply.</p>' +
-      '<a class="btn btn-outline btn-sm" href="#/register" data-action="remember-job" data-id="' + job.id + '">Join Arnour</a></div></aside>';
+      '<div class="card jd-match jd-match-anon"><h2>Your match</h2><p class="muted">Every role gets a match % from your profile. Create a free profile to see how well you fit this one, what matches and what to check, before you apply.</p>' +
+      APP.exampleMatchCardHtml() +
+      '<a class="btn btn-primary btn-sm" href="#/register" data-action="remember-job" data-id="' + job.id + '">Create my profile</a></div></aside>';
   }
 
   return '<div class="jd' + (side ? '' : ' jd-one') + '">' +
@@ -907,3 +915,80 @@ APP.views['company-public'] = function (ctx) {
     share +
     '</div>';
 };
+
+/* ------------------------------ visitor match prompt ------------------------------
+   For a signed-out visitor on the roles list or on a role page:
+   1) Apply and Save on a role open a popup with the Example match card (action match-gate);
+   2) a small slide-up appears ONCE per browser (note arnour-mnudge) after a few seconds, a scroll, or the second role opened;
+      on the list it also has "Open a role".
+   Counters (anonymous, names only): mn:seen:<list|job|apply|save>, mn:go:<...>, mn:no:<list|job>, mn:open:list. */
+(function () {
+  var KEY = 'arnour-mnudge', mem = false, timers = [], scrollFn = null, jobViews = 0, last = '', lastKind = '';
+  function done() { try { return !!localStorage.getItem(KEY); } catch (e) { return mem; } }
+  function markDone() { mem = true; try { localStorage.setItem(KEY, '1'); } catch (e) {} }
+  function track(n) { if (APP.trackEvent) APP.trackEvent(n); }
+  function isVisitor() { return !(APP.db && APP.db.session); }
+  function kind() { var h = location.hash || ''; return /^#\/jobs(\?|$)/.test(h) ? 'list' : /^#\/job\/[^/?]+/.test(h) ? 'job' : ''; }
+  function jobIdNow() { var m = /^#\/job\/([^/?]+)/.exec(location.hash || ''); return m ? m[1] : ''; }
+  function el() { return document.getElementById('mnudge'); }
+  function hide() { var e = el(); if (e) e.remove(); }
+  function disarm() { timers.forEach(clearTimeout); timers = []; if (scrollFn) { window.removeEventListener('scroll', scrollFn); scrollFn = null; } }
+  function show(k) {
+    if (done() || el() || document.getElementById('dlg-root') || kind() !== k || !isVisitor()) return;
+    disarm(); markDone(); track('mn:seen:' + k);
+    var d = document.createElement('div');
+    d.id = 'mnudge'; d.className = 'mnudge'; d.setAttribute('role', 'region'); d.setAttribute('aria-label', 'See your match');
+    d.innerHTML = '<button type="button" class="mnudge-x" data-action="nudge-no" aria-label="Close">×</button>' +
+      '<span class="sap-ex-tag mnudge-tag">Example</span>' +
+      '<div class="mnudge-row"><div class="sap-ring" style="--p:86" aria-hidden="true"><span>86%</span><small>Match</small></div>' +
+      '<div class="mnudge-txt"><b>Every role gets a match %</b><span>Create a free profile to see how well you fit, what matches and what is missing.</span></div></div>' +
+      '<div class="mnudge-btns"><button type="button" class="btn btn-primary btn-sm" data-action="nudge-go">Create my profile</button>' +
+      (k === 'list' ? '<button type="button" class="btn btn-outline btn-sm" data-action="nudge-open">Open a role</button>' : '') +
+      '<button type="button" class="btn btn-ghost btn-sm" data-action="nudge-no">Not now</button></div>';
+    document.body.appendChild(d);
+    var cb = document.getElementById('consent-bar');
+    if (cb && cb.offsetHeight) d.style.bottom = (cb.offsetHeight + 24) + 'px';
+    requestAnimationFrame(function () { d.classList.add('on'); });
+  }
+  function arm(k) {
+    if (done() || !isVisitor()) return;
+    var wait = k === 'list' ? 10000 : 15000;
+    if (k === 'job' && jobViews >= 2) wait = 4000;
+    timers.push(setTimeout(function () { show(k); }, wait));
+    scrollFn = function () {
+      var room = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      if (k === 'list' ? window.scrollY > 500 : (window.scrollY > 250 && window.scrollY > room * 0.4)) show(k);
+    };
+    window.addEventListener('scroll', scrollFn, { passive: true });
+  }
+  function tick() {
+    var h = location.hash || '', k = kind();
+    if (h === last && isVisitor()) return;
+    last = h; disarm(); hide();
+    if (k === 'job' && h !== lastKind) jobViews++;
+    lastKind = k === 'job' ? h : lastKind;
+    if (k && isVisitor()) arm(k);
+  }
+  setInterval(tick, 1000);
+
+  /* the popup for Apply / Save */
+  APP.matchGate = function (where, id) {
+    where = where === 'save' ? 'save' : 'apply';
+    hide(); markDone(); track('mn:seen:' + where);
+    APP.openDialog({
+      title: where === 'save' ? 'Sign up to save this role' : 'Sign up to apply',
+      sub: 'Arnour shows how well you match every role, so you spend your time where you fit. Here is an example:',
+      body: APP.exampleMatchCardHtml() + '<p class="muted small mt16">Already have an account? <button type="button" class="btn btn-ghost btn-sm" data-action="match-signin" data-id="' + APP.h(id || '') + '">Sign in</button></p>',
+      confirmLabel: 'Create my profile', cancelLabel: 'Not now',
+      onConfirm: function () { track('mn:go:' + where); if (id) APP.state.afterAuth = '#/job/' + id; APP.go('#/register'); }
+    });
+  };
+  APP.matchSignIn = function (id) { APP.closeDialog(true); if (id) APP.state.afterAuth = '#/job/' + id; APP.go('#/login'); };
+  APP.nudgeAction = function (name) {
+    var k = kind() || 'list';
+    hide();
+    if (name === 'nudge-go') { track('mn:go:' + k); var id = jobIdNow(); if (id) APP.state.afterAuth = '#/job/' + id; APP.go('#/register'); }
+    else if (name === 'nudge-no') track('mn:no:' + k);
+    else if (name === 'nudge-open') { var a = document.querySelector('#main a[href^="#/job/"]'); track('mn:open:list'); if (a) APP.go(a.getAttribute('href')); }
+  };
+})();

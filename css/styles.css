@@ -2466,3 +2466,21 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
   .sap-example { padding: 20px 14px 14px; }
   .sap-ring { width: 68px; height: 68px; }
 }
+
+/* visitor match prompt: slide-up card (once per browser) and the Example card inside the role page */
+.mnudge { position: fixed; z-index: 70; right: 20px; bottom: 20px; width: min(400px, calc(100vw - 24px)); padding: 20px 18px 16px; border-radius: 20px; background: linear-gradient(180deg, #F0F9FF 0%, #fff 60%); border: 1px solid #BAE6FD; box-shadow: 0 24px 60px -18px rgb(15 23 42 / .45); opacity: 0; transform: translateY(24px); transition: opacity .25s ease, transform .25s ease; }
+.mnudge.on { opacity: 1; transform: none; }
+.mnudge-x { position: absolute; top: 6px; right: 8px; width: 32px; height: 32px; border: 0; background: transparent; border-radius: 50%; font-size: 22px; line-height: 1; color: var(--text-muted); cursor: pointer; }
+.mnudge-x:hover { background: rgb(15 23 42 / .06); }
+.mnudge-tag { top: -11px; right: auto; left: 18px; }
+.mnudge-row { display: flex; align-items: center; gap: 14px; padding-right: 22px; }
+.mnudge-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mnudge-txt b { font-size: 16px; color: var(--text-primary); }
+.mnudge-txt span { font-size: 13.5px; color: var(--text-muted); line-height: 1.4; }
+.mnudge-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.jd-match-anon .sap-example { margin: 18px 0 16px; box-shadow: none; }
+.dlg-body .sap-example { margin-top: 8px; box-shadow: none; }
+@media (max-width: 700px) {
+  .mnudge { left: 12px; right: 12px; width: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { .mnudge { transition: none; transform: none; } }

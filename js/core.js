@@ -5183,6 +5183,10 @@ APP.onClick = function (el, e) {
       APP.state.afterAuth = '#/job/' + d.id;
       break;
 
+    case 'match-gate': APP.matchGate(d.where, d.id); break;
+    case 'match-signin': APP.matchSignIn(d.id); break;
+    case 'nudge-go': case 'nudge-no': case 'nudge-open': APP.nudgeAction(a); break;
+
     case 'filter-remove': {
       const jf = APP.state.jobFilters, k = d.key;
       if (Array.isArray(jf[k])) { const i = jf[k].indexOf(d.value); if (i >= 0) jf[k].splice(i, 1); }
