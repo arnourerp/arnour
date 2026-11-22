@@ -42,7 +42,7 @@ APP.views.landing = function () {
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
 
   const eSteps = [
-    ['Post a role, or paste the job ad', 'Paste a job ad and Arnour drafts the brief. Require exact product and module combinations, location and experience. Stay confidential if you wish.'],
+    ['Post a role, or start from your job ad or link', 'Paste a job ad and Arnour drafts the brief. Require exact product and module combinations, location and experience. Stay confidential if you wish.'],
     ['Search and find partners', 'Headhunt by product, module, role type, location and availability. SAP Customers can also find SI/Partners by what their team delivers.'],
     ['Hire without the noise', 'Shortlist in minutes. Recruiters and partners hire for clients the same way, and every result already speaks your SAP language.']
   ].map((s, i) => '<div class="step"><span class="step-num">' + (i + 1) + '</span><div><h4>' + APP.h(s[0]) + '</h4><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
