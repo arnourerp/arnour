@@ -7,7 +7,7 @@ const MOCK=fs.readFileSync(process.env.ARNOUR_TESTS+'/mock-client.js','utf8');
 const be=await makeBackend(); const browser=await chromium.launch();
 await be.db.exec(`alter table auth.users add column if not exists email_confirmed_at timestamptz; alter table auth.users add column if not exists raw_user_meta_data jsonb; alter table auth.users add column if not exists created_at timestamptz default now();`);
 await be.db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/025_profile_reminders.sql','utf8'));
-await be.db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/035_unfinished_profiles.sql','utf8'));
+await be.db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/036_unfinished_profiles.sql','utf8'));
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,300):'');}else console.log('ok  ',n); };
 const errors=[]; const BASE='http://localhost:'+(process.env.PORT_LIVE||8123)+'/index.html';
 const U={adm:'aaaaaaaa-0000-0000-0000-000000000001'};

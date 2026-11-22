@@ -1,4 +1,4 @@
--- Release 55: "Save and finish later" for professionals. Run once in the Supabase SQL Editor. Safe to run twice.
+-- release 56: "Save and finish later" for professionals. Run once in the Supabase SQL Editor. Safe to run twice.
 --
 -- What it adds
 --   * A person can now save a profile without SAP skills. A profile is "ready" once it has at least one skill row with a product and a module.
@@ -246,4 +246,4 @@ revoke all on function public.reminders_scan(), public.reminders_run() from publ
 revoke execute on function public.admin_unfinished(), public.admin_unfinished_count(), public.admin_reminders() from public, anon;
 grant execute on function public.admin_unfinished(), public.admin_unfinished_count(), public.admin_reminders() to authenticated;
 
-select 'ok' as release55;
+select 'ok' as release56;

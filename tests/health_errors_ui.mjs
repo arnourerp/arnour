@@ -6,7 +6,7 @@ const {chromium}=require('playwright');
 const MOCK=fs.readFileSync(process.env.ARNOUR_TESTS+'/mock-client.js','utf8');
 const be=await makeBackend(); const browser=await chromium.launch();
 await be.db.exec(`alter table auth.users add column if not exists email_confirmed_at timestamptz; alter table auth.users add column if not exists raw_user_meta_data jsonb; alter table auth.users add column if not exists created_at timestamptz default now();`);
-for(const f of ['006_feedback.sql','022_staff_messages.sql','023_error_history.sql','024_traffic.sql','025_profile_reminders.sql','035_unfinished_profiles.sql']) await be.db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f,'utf8'));
+for(const f of ['006_feedback.sql','022_staff_messages.sql','023_error_history.sql','024_traffic.sql','025_profile_reminders.sql','036_unfinished_profiles.sql']) await be.db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f,'utf8'));
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,300):'');}else console.log('ok  ',n); };
 const errors=[]; const BASE='http://localhost:'+(process.env.PORT_LIVE||8123)+'/index.html';
 const U={adm:'aaaaaaaa-0000-0000-0000-000000000001'};

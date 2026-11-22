@@ -3,8 +3,8 @@ import {makeBackend} from './harness.mjs'; import fs from 'fs';
 const ROOT=process.env.ARNOUR_ROOT;
 const be=await makeBackend(); const db=be.db;
 await db.exec(fs.readFileSync(ROOT+'/supabase/025_profile_reminders.sql','utf8'));
-await db.exec(fs.readFileSync(ROOT+'/supabase/035_unfinished_profiles.sql','utf8'));
-await db.exec(fs.readFileSync(ROOT+'/supabase/035_unfinished_profiles.sql','utf8')); // safe to run twice
+await db.exec(fs.readFileSync(ROOT+'/supabase/036_unfinished_profiles.sql','utf8'));
+await db.exec(fs.readFileSync(ROOT+'/supabase/036_unfinished_profiles.sql','utf8')); // safe to run twice
 let fails=0; const t=(n,ok,x)=>{ if(!ok){fails++;console.log('FAIL',n,x!==undefined?JSON.stringify(x).slice(0,500):'');} else console.log('ok  ',n); };
 const q=async(s,a)=>(await db.query(s,a||[])).rows;
 async function as(uid,sql,args){ await db.exec(`reset role; select set_config('request.jwt.claim.sub','${uid||''}',false); set role ${uid?'authenticated':'anon'};`); try{ const r=await db.query(sql,args||[]); await db.exec('reset role'); return {rows:r.rows}; }catch(e){ await db.exec('reset role'); return {err:e.message}; } }
