@@ -1,4 +1,4 @@
-/* Release 55 in the browser: Admin > Unfinished (badge, overview card, list, filter, message button) and the reminders labels */
+/* Release 56 in the browser: Admin > Unfinished (badge, overview card, list, filter, message button) and the reminders labels */
 import {makeBackend} from './harness.mjs';
 import fs from 'fs'; import {createRequire} from 'module';
 const require=createRequire(import.meta.url);

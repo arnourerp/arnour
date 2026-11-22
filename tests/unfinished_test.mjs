@@ -1,4 +1,4 @@
-/* Release 55: profiles saved without SAP skills ("save and finish later"): admin list and counter, reminders for them */
+/* Release 56: profiles saved without SAP skills ("save and finish later"): admin list and counter, reminders for them */
 import {makeBackend} from './harness.mjs'; import fs from 'fs';
 const ROOT=process.env.ARNOUR_ROOT;
 const be=await makeBackend(); const db=be.db;
