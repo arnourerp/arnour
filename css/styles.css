@@ -2485,3 +2485,18 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
   .mnudge { left: 12px; right: 12px; width: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { .mnudge { transition: none; transform: none; } }
+
+/* My roles: status tabs, status badges, search; Edit role side menu marks */
+.roles-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.roles-tabs::-webkit-scrollbar { display: none; }
+.roles-tabs .seg-tab { flex: none; white-space: nowrap; }
+.roles-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 var(--space-4, 14px); }
+.roles-q { flex: 1 1 220px; max-width: 340px; }
+.roles-lead { margin: 0; flex: 1 1 220px; }
+.role-st { vertical-align: middle; margin-left: 4px; font-size: 11.5px; }
+.pill.role-st::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; margin-right: 5px; }
+.pill.inv.role-st { display: inline-flex; align-items: center; gap: 0; }
+.job-card[hidden], .roles-nomatch[hidden] { display: none; }
+.closed-card { background: #f8fafc; }
+.pe-mark.opt { background: #e2e8f0; color: #475569; }
+.roles-list .job-foot > .muted.small { margin-right: auto; }

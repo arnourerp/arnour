@@ -36,7 +36,7 @@ APP.views['e-dash'] = function () {
 
   const jobsMini = jobs.slice(0, 5).map(j =>
     '<a class="app-item" href="#/e/jobs/' + j.id + '">' +
-    '<div class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + (j.applicants || []).length + ' applicant(s) · ' + j.employmentType + ' · ' + APP.h(APP.locText(j)) + (j.status === 'draft' ? ' · Draft' : j.status !== 'open' ? ' · Closed' : '') + '</small></div>' +
+    '<div class="grow"><strong>' + APP.h(j.title) + '</strong><small class="muted">' + (j.applicants || []).length + ' applicant(s) · ' + j.employmentType + ' · ' + APP.h(APP.locText(j)) + (j.status === 'draft' ? ' · Draft' : j.status !== 'open' ? ' · Closed' : ' · Live') + '</small></div>' +
     APP.icon('check', 16) + '</a>'
   ).join('');
 
@@ -499,43 +499,79 @@ APP.views['e-jobs'] = function () {
   const co = APP.company(APP.db.session.companyId);
   if (!co) return '<div class="empty">Company not found.</div>';
   const allJobs = APP.companyJobs(co.id).sort((a, b) => b.postedTs - a.postedTs);
-  const jobs = allJobs.filter(j => j.status !== 'draft');
-  const draftJobs = allJobs.filter(j => j.status === 'draft');
-  const draftList = draftJobs.length ? '<section class="draft-box"><h3 class="draft-h">Drafts <span class="seg-n">' + draftJobs.length + '</span> <span class="muted small">Only you can see these</span></h3>' +
-    draftJobs.map(j =>
-      '<div class="card job-card draft-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer">' +
-      '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title || 'Untitled') + ' <span class="pill muted-pill">Draft</span></h3>' +
-      '<p class="muted">' + APP.h(APP.locText(j) || 'No location yet') + ' · Saved ' + APP.timeAgo(j.editedTs || j.postedTs) + '</p></div></div>' +
-      '<div class="job-foot draft-acts"><button type="button" class="btn btn-primary btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Continue editing</button>' +
-      '<button type="button" class="btn btn-outline btn-sm" data-action="job-publish" data-id="' + j.id + '">Publish</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-action="job-delete" data-id="' + j.id + '">Delete</button></div></div>').join('') + '</section>' : '';
-  const list = jobs.map(j =>
-    '<div class="card job-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer">' +
-    '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title) + (j.status !== 'open' ? ' <span class="pill muted-pill">Closed</span>' : '') + '</h3>' +
+  const liveJobs = allJobs.filter(j => j.status === 'open');
+  const draftJobs = allJobs.filter(j => j.status === 'draft').sort((a, b) => (b.editedTs || b.postedTs || 0) - (a.editedTs || a.postedTs || 0));
+  const closedJobs = allJobs.filter(j => j.status !== 'open' && j.status !== 'draft');
+  const tab = location.hash === '#/e/intros' ? 'intros'
+    : (['live', 'drafts', 'closed'].indexOf(APP.state.rolesTab) !== -1 ? APP.state.rolesTab : (liveJobs.length || !draftJobs.length ? 'live' : 'drafts'));
+  const q = String(APP.state.rolesQ || '').toLowerCase().trim();
+  const hit = j => !q || (String(j.title || '') + ' ' + APP.locText(j)).toLowerCase().indexOf(q) !== -1;
+  const qAttr = j => ' data-q="' + APP.h((String(j.title || '') + ' ' + APP.locText(j)).toLowerCase()) + '"' + (hit(j) ? '' : ' hidden');
+  /* one badge per role: Live (green), Draft (amber), Closed (grey) */
+  const badge = j => j.status === 'open' ? '<span class="pill inv role-st">Live</span>' : j.status === 'draft' ? '<span class="pill warn-pill role-st">Draft</span>' : '<span class="pill muted-pill role-st">Closed</span>';
+
+  const draftCard = j =>
+    '<div class="card job-card draft-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer"' + qAttr(j) + '>' +
+    '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title || 'Untitled') + ' ' + badge(j) + '</h3>' +
+    '<p class="muted">' + APP.h(APP.locText(j) || 'No location yet') + ' · Saved ' + APP.timeAgo(j.editedTs || j.postedTs) + '</p></div></div>' +
+    '<div class="job-foot draft-acts"><button type="button" class="btn btn-primary btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Continue editing</button>' +
+    '<button type="button" class="btn btn-outline btn-sm" data-action="job-publish" data-id="' + j.id + '">Publish</button>' +
+    '<button type="button" class="btn btn-ghost btn-sm" data-action="job-delete" data-id="' + j.id + '">Delete</button></div></div>';
+  const roleCard = j =>
+    '<div class="card job-card' + (j.status === 'open' ? '' : ' closed-card') + '" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer"' + qAttr(j) + '>' +
+    '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title) + ' ' + badge(j) + '</h3>' +
     '<p class="muted">' + APP.h(APP.locText(j)) + (j.remote ? ' · Remote-friendly' : '') + ' · Posted ' + APP.timeAgo(j.postedTs) + '</p></div>' +
     '<span class="match m-mid">' + (j.applicants || []).length + ' applicant(s)</span>' + (APP.newApplicants1(co, j) ? '<span class="pill new-pill">' + APP.newApplicants1(co, j) + ' new</span>' : '') + (APP.safeApplyUrl(j) ? '<span class="pill ext-pill" title="Candidates apply on your career portal">' + APP.icon('ext', 12) + ' Applies on your site</span>' : '') + '</div>' +
     '<div class="job-reqs">' + APP.pillsHtml(APP.reqPillLabels(j), 4, '#/e/jobs/' + j.id) + (APP.jobIndustries(j).length ? '<span class="chip" title="' + APP.h(APP.jobIndustries(j).join(', ')) + '">' + APP.h(APP.jobIndustryLabel(j, 2)) + '</span>' : '') + (j.certification ? '<span class="chip">' + APP.h('Cert: ' + (j.certification === 'required' ? 'required' : 'preferred')) + '</span>' : '') + (j.preferredLangs && j.preferredLangs.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredLangs.join(', ')) + '</span>' : '') + (j.preferredSpecialties && j.preferredSpecialties.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredSpecialties.map(id => APP.specialtyName(id)).join(', ')) + '</span>' : '') + '</div>' +
-    '<div class="job-foot"><span class="muted small">' + (j.editedTs ? 'Edited ' + APP.timeAgo(j.editedTs) : '') + '</span><button class="btn btn-outline btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Edit</button></div>' +
-    '</div>'
-  ).join('');
+    '<div class="job-foot"><span class="muted small">' + (j.editedTs ? 'Edited ' + APP.timeAgo(j.editedTs) : '') + '</span>' +
+    (j.status === 'open' ? '' : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + j.id + '">Reopen</button>') +
+    '<button class="btn btn-outline btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Edit</button></div>' +
+    '</div>';
 
-  const tab = location.hash === '#/e/intros' ? 'intros' : 'roles';
+  const tabBtn = (id, label, n) => '<button type="button" role="tab" aria-selected="' + (tab === id) + '" class="seg-tab' + (tab === id ? ' on' : '') + '" data-action="roles-tab" data-tab="' + id + '">' + label + ' <span class="seg-n">' + n + '</span></button>';
   const nIntro = APP.pendingIntrosFor();
-  const tabs = '<div class="seg-tabs" role="tablist" aria-label="My roles">' +
-    '<a role="tab" aria-selected="' + (tab === 'roles') + '" class="seg-tab' + (tab === 'roles' ? ' on' : '') + '" href="#/e/jobs">Roles <span class="seg-n">' + jobs.length + '</span></a>' +
+  const tabs = '<div class="seg-tabs jd-tabs roles-tabs" role="tablist" aria-label="My roles">' +
+    tabBtn('live', 'Live', liveJobs.length) + tabBtn('drafts', 'Drafts', draftJobs.length) + tabBtn('closed', 'Closed', closedJobs.length) +
     '<a role="tab" aria-selected="' + (tab === 'intros') + '" class="seg-tab' + (tab === 'intros' ? ' on' : '') + '" href="#/e/intros">Introductions' + (nIntro ? ' <span class="seg-n seg-alert">' + nIntro + '</span>' : '') + '</a></div>';
   const nNewA = APP.newApplicants(co);
   const attn = APP.attnLineHtml([
     nNewA ? '<strong>' + nNewA + ' new applicant' + (nNewA > 1 ? 's' : '') + '</strong> — marked “new” on the roles below' : '',
     nIntro ? '<a class="link" href="#/e/intros">' + nIntro + ' introduction request' + (nIntro > 1 ? 's' : '') + ' waiting for your answer</a>' : ''
   ]);
+
+  const EMPTY = {
+    live: 'No live roles right now. Post a job, or publish a draft.',
+    drafts: 'No drafts. Roles you save as a draft appear here, and only you can see them.',
+    closed: 'No closed roles yet.'
+  };
+  const LEAD = {
+    live: 'Professionals can see and apply to these now.',
+    drafts: 'Only you can see these. Publish a draft when it is ready.',
+    closed: 'No longer visible to professionals. Reopen a role to bring it back.'
+  };
+  const cur = tab === 'live' ? liveJobs : tab === 'drafts' ? draftJobs : closedJobs;
+  const list = tab === 'intros' ? '' : cur.map(tab === 'drafts' ? draftCard : roleCard).join('');
+  const pane = tab === 'intros' ? APP.introsPageHtml(true)
+    : (allJobs.length ? '<div class="roles-tools"><input type="search" class="input roles-q" data-roles-q placeholder="Search your roles" aria-label="Search your roles" autocomplete="off" value="' + APP.h(APP.state.rolesQ || '') + '"><p class="muted small roles-lead">' + LEAD[tab] + '</p></div>' : '') +
+      '<div class="roles-list">' + (list || '<div class="card empty">' + (allJobs.length ? EMPTY[tab] : 'No roles posted yet — your first job takes about a minute.') + '</div>') +
+      (cur.length ? '<div class="card empty roles-nomatch"' + (cur.some(hit) ? ' hidden' : '') + '>No roles match your search.</div>' : '') + '</div>';
   return '<div class="narrow">' +
     '<div class="page-head"><h2>My roles</h2>' +
-    '<button class="btn btn-primary" data-action="go" data-href="#/e/jobs/new">' + APP.icon('plus', 15) + ' Post a job</button></div>' + tabs + attn +
-    (tab === 'intros' ? APP.introsPageHtml(true)
-      : draftList + (list || (draftList ? '' : '<div class="card empty">No roles posted yet — your first job takes about a minute.</div>'))) +
+    '<button class="btn btn-primary" data-action="go" data-href="#/e/jobs/new">' + APP.icon('plus', 15) + ' Post a job</button></div>' + tabs + (tab === 'live' ? attn : '') + pane +
     '</div>';
 };
+
+/* search box on My roles: hides the cards that do not match, no page reload */
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('input', function (e) {
+  const t = e.target;
+  if (!t || !t.matches || !t.matches('input[data-roles-q]')) return;
+  const q = t.value.toLowerCase().trim();
+  APP.state.rolesQ = t.value;
+  const cards = document.querySelectorAll('.roles-list .job-card[data-q]');
+  let n = 0;
+  cards.forEach(c => { const ok = !q || c.getAttribute('data-q').indexOf(q) !== -1; c.hidden = !ok; if (ok) n++; });
+  const none = document.querySelector('.roles-nomatch'); if (none) none.hidden = n > 0 || !cards.length;
+});
 
 APP.jobNewDefaults = function () {
   return {
@@ -553,6 +589,8 @@ APP.jobFormView = function (mode) {
   const editing = mode === 'edit';
   if (!editing && (!APP.jobNewDraft || APP.jobNewDraft.editId)) { APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), { country: co.country, city: co.city, confidential: co.confidentialDefault === true }); APP.state.jobStep = 1; APP.state.jobErr = null; APP.state.reqShut = {}; }
   const d = APP.jobNewDraft;
+  /* field messages show on Post a role, and when a saved draft is published from its edit page */
+  const showErr = !editing || !!(d.editId && APP.db.jobs[d.editId] && APP.db.jobs[d.editId].status === 'draft');
 
   const st = APP.state.jobDet || {};
   const nSpec = (d.preferredSpecialties || []).length;
@@ -562,10 +600,10 @@ APP.jobFormView = function (mode) {
   const sec = (n, title, sub, body, cls) =>
     '<section class="card form-sec' + (cls ? ' ' + cls : '') + '"><div class="sec-h"><span class="sec-n">' + n + '</span><div><h3>' + title + (sub ? APP.hintHtml(sub) : '') + '</h3></div></div>' + body + '</section>';
 
-  const err = (k) => (!editing && APP.state.jobErr && APP.state.jobErr[k]) ? '<p class="field-error" role="alert" data-for="' + k + '">' + APP.h(APP.state.jobErr[k]) + '</p>' : '';
+  const err = (k) => (showErr && APP.state.jobErr && APP.state.jobErr[k]) ? '<p class="field-error" role="alert" data-for="' + k + '">' + APP.h(APP.state.jobErr[k]) + '</p>' : '';
   const basics =
-    '<label class="field"><span class="label">Job title *</span><input name="title" class="input" value="' + APP.h(d.title) + '" placeholder="S/4HANA FICO Consultant"' + (!editing && APP.state.jobErr && APP.state.jobErr.title ? ' aria-invalid="true"' : '') + '>' + err('title') + '</label>' +
-    '<label class="field"><span class="label">Role type *' + APP.hintHtml((d.roleType && APP.roleTypeById[d.roleType] ? APP.h(APP.roleTypeById[d.roleType].sub) + ' ' : '') + 'It decides how professionals are ranked — for example, project managers are matched on delivery experience, not on every SAP module.') + '</span><select name="roleType" class="input"' + (!editing && APP.state.jobErr && APP.state.jobErr.roleType ? ' aria-invalid="true"' : '') + '>' +
+    '<label class="field"><span class="label">Job title *</span><input name="title" class="input" value="' + APP.h(d.title) + '" placeholder="S/4HANA FICO Consultant"' + (showErr && APP.state.jobErr && APP.state.jobErr.title ? ' aria-invalid="true"' : '') + '>' + err('title') + '</label>' +
+    '<label class="field"><span class="label">Role type *' + APP.hintHtml((d.roleType && APP.roleTypeById[d.roleType] ? APP.h(APP.roleTypeById[d.roleType].sub) + ' ' : '') + 'It decides how professionals are ranked — for example, project managers are matched on delivery experience, not on every SAP module.') + '</span><select name="roleType" class="input"' + (showErr && APP.state.jobErr && APP.state.jobErr.roleType ? ' aria-invalid="true"' : '') + '>' +
     APP.opt([['', 'Select the type of role…']].concat(APP.roleTypes.map(t => [t.id, t.name])), d.roleType) + '</select>' +
     err('roleType') + '</label>' +
     '<div class="form-grid">' +
@@ -574,13 +612,13 @@ APP.jobFormView = function (mode) {
     '<label class="field"><span class="label">Type</span><select name="employmentType" class="input">' + APP.opt(APP.jobTypes.map(t => [t, t]), d.employmentType) + '</select></label>' +
     '<label class="field"><span class="label">Duration</span><select name="duration" class="input">' + APP.opt(((d.employmentType === 'Full-time') ? ['Permanent'] : APP.durations.filter(x => x !== 'Permanent')).map(x => [x, x]), d.duration) + '</select></label>' +
     '</div>' +
-    '<label class="field"><span class="label">Apply on your own career portal <span class="muted">(optional)</span>' + APP.hintHtml('Add a link and candidates apply on your site instead of on Arnour. Leave it empty to receive applications here.') + '</span><input name="applyUrl" type="url" inputmode="url" class="input" value="' + APP.h(d.applyUrl || '') + '" placeholder="https://careers.yourcompany.com/job/123"' + (!editing && APP.state.jobErr && APP.state.jobErr.applyUrl ? ' aria-invalid="true"' : '') + '>' + err('applyUrl') +
+    '<label class="field"><span class="label">Apply on your own career portal <span class="muted">(optional)</span>' + APP.hintHtml('Add a link and candidates apply on your site instead of on Arnour. Leave it empty to receive applications here.') + '</span><input name="applyUrl" type="url" inputmode="url" class="input" value="' + APP.h(d.applyUrl || '') + '" placeholder="https://careers.yourcompany.com/job/123"' + (showErr && APP.state.jobErr && APP.state.jobErr.applyUrl ? ' aria-invalid="true"' : '') + '>' + err('applyUrl') +
       '</label>' +
     '<label class="field checkbox-field"><input type="checkbox" name="remote" ' + (d.remote ? 'checked' : '') + '> Remote-friendly</label>' +
     '<label class="field checkbox-field chk-line"><input type="checkbox" name="confidential" ' + (APP.coHidden(co, d) ? 'checked' : '') + '> <span>Keep my company confidential for this role<small class="muted"> — professionals see “Confidential company” on this role until an introduction about it is accepted. Your other roles and company page are not affected.</small></span></label>';
 
   const reqPart =
-    '<div class="skill-rows req-list' + ((!editing && APP.state.jobErr && APP.state.jobErr.req) ? ' has-err' : '') + '">' + APP.jobReqRowsHtml(d.requires, 'must') + '</div>' +
+    '<div class="skill-rows req-list' + ((showErr && APP.state.jobErr && APP.state.jobErr.req) ? ' has-err' : '') + '">' + APP.jobReqRowsHtml(d.requires, 'must') + '</div>' +
     err('req') +
     '<button type="button" class="add-row" data-action="add-req">' + APP.icon('plus', 14) + ' Add requirement</button>' +
     '<div id="req-summary">' + APP.jobReqSummary(d) + '</div>';
@@ -654,19 +692,51 @@ APP.jobFormView = function (mode) {
     const draftFoot = '<div class="publish-bar edit-foot"><button type="button" class="btn btn-outline" data-action="edit-cancel">Cancel</button><span class="bar-acts">' +
       '<button type="button" class="btn btn-outline" data-action="job-draft">Save draft</button>' +
       '<button type="submit" class="btn btn-primary">' + APP.icon('check', 15) + ' Publish role</button></span></div>';
-    return '<div class="narrow job-form">' + crumb +
+    /* Edit role: same layout as the company profile editor. A side menu, one section at a time; every section stays in the form so Save always sends all fields. */
+    const hasMust = (d.requires || []).some(r => !r.nice && r.productId && r.moduleId);
+    const secs = [{ id: 'role', label: 'The role', sub: 'Title, type and place', ok: !!(d.title && APP.roleTypeById[d.roleType] && d.country) }]
+      .concat(leadJ ? [{ id: 'expertise', label: 'Expertise', sub: 'Specialties and industries', ok: !!((d.preferredSpecialties || []).length || (d.industries || []).length), opt: true }] : [])
+      .concat([
+        { id: 'must', label: 'Must have', sub: 'SAP products', ok: hasMust },
+        { id: 'nice', label: 'Nice to have', sub: 'Extra SAP products', ok: hasNice, opt: true },
+        { id: 'candidate', label: 'About the candidate', sub: 'Seniority, years, languages', ok: !!(d.level || d.minExp || (d.languages || []).length || d.certification), opt: true }
+      ])
+      .concat(APP.SHOW_RATES ? [{ id: 'pay', label: 'Pay', sub: 'Optional', ok: !!(d.rateMin || d.rateMax), opt: true }] : [])
+      .concat([
+        { id: 'desc', label: 'Description', sub: 'Scope and team', ok: !!(d.description && String(d.description).trim()), opt: true },
+        { id: 'preview', label: 'Preview', sub: 'How professionals see it', ok: false, view: true }
+      ]);
+    /* a message from a failed publish opens the section it belongs to */
+    const errSec = (showErr && APP.state.jobErr) ? (APP.state.jobErr.title || APP.state.jobErr.roleType || APP.state.jobErr.country || APP.state.jobErr.applyUrl ? 'role' : APP.state.jobErr.req || APP.state.jobErr.rows ? 'must' : APP.state.jobErr.pay ? 'pay' : '') : '';
+    /* each failed publish opens its section once; after that the menu works as usual */
+    if (errSec && APP.state.jobErrShown !== APP.state.jobErr) { APP.state.jobEditSec = errSec; APP.state.jobErrShown = APP.state.jobErr; }
+    const cur = (secs.find(x => x.id === APP.state.jobEditSec) || secs[0]).id;
+    const ci = secs.findIndex(x => x.id === cur);
+    const H = (t, hint) => '<h3 class="pe-h">' + t + (hint ? APP.hintHtml(hint) : '') + '</h3>';
+    const PHE = {
+      role: H('The role', 'What it is and where.') + basics,
+      expertise: leadJ ? H('Expertise', 'Specialties and industries rank the role higher for professionals who have them.') + expertise : '',
+      must: H('Must have: SAP products ' + tag('must') + ' <span class="req-star">*</span>', MUST_HINT) + mustBox,
+      nice: H('Nice to have: SAP products ' + tag('nice'), NICE_HINT) + (hasNice ? niceBox : '<p class="muted small">Optional. Products that rank a professional higher, but never hide the role.</p>' + addNice),
+      candidate: H('About the candidate', CRIT_HINT) + crit,
+      pay: APP.SHOW_RATES ? H('Pay <span class="muted">(optional)</span>') + pay : '',
+      desc: H('Description <span class="muted">(optional)</span>', 'Scope, team and what success looks like.') + desc,
+      preview: cur === 'preview' ? H('This is how professionals will see your role') + '<div class="job-preview" aria-label="Role preview" tabindex="-1">' + APP.asPublicHtml(() => APP.jobCard(APP.jobPreviewObj(d, co), null, '', '')) + '</div>' : ''
+    };
+    const mark = x => x.view ? '<span class="pe-mark opt" aria-hidden="true">👁</span>' : '<span class="pe-mark ' + (x.ok ? 'ok' : x.opt ? 'opt' : 'todo') + '" aria-hidden="true">' + (x.ok ? '✓' : x.opt ? '+' : '!') + '</span>';
+    return '<div class="narrow pe-wide job-form">' + crumb +
       (isDraftE ? draftBar : APP.editBarHtml('Editing role: ' + (d.title || 'Untitled'), 'f-job-post')) +
       '<p class="muted">' + (isDraftE ? 'This is a draft: only you can see it. Save it to keep working later, or publish when it is ready.' : 'Changes are visible to professionals right away. Applicants stay on the role.') + '</p>' +
-      '<form data-form="job-post" id="f-job-post">' +
-      sec(1, 'The role', 'What it is and where.', basics) +
-      (leadJ ? sec(2, 'Expertise', 'Specialties and industries rank the role higher for professionals who have them.', expertise) : '') +
-      sec(leadJ ? 3 : 2, 'Must have: SAP products ' + tag('must') + ' <span class="req-star">*</span>', MUST_HINT, mustBox, 'box-must') +
-      (hasNice ? sec(leadJ ? 4 : 3, 'Nice to have: SAP products ' + tag('nice'), NICE_HINT, niceBox, 'box-nice') : '<div class="add-nice-wrap">' + addNice + '</div>') +
-      sec(leadJ ? 5 : 4, 'About the candidate', CRIT_HINT, crit) +
-      (APP.SHOW_RATES ? sec(leadJ ? 6 : 5, 'Pay <span class="muted">(optional)</span>', '', pay) : '') +
-      sec((APP.SHOW_RATES ? 6 : 5) + (leadJ ? 1 : 0), 'Description', 'Optional — scope, team and what success looks like.', desc) +
+      '<div class="card pe-card"><form data-form="job-post" id="f-job-post" novalidate>' +
+      '<div class="pe-layout"><nav class="pe-nav" aria-label="Role sections">' +
+      secs.map(x => '<button type="button" class="pe-tab' + (x.id === cur ? ' on' : '') + '" data-action="jobedit-sec" data-s="' + x.id + '"' + (x.id === cur ? ' aria-current="true"' : '') + '>' + mark(x) + '<span class="pe-tab-t">' + APP.h(x.label) + '<small>' + APP.h(x.sub) + '</small></span></button>').join('') +
+      '</nav><div class="pe-main">' +
+      secs.map(x => '<section class="pe-pane" data-pane="' + x.id + '"' + (cur === x.id ? '' : ' hidden') + '>' + PHE[x.id] + '</section>').join('') +
+      '<div class="pe-step">' + (ci > 0 ? '<button type="button" class="btn btn-ghost btn-sm" data-action="jobedit-sec" data-s="' + secs[ci - 1].id + '">← Back</button>' : '<span></span>') +
+        (ci < secs.length - 1 ? '<button type="button" class="btn btn-outline btn-sm" data-action="jobedit-sec" data-s="' + secs[ci + 1].id + '">Next: ' + APP.h(secs[ci + 1].label) + ' →</button>' : '<span></span>') + '</div>' +
+      '</div></div>' +
       (isDraftE ? draftFoot : APP.editFootHtml()) +
-      '</form></div>';
+      '</form></div></div>';
   }
 
   /* ---- posting: 3-step wizard. All steps stay in the DOM (hidden) so every field is always submitted and drafts never lose data. ---- */
@@ -741,6 +811,7 @@ APP.views['e-job-edit'] = function (ctx) {
     copy.ratePeriod = copy.ratePeriod || 'day'; copy.currency = copy.currency || 'USD';
     APP.jobNewDraft = copy;
     APP.state.jobDet = undefined;
+    APP.state.jobEditSec = '';
   }
   return APP.jobFormView('edit');
 };

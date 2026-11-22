@@ -3334,6 +3334,14 @@ APP.jobGoStep = function (n) {
   if (h && n < 3) h.focus({ preventScroll: true });
   return true;
 };
+/* Edit role: show the section a problem is in (the form keeps every section, so nothing typed is lost) */
+APP.jobEditJump = function (id) {
+  const d = APP.jobNewDraft;
+  if (!d || !d.editId || APP.state.jobEditSec === id) return;
+  APP.syncFormsToDrafts([]);
+  APP.state.jobEditSec = id;
+  APP.render();
+};
 APP.jobFocusError = function () {
   const el = document.querySelector('.job-wizard [aria-invalid="true"], .job-wizard .has-err select, .job-wizard select[name="country"]');
   const first = document.querySelector('.job-wizard .field-error');
@@ -4335,6 +4343,20 @@ APP.onClick = function (el, e) {
       APP.jobGoStep(+d.step);
       break;
     }
+
+    case 'jobedit-sec': { /* Edit role: open another section */
+      const dr = APP.jobNewDraft;
+      if (!dr || !dr.editId) break;
+      APP.syncFormsToDrafts([]);
+      APP.state.jobEditSec = d.s || '';
+      APP.render();
+      { const m = document.querySelector('.pe-card'); if (m && m.getBoundingClientRect().top < 0) window.scrollTo(0, Math.max(0, m.getBoundingClientRect().top + window.scrollY - 70)); }
+      break;
+    }
+    case 'roles-tab':
+      APP.state.rolesTab = d.tab === 'drafts' || d.tab === 'closed' ? d.tab : 'live';
+      APP.renderKeep();
+      break;
 
     case 'req-mode': {
       const dr = APP.jobNewDraft;
@@ -5564,13 +5586,13 @@ APP.onSubmit = function (f) {
           if (Object.keys(er).length) { APP.state.jobStep = st; APP.state.jobErr = er; APP.render(); APP.jobFocusError(); return; }
         }
       }
-      if (!d.title) { APP.toast('Please add a job title'); return; }
-      if (!APP.roleTypeById[d.roleType]) { APP.toast('Please choose the role type'); return; }
-      if (!d.country) { APP.toast('Please select the country for this role'); return; }
-      if (APP.SHOW_RATES && d.rateMin && d.rateMax && d.rateMin > d.rateMax) { APP.toast('Pay minimum should be lower than maximum'); return; }
+      if (!d.title) { APP.jobEditJump('role'); APP.toast('Please add a job title'); return; }
+      if (!APP.roleTypeById[d.roleType]) { APP.jobEditJump('role'); APP.toast('Please choose the role type'); return; }
+      if (!d.country) { APP.jobEditJump('role'); APP.toast('Please select the country for this role'); return; }
+      if (APP.SHOW_RATES && d.rateMin && d.rateMax && d.rateMin > d.rateMax) { APP.jobEditJump('pay'); APP.toast('Pay minimum should be lower than maximum'); return; }
       /* Don't strip incomplete rows from the draft itself — otherwise a failed publish silently deletes the rows the poster is still filling in. */
       const reqRows = (d.requires || []).filter(r => r.productId && r.moduleId);
-      if (!reqRows.some(r => !r.nice)) { APP.toast('Add at least one required SAP skill — pick a product and a module'); return; }
+      if (!reqRows.some(r => !r.nice)) { APP.jobEditJump('must'); APP.toast('Add at least one required SAP skill — pick a product and a module'); return; }
       if (d.editId) {
         const orig = APP.db.jobs[d.editId];
         if (!orig || orig.companyId !== APP.db.session.companyId) { APP.toast('Role not found'); return; }
