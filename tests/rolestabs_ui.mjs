@@ -52,6 +52,14 @@ await p.fill('[data-roles-q]','beta'); await p.waitForTimeout(200);
   await p.fill('[data-roles-q]',''); await p.waitForTimeout(150);
   t('D: clearing the search shows all again',(await cards()).every(x=>!x.hidden)&&await p.evaluate(()=>document.querySelector('.roles-nomatch').hidden)); }
 
+/* Introductions and back: the status tabs must work again */
+await p.click('.roles-tabs a[href="#/e/intros"]'); await p.waitForTimeout(300);
+t('I: Introductions opens its own page inside the tabs',await p.evaluate(()=>location.hash==='#/e/intros'&&!!document.querySelector('.roles-tabs')&&!document.querySelector('.roles-list')));
+await p.click('[data-tab=drafts]'); await p.waitForTimeout(350);
+t('I: from Introductions, Drafts opens the drafts',await p.evaluate(()=>location.hash==='#/e/jobs'&&document.querySelector('.roles-tabs .seg-tab.on').textContent.indexOf('Drafts')===0&&document.querySelectorAll('.roles-list .draft-card').length===2));
+await p.click('.roles-tabs a[href="#/e/intros"]'); await p.waitForTimeout(300); await p.click('[data-tab=live]'); await p.waitForTimeout(350);
+t('I: from Introductions, Live opens the live roles',await p.evaluate(()=>location.hash==='#/e/jobs'&&document.querySelector('.roles-tabs .seg-tab.on').textContent.indexOf('Live')===0&&document.querySelectorAll('.roles-list .job-card').length>=3));
+
 /* no live roles: the page opens on the drafts */
 await p.evaluate(()=>{ ['t1','t2','t3','c1'].forEach(k=>{ APP.db.jobs[k].status='closed'; }); APP.state.rolesTab=undefined; APP.state.rolesQ=''; });
 await go('#/e/dashboard'); await go('#/e/jobs');

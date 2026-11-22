@@ -4355,7 +4355,8 @@ APP.onClick = function (el, e) {
     }
     case 'roles-tab':
       APP.state.rolesTab = d.tab === 'drafts' || d.tab === 'closed' ? d.tab : 'live';
-      APP.renderKeep();
+      if (location.hash !== '#/e/jobs') APP.go('#/e/jobs'); /* coming back from Introductions */
+      else APP.renderKeep();
       break;
 
     case 'req-mode': {
