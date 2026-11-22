@@ -895,15 +895,15 @@ APP.views['e-job-detail'] = function (ctx) {
     (isDraft ? '<button type="button" class="btn btn-primary jd-apply" data-action="job-publish" data-id="' + job.id + '">' + APP.icon('check', 14) + ' Publish role</button>' : '') +
     '<a class="btn ' + (isDraft ? 'btn-outline btn-sm' : 'btn-primary jd-apply') + '" href="#/e/jobs/' + job.id + '/edit">' + APP.icon('plus', 14) + ' ' + (isDraft ? 'Continue editing' : 'Edit role') + '</a>' +
     '<a class="btn btn-outline btn-sm" href="#/job/' + job.id + '" data-action="preview-public" data-href="#/job/' + job.id + '" data-back="#/e/jobs/' + job.id + '">' + APP.icon('ext', 14) + ' Preview as professional</a>' +
-    (isDraft ? '' : open ? '<button type="button" class="btn btn-outline btn-sm jd-close" data-action="close-job" data-id="' + job.id + '">Close role</button>'
+    (isDraft || !job.external ? '' : open ? '<button type="button" class="btn btn-outline btn-sm jd-close" data-action="close-job" data-id="' + job.id + '">Close role</button>'
       : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + job.id + '">Reopen role</button>') +
     (job.external ? '' : '<button type="button" class="btn btn-ghost btn-sm jd-del" data-action="job-delete" data-id="' + job.id + '">' + APP.icon('x', 14) + ' Delete</button>') +
     '</div>' +
     (job.external ? '' : (() => {
       const cur = open ? 'open' : isDraft ? 'draft' : 'closed';
       const opt = (id, cls, label, off, tip) => '<button type="button" class="st-opt ' + cls + (cur === id ? ' on' : '') + '" data-action="job-status" data-id="' + job.id + '" data-to="' + id + '" aria-pressed="' + (cur === id) + '"' + (off ? ' disabled title="' + tip + '"' : '') + '>' + label + '</button>';
-      const note = open ? 'Live: professionals can see it and apply.' : isDraft ? 'Draft: only you can see it.' : 'Closed: no longer visible to professionals.';
-      return '<div class="card jd-status"><h2 class="jd-side-h">Status</h2><div class="st-switch" role="group" aria-label="Role status">' +
+      const note = 'Current Status: ' + (open ? '<b>Live</b>: professionals can see it and apply.' : isDraft ? '<b>Draft</b>: only you can see it.' : '<b>Closed</b>: no longer visible to professionals.');
+      return '<div class="card jd-status"><h2 class="jd-side-h">Change Status</h2><div class="st-switch" role="group" aria-label="Role status">' +
         opt('open', 'live', 'Live', false, '') + opt('draft', 'draft', 'Draft', false, '') + opt('closed', 'closed', 'Closed', isDraft, 'A draft was never live. Publish it first, or delete it.') +
         '</div><p class="muted small st-note">' + note + '</p></div>' +
         '<div class="card jd-reuse"><h2 class="jd-side-h">Reuse this role</h2><p class="muted small">Start a new role with the same details. Nothing is saved until you click Save as draft or Publish.</p>' +

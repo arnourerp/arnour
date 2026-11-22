@@ -34,7 +34,7 @@ t('filter by stage',await p.locator('.talent-card').count()===1);
 await p.click('[data-action=app-filter][data-f=all]'); await p.waitForTimeout(200);
 t('Shortlisted in the side stats',/Shortlisted/.test(await p.textContent('.jd-stats')));
 // close with a hire
-await p.click('[data-action=close-job]'); await p.waitForTimeout(200);
+await p.click('.st-opt[data-to=closed]'); await p.waitForTimeout(200);
 t('close asks who was hired (optional)',/Did you hire someone through Arnour/.test(await p.textContent('.dlg')));
 await p.selectOption('#dlg-hired',ids.a); await p.click('#dlg-ok'); await p.waitForTimeout(300);
 t('role closed with the hire',await p.evaluate(id=>APP.job(id).status==='closed'&&APP.job(id).hiredId,ids.j)===true||await p.evaluate(id=>APP.job(id).status==='closed'&&!!APP.job(id).hiredId,ids.j));

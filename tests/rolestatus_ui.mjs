@@ -25,6 +25,7 @@ const ok=async()=>{ await p.waitForSelector('#dlg-root .dlg'); await p.click('#d
 await go('#/e/jobs/r1');
 t('A: the role page has a Status box and a Reuse box',await p.evaluate(()=>!!document.querySelector('.jd-status .st-switch')&&!!document.querySelector('.jd-reuse [data-action=job-duplicate]')&&/Reuse this role/.test(document.querySelector('.jd-reuse').textContent)));
 t('A: the switch shows Live, Draft, Closed and Live is selected',await p.evaluate(()=>[...document.querySelectorAll('.st-opt')].map(x=>x.textContent.trim()).join()==='Live,Draft,Closed')&&await on()==='Live');
+t('A: heading says Change Status, note says Current Status with the status in bold, and there is no separate Close role button',await p.evaluate(()=>document.querySelector('.jd-status .jd-side-h').textContent==='Change Status'&&/^Current Status: Live: professionals/.test(document.querySelector('.st-note').textContent)&&document.querySelector('.st-note b').textContent==='Live'&&!document.querySelector('.jd-act [data-action=close-job]')&&!document.querySelector('.jd-act [data-action=reopen-job]')));
 t('A: clicking the selected status does nothing',await (async()=>{ await p.click('.st-opt.on'); await p.waitForTimeout(200); return !(await p.locator('#dlg-root .dlg').count())&&await st()==='open'; })());
 
 /* Live -> Draft, with an applicant */

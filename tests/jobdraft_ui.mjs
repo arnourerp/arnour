@@ -67,7 +67,7 @@ t('Save draft keeps it a draft with the new details',rows[0].status==='draft'&&r
 await go(emp,'#/e/jobs/'+id); await emp.click('[data-action=job-publish]'); await emp.waitForTimeout(900);
 rows=await sql(`select status from public.jobs where id=$1`,[id]);
 t('Publish role makes it open',rows[0].status==='open',rows);
-t('the page now shows Open with Close role and no Publish',await emp.evaluate(()=>/Open/.test(document.querySelector('.jd-title').textContent)&&!!document.querySelector('[data-action=close-job]')&&!document.querySelector('[data-action=job-publish]')&&!!document.querySelector('.jd-tabs')));
+t('the page now shows Open with Close role and no Publish',await emp.evaluate(()=>/Open/.test(document.querySelector('.jd-title').textContent)&&!!document.querySelector('.st-opt[data-to=closed]:not([disabled])')&&!document.querySelector('[data-action=job-publish]')&&!!document.querySelector('.jd-tabs')));
 await go(pro,'#/c/jobs'); await pro.reload(); await pro.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); await pro.waitForTimeout(600);
 t('after publishing the professional sees it',await pro.evaluate((i)=>!!APP.db.jobs[i]&&APP.db.jobs[i].status==='open',id));
 /* delete a draft */
