@@ -4,7 +4,7 @@
   var B = APP.backend, h = APP.h;
   if (!B) return;
 
-  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, msg: { id: null, thread: null, busy: false }, imp: { text: '', rows: null, error: '', result: null, busy: false } };
+  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, msg: { id: null, thread: null, busy: false }, imp: { text: '', rows: null, error: '', result: null, busy: false }, feed: { busy: {}, reading: {}, note: {}, unticked: {}, open: {}, listsSaved: false, secretBusy: false } };
   var RM = APP.reportMeta, REASONS = RM.REASONS, REASON_LABEL = RM.REASON_LABEL, KIND_LABEL = RM.KIND_LABEL, REMOVABLE = RM.REMOVABLE; /* shared with js/report.js */
   function when(ts) { var d = new Date(typeof ts === 'number' ? ts : ts); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
   function whenT(ts) { return APP.timeAgo ? APP.timeAgo(typeof ts === 'number' ? ts : new Date(ts).getTime()) : when(ts); }
@@ -44,7 +44,7 @@
   var GROUPS = [
     ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['traffic', 'Traffic', 'Visitors, sign-ups and what people did'], ['health', 'Health', 'Errors and email delivery']]],
     ['People & roles', [['people', 'People', 'Professionals and companies'], ['unfinished', 'Unfinished', 'Accounts without a profile and professional profiles saved without SAP skills'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
-    ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages']]],
+    ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages'], ['feeds', 'Job feeds', 'Check a company careers page every day and bring its SAP roles in as drafts']]],
     ['Communicate', [['messages', 'Messages', 'Write to people as the Arnour team, and read their replies'], ['reminders', 'Reminders', 'Follow-up e-mails to people who did not finish their profile, waiting for your approval'], ['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
     ['Settings', [['settings', 'Site settings', 'Sample content on or off'], ['log', 'Activity log', 'Everything admins did']]]
   ];
@@ -260,6 +260,128 @@
     return html;
   }
 
+
+
+  /* ---------- Job feeds (release 56): a company's careers page is checked every day; SAP roles arrive as drafts of that company ---------- */
+  var FEED_ERR = {
+    no_jobs: 'No job links were found on that page. Many careers pages build their job list with scripts, which Arnour cannot read. Try the address of the plain job list, or an RSS / sitemap address of the same site.',
+    bad_link: 'That is not a link Arnour may open (it must be a public https address).', blocked_site: 'LinkedIn, Indeed and Glassdoor do not allow automatic reading.',
+    link_unreachable: 'The page could not be opened (it may be down or slow).', link_blocked: 'The site refuses automatic readers (sign-in or bot protection).',
+    not_page: 'The address is not a web page, feed or sitemap Arnour can read.', unreadable: 'The page was opened but no readable text was found (it may need scripts or a sign-in).',
+    many_jobs: 'The page lists several jobs, not one.', gave_up: 'Could not be read after three tries.', no_sap_skills: 'No SAP skills found in the text.', not_a_job: 'Not a job ad.',
+    ai: 'The reader had a problem (it will try again).', signin: 'Please sign in again.', not_allowed: 'Only an administrator may do this.', service: 'The service had a problem. Try again in a minute.',
+    network: 'The connection dropped. Try again.', not_configured: 'The AI reader is not switched on (no ANTHROPIC_API_KEY in Netlify).', bad_request: 'The request was not understood. Reload the page and try again.'
+  };
+  var FEED_STATE = { found: 'Waiting for you', selected: 'Waiting to be read', drafted: 'Draft created', ignored: 'Set aside', failed: 'Could not be read', gone: 'No longer on the page' };
+  function feedErr(code) { return FEED_ERR[code] || String(code || 'Something went wrong'); }
+  function feedCall(action, id) {
+    return B.ensureSession().then(function (s) {
+      if (!s || !s.access_token) throw { code: 'signin' };
+      var body = { action: action, feedId: id }; if (action === 'read') body.lists = APP.jobReaderLists();
+      var ctl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctl) ctl.abort(); }, 70000);
+      return fetch('/.netlify/functions/job-feed', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.access_token }, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined }).then(function (r) {
+        clearTimeout(to);
+        return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw { code: (j && j.error) || 'service' }; return j; });
+      }, function () { clearTimeout(to); throw { code: 'network' }; });
+    });
+  }
+  function feedRefresh(id) {
+    if (id) delete A.data['feeditems:' + id];
+    return B.rpc('admin_feed_list', {}).then(function (d) { A.data.feeds = d; reload('log'); APP.render(); }, function () { APP.render(); });
+  }
+  function feedCheck(id) {
+    var F = A.feed; if (F.busy[id]) return;
+    F.busy[id] = 'check'; F.note[id] = ''; APP.render();
+    feedCall('check', id).then(function (r) {
+      F.busy[id] = '';
+      if (r.status === 'ok') F.note[id] = r.found + ' role' + (r.found === 1 ? '' : 's') + ' on the page' + (r.new ? ', ' + r.new + ' new for you' : ', nothing new') + (r.closed ? '; ' + r.closed + ' closed because they left the page' : '') + '.';
+      else if (r.status === 'warn') F.note[id] = '';
+      else if (r.status === 'failed') F.note[id] = '';
+      else F.note[id] = 'That page is no longer connected.';
+      feedRefresh(id);
+    }, function (e) { F.busy[id] = ''; F.note[id] = 'Could not check: ' + feedErr(e && e.code); APP.render(); });
+  }
+  function feedRead(id) {
+    var F = A.feed; if (F.reading[id]) return;
+    F.reading[id] = { n: 0 }; APP.render();
+    var stop = function (msg) { delete F.reading[id]; if (msg) F.note[id] = msg; feedRefresh(id); };
+    (function step() {
+      feedCall('read', id).then(function (r) {
+        if (r.done) return stop(r.stopped ? (r.stopped === 'limit' ? 'Stopped: the daily limit of AI reads is used up. Try again tomorrow.' : r.stopped === 'busy' ? 'Stopped: the site-wide daily limit of AI reads is used up.' : 'Stopped: the service had a problem. Press Read to continue.') : F.reading[id].n ? 'Done: ' + F.reading[id].n + ' role' + (F.reading[id].n === 1 ? '' : 's') + ' read. The company has been told about the new drafts.' : 'Nothing was waiting to be read.');
+        F.reading[id].n++;
+        B.rpc('admin_feed_list', {}).then(function (lst) { A.data.feeds = lst; APP.render(); }, function () { APP.render(); });
+        step();
+      }, function (e) { stop('Stopped: ' + feedErr(e && e.code) + ' Press Read to continue.'); });
+    })();
+  }
+  function feedLists() { /* the site's option lists are copied to the database once per visit, so the daily run can read roles without a browser */
+    var F = A.feed; if (F.listsSaved) return; F.listsSaved = true;
+    try { B.rpc('admin_feed_save_lists', { p_lists: APP.jobReaderLists() }).then(function () { delete A.data.feedst; }, function () { /* the Read button still sends the lists itself */ }); } catch (e) { /* not ready */ }
+  }
+  function feedItemsHtml(f, showAll) {
+    var key = 'feeditems:' + f.id, w = need(key, 'admin_feed_items', { p_id: f.id }); if (w) return w;
+    var F = A.feed, L = A.data[key] || [], un = F.unticked[f.id] || {}, out = '';
+    var found = L.filter(function (i) { return i.state === 'found'; });
+    if (found.length) {
+      var n = found.filter(function (i) { return !un[i.key]; }).length;
+      out += '<p class="small"><strong>Tick the roles to bring in.</strong> They arrive as drafts of ' + h(f.company) + '; nothing goes live. Roles you leave unticked are set aside and never offered again.</p><div class="feed-tick">' +
+        found.map(function (i, k) {
+          return '<label class="feed-row"><input type="checkbox" data-action="adm-feed-tick" data-id="' + h(f.id) + '" data-k="' + k + '"' + (un[i.key] ? '' : ' checked') + '> <span>' + h(i.title) + '</span>' +
+            (i.url ? ' <a class="small" href="' + h(i.url) + '" target="_blank" rel="noopener noreferrer">open</a>' : '') + '</label>';
+        }).join('') + '</div><div class="adm-actions"><button class="btn btn-primary btn-sm" data-action="adm-feed-bring" data-id="' + h(f.id) + '"' + (F.busy[f.id] ? ' disabled' : '') + '>Bring in ' + n + ' role' + (n === 1 ? '' : 's') + ' as drafts</button></div>';
+    }
+    if (showAll) {
+      out += '<table class="adm-table"><thead><tr><th>Role</th><th>State</th><th></th></tr></thead><tbody>' + (L.length ? L.map(function (i) {
+        return '<tr><td>' + h(i.title) + (i.url ? '<div class="fb-meta"><a href="' + h(i.url) + '" target="_blank" rel="noopener noreferrer">open on the company page</a></div>' : '') + '</td><td>' + h(FEED_STATE[i.state] || i.state) + (i.error ? '<div class="fb-meta">' + h(feedErr(i.error)) + '</div>' : '') + '</td>' +
+          '<td>' + (i.jobId ? '<a href="#/job/' + h(i.jobId) + '">Open role</a>' : '') + '</td></tr>';
+      }).join('') : '<tr><td colspan="3" class="muted">Nothing yet. Press Check now.</td></tr>') + '</tbody></table>';
+    }
+    return out;
+  }
+  function feedCard(f) {
+    var F = A.feed, id = f.id, c = f.counts || {}, rd = F.reading[id], busy = F.busy[id], note = F.note[id];
+    var st = f.lastStatus === 'new' ? 'Not checked yet' : f.lastStatus === 'failed' ? 'Could not read the page' : f.lastStatus === 'warn' ? 'Needs a look' : 'Checked ' + whenT(f.lastCheckedAt);
+    var parts = [];
+    if (c.found) parts.push(c.found + ' waiting for you to tick'); if (c.selected) parts.push(c.selected + ' waiting to be read'); if (c.drafted) parts.push(c.drafted + ' drafted');
+    if (c.ignored) parts.push(c.ignored + ' set aside'); if (c.failed) parts.push(c.failed + ' could not be read'); if (c.gone) parts.push(c.gone + ' gone from the page');
+    var html = '<article class="adm-card feed-card" data-feed="' + h(id) + '"><div class="adm-row"><strong>' + h(f.company) + '</strong> <span class="pill' + (f.lastStatus === 'ok' ? '' : ' muted-pill') + '">' + h(st) + '</span>' +
+      (f.enabled ? '' : ' <span class="pill muted-pill">Switched off</span>') + (f.filter === 'all' ? ' <span class="pill muted-pill">Every role</span>' : '') + '</div>' +
+      '<p class="muted small"><a href="' + h(f.url) + '" target="_blank" rel="noopener noreferrer">' + h(f.url) + '</a>' + (f.approved ? ' · new roles arrive as drafts by themselves' : ' · first list not ticked yet') + (f.autoClose ? ' · roles that disappear are closed' : '') + '</p>';
+    if (f.lastStatus === 'failed' || f.lastStatus === 'warn') html += '<p class="field-error" role="alert">' + h(feedErr(f.lastError)) + '</p>';
+    if (f.lastStatus === 'ok' && f.lastCounts && f.lastCounts.closed) html += '<p class="small">The last check closed ' + f.lastCounts.closed + ' role' + (f.lastCounts.closed === 1 ? '' : 's') + ' that left the page.</p>';
+    if (parts.length) html += '<p class="small">' + h(parts.join(' · ')) + '</p>';
+    if (note) html += '<p class="small" role="status">' + h(note) + '</p>';
+    if (rd) html += '<p class="small" role="status"><strong>Reading roles…</strong> ' + rd.n + ' done. Keep this page open.</p>';
+    html += feedItemsHtml(f, !!F.open[id]);
+    html += '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-feed-check" data-id="' + h(id) + '"' + (busy || rd ? ' disabled' : '') + '>' + (busy === 'check' ? 'Checking…' : 'Check now') + '</button>' +
+      (c.selected && !rd ? '<button class="btn btn-outline btn-sm" data-action="adm-feed-read" data-id="' + h(id) + '">Read the ' + c.selected + ' waiting role' + (c.selected === 1 ? '' : 's') + '</button>' : '') +
+      (c.failed ? '<button class="btn btn-outline btn-sm" data-action="adm-feed-retry" data-id="' + h(id) + '">Try the ' + c.failed + ' failed again</button>' : '') +
+      '<button class="btn btn-ghost btn-sm" data-action="adm-feed-all" data-id="' + h(id) + '">' + (F.open[id] ? 'Hide all roles' : 'Show all roles') + '</button>' +
+      '<button class="btn btn-ghost btn-sm" data-action="adm-feed-toggle" data-id="' + h(id) + '" data-on="' + (f.enabled ? '0' : '1') + '">' + (f.enabled ? 'Switch off' : 'Switch on') + '</button>' +
+      '<button class="btn btn-danger btn-sm" data-action="adm-feed-remove" data-id="' + h(id) + '" data-n="' + h(f.company) + '">Disconnect</button></div></article>';
+    return html;
+  }
+  function vFeeds() {
+    var F = A.feed, w = need('feeds', 'admin_feed_list'); if (w) return '<h1>Job feeds</h1>' + w;
+    var wc = need('feedco', 'admin_feed_companies'); if (wc) return '<h1>Job feeds</h1>' + wc;
+    var ws = need('feedst', 'admin_feed_worker_status'); if (ws) return '<h1>Job feeds</h1>' + ws;
+    feedLists();
+    var S = A.data.feedst || {}, feeds = A.data.feeds || [], cos = A.data.feedco || [];
+    var daily = S.hasSecret
+      ? '<p><span class="pill">Daily check: on</span> ' + (S.lastTick ? 'last ran ' + h(whenT(S.lastTick)) + ' (it runs every 5 minutes and looks at each page once a day).' : 'The secret is saved, but the daily check has not run yet. It starts about 10 minutes after the Netlify setting is added and the site is deployed.') + '</p>' +
+        '<div class="adm-actions"><button class="btn btn-ghost btn-sm" data-action="adm-feed-secret"' + (F.secretBusy ? ' disabled' : '') + '>Create a new secret</button></div>'
+      : '<p><span class="pill muted-pill">Daily check: off</span> Until it is set up, pages are only looked at when you press <em>Check now</em>.</p>' +
+        '<div class="adm-actions"><button class="btn btn-primary btn-sm" data-action="adm-feed-secret"' + (F.secretBusy ? ' disabled' : '') + '>Set up the daily check</button></div>';
+    return '<h1>Job feeds</h1><p class="muted">Connect a company\'s careers page. Arnour looks at it, lists the SAP roles, and reads the ones you tick into <strong>drafts</strong> of that company (nothing goes live by itself). After the first list, new roles arrive as drafts by themselves, the company is told in the app and by e-mail, and roles that disappear from the page are closed after two daily checks.</p>' +
+      '<article class="adm-card"><h2>Connect a careers page</h2><div class="adm-actions" style="align-items:flex-end;flex-wrap:wrap">' +
+      '<label class="field" style="min-width:220px"><span class="label">Company</span><select id="feed-co" class="input"><option value="">Choose…</option>' + cos.map(function (c) { return '<option value="' + h(c.id) + '"' + (F.co === c.id ? ' selected' : '') + '>' + h(c.name) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field" style="flex:1;min-width:260px"><span class="label">Link to the careers page, job list, RSS feed or sitemap</span><input id="feed-url" class="input" placeholder="https://careers.example.com/jobs" autocomplete="off" inputmode="url" value="' + h(F.url || '') + '"></label></div>' +
+      '<fieldset class="field"><legend class="label">Which roles?</legend><label class="small"><input type="radio" name="feed-filter" value="sap"' + (F.flt === 'all' ? '' : ' checked') + '> Only roles that look SAP-related (recommended)</label><br><label class="small"><input type="radio" name="feed-filter" value="all"' + (F.flt === 'all' ? ' checked' : '') + '> Every role (the reader sets aside the ones with no SAP skills; slower and costs more)</label></fieldset>' +
+      '<div class="adm-actions"><button class="btn btn-primary btn-sm" data-action="adm-feed-add">Connect and check</button></div>' +
+      (F.addMsg ? '<p class="field-error" role="alert">' + h(F.addMsg) + '</p>' : '') + '</article>' +
+      '<article class="adm-card"><h2>Daily check</h2>' + daily + '</article>' +
+      '<h2>Connected pages</h2>' + (feeds.length ? feeds.map(feedCard).join('') : '<div class="empty">No page connected yet.</div>');
+  }
 
   /* ---------- problem reports, error log, usage ---------- */
   var CAT = { problem: 'Problem', suggestion: 'Suggestion', other: 'Other' };
@@ -905,7 +1027,7 @@
     if (A.data.staffN === undefined && !A.err.staffN) load('staffN', 'admin_staff_unread');
     if (A.data.remN === undefined && !A.err.remN) load('remN', 'admin_reminders_count');
     if (A.data.unfN === undefined && !A.err.unfN) load('unfN', 'admin_unfinished_count');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'reminders' ? vReminders() : tab === 'unfinished' ? vUnfinished() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'feeds' ? vFeeds() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'reminders' ? vReminders() : tab === 'unfinished' ? vUnfinished() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -997,6 +1119,72 @@
           allKeys().forEach(reload); reload('overview'); reload('log');
           if (B.fetchCommunity) B.fetchCommunity().then(function (cm) { if (cm && !B.commBusy) B.applyCommunity(APP.db, cm); APP.render(); }, function () { APP.render(); }); else APP.render();
         }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
+        break;
+      }
+      case 'adm-feed-add': {
+        var fco = document.getElementById('feed-co'), fu = document.getElementById('feed-url'), ff = document.querySelector('input[name=feed-filter]:checked');
+        var fcv = fco ? fco.value : '', fuv = fu ? String(fu.value || '').trim() : '';
+        A.feed.co = fcv; A.feed.url = fuv; A.feed.flt = ff ? ff.value : 'sap'; /* kept, so a message does not wipe what was typed */
+        if (!fcv) { A.feed.addMsg = 'Choose the company first.'; APP.render(); break; }
+        if (!/^https:\/\//i.test(fuv)) fuv = 'https://' + fuv.replace(/^http:\/\//i, '');
+        if (!/^https:\/\/[^\s\/]+\.[^\s\/]+/.test(fuv) || /\s/.test(fuv)) { A.feed.addMsg = 'Enter the full link, for example https://careers.example.com/jobs'; APP.render(); break; }
+        A.feed.addMsg = '';
+        B.rpc('admin_feed_add', { p_company: fcv, p_url: fuv, p_filter: ff ? ff.value : 'sap' }).then(function (id) {
+          A.feed.url = ''; A.feed.co = '';
+          return B.rpc('admin_feed_list', {}).then(function (lst) { A.data.feeds = lst; reload('log'); feedCheck(id); });
+        }, function (e) { A.feed.addMsg = String((e && e.message) || 'Could not connect'); APP.render(); });
+        break;
+      }
+      case 'adm-feed-check': feedCheck(d.id); break;
+      case 'adm-feed-tick': {
+        var fl = (A.data['feeditems:' + d.id] || []).filter(function (i) { return i.state === 'found'; }), it = fl[+d.k];
+        if (it) { var u = A.feed.unticked[d.id] = A.feed.unticked[d.id] || {}; if (u[it.key]) delete u[it.key]; else u[it.key] = 1; }
+        APP.render(); break;
+      }
+      case 'adm-feed-bring': {
+        var bl = (A.data['feeditems:' + d.id] || []).filter(function (i) { return i.state === 'found'; }), bun = A.feed.unticked[d.id] || {};
+        var keys = bl.filter(function (i) { return !bun[i.key]; }).map(function (i) { return i.key; });
+        if (A.feed.busy[d.id]) break; A.feed.busy[d.id] = 'bring'; APP.render();
+        B.rpc('admin_feed_select', { p_id: d.id, p_keys: keys }).then(function (r) {
+          A.feed.busy[d.id] = ''; A.feed.unticked[d.id] = {}; A.feed.note[d.id] = keys.length ? 'Reading ' + keys.length + ' role' + (keys.length === 1 ? '' : 's') + ' into drafts…' : 'No role was ticked: all were set aside.';
+          feedRefresh(d.id); if (keys.length) feedRead(d.id);
+        }, function (e) { A.feed.busy[d.id] = ''; A.feed.note[d.id] = 'Could not do that: ' + String((e && e.message) || 'error'); APP.render(); });
+        break;
+      }
+      case 'adm-feed-read': feedRead(d.id); break;
+      case 'adm-feed-retry':
+        B.rpc('admin_feed_retry', { p_id: d.id }).then(function (n) { A.feed.note[d.id] = n + ' role' + (n === 1 ? '' : 's') + ' put back in the queue.'; feedRefresh(d.id); if (n) feedRead(d.id); }, function (e) { APP.toast('Could not do that: ' + String((e && e.message) || 'error')); });
+        break;
+      case 'adm-feed-all': A.feed.open[d.id] = !A.feed.open[d.id]; delete A.data['feeditems:' + d.id]; APP.render(); break;
+      case 'adm-feed-toggle': {
+        var tf = (A.data.feeds || []).filter(function (x) { return x.id === d.id; })[0]; if (!tf) break;
+        B.rpc('admin_feed_update', { p_id: d.id, p_enabled: d.on === '1', p_auto_close: tf.autoClose, p_filter: tf.filter }).then(function () { A.feed.note[d.id] = d.on === '1' ? 'Switched on.' : 'Switched off. It will not be checked or read until you switch it on.'; feedRefresh(d.id); }, function (e) { APP.toast('Could not do that: ' + String((e && e.message) || 'error')); });
+        break;
+      }
+      case 'adm-feed-remove':
+        APP.openDialog({ title: 'Disconnect ' + h(d.n) + '?', sub: 'Arnour stops checking this page. Drafts and roles already made stay with the company.', danger: true, confirmLabel: 'Disconnect',
+          onConfirm: function () { B.rpc('admin_feed_remove', { p_id: d.id }).then(function () { delete A.data['feeditems:' + d.id]; APP.toast('Disconnected'); feedRefresh(); }, function (e) { APP.toast('Could not do that: ' + String((e && e.message) || 'error')); }); } });
+        break;
+      case 'adm-feed-secret': {
+        if (A.feed.secretBusy) break;
+        var bytes = new Uint8Array(32); crypto.getRandomValues(bytes);
+        var hex = function (arr) { return Array.prototype.map.call(arr, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); };
+        var secret = hex(bytes); A.feed.secretBusy = true; APP.render();
+        crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret)).then(function (buf) { return B.rpc('admin_feed_set_secret', { p_hash: hex(new Uint8Array(buf)) }); }).then(function () {
+          A.feed.secretBusy = false; delete A.data.feedst; reload('log'); APP.render();
+          APP.openDialog({ title: 'Your daily-check secret', confirmLabel: 'Done', cancelLabel: 'Close', onConfirm: function () {},
+            sub: 'Copy it now: it is shown only once (Arnour keeps just a fingerprint). If you lose it, create a new one.',
+            body: '<label class="field"><span class="label">Secret</span><input id="feed-secret" class="input" readonly value="' + secret + '"></label><div class="adm-actions"><button type="button" class="btn btn-outline btn-sm" data-action="adm-feed-copy">Copy the secret</button></div>' +
+              '<ol class="small"><li>Click <strong>Copy the secret</strong>.</li><li>Open <strong>app.netlify.com</strong>, click your site <strong>arnour</strong>, then <strong>Site configuration</strong> and <strong>Environment variables</strong>.</li>' +
+              '<li>Click <strong>Add a variable</strong>, then <strong>Add a single variable</strong>. Key: <strong>FEED_WORKER_SECRET</strong>. Value: paste the secret. Leave the other choices as they are, and click <strong>Create variable</strong>. (If the variable already exists, click it and replace its value.)</li>' +
+              '<li>Click <strong>Deploys</strong>, then <strong>Trigger deploy</strong>, then <strong>Deploy site</strong>, and wait for <strong>Published</strong>.</li><li>Come back to this page. After about 10 minutes the card says when the daily check last ran.</li></ol>' });
+        }, function (e) { A.feed.secretBusy = false; APP.toast('Could not do that: ' + String((e && e.message) || 'error')); APP.render(); });
+        break;
+      }
+      case 'adm-feed-copy': {
+        var si = document.getElementById('feed-secret'); if (!si) break; si.select();
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(si.value).then(function () { APP.toast('Copied ✓'); }, function () { APP.toast('Select the text and copy it by hand'); });
+        else { try { document.execCommand('copy'); APP.toast('Copied ✓'); } catch (e2) { APP.toast('Select the text and copy it by hand'); } }
         break;
       }
       case 'adm-ann-reset': A.ann.f = Object.assign({}, ANN0); A.ann.step = 'edit'; APP.render(); break;

@@ -125,18 +125,7 @@
   }
   APP.jdClean = clean;
 
-  function lists() {
-    var specs = [];
-    Object.keys(APP.SPECIAL_IDX || {}).forEach(function (id) { var s = APP.SPECIAL_IDX[id]; if (s && !s.hidden) specs.push({ id: id, name: s.name }); });
-    return {
-      products: CATALOG.products.map(function (p) { return { id: p.id, name: p.name, modules: p.modules.map(function (m) { return { id: m.id, name: m.name }; }) }; }),
-      specialties: specs,
-      roleTypes: APP.roleTypes.map(function (r) { return { id: r.id, name: r.name }; }),
-      countries: APP.countries.map(function (c) { return { id: c.id, name: c.name }; }),
-      industries: APP.industries.slice(), languages: APP.languages.slice(),
-      jobTypes: APP.jobTypes.slice(), durations: APP.durations.slice(), levels: APP.levels.slice()
-    };
-  }
+  function lists() { return APP.jobReaderLists(); } /* the option lists the reader may use (defined in views-employer.js, also used by Admin > Job feeds) */
   function post(text, token, kind) {
     var ctl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctl) ctl.abort(); }, 60000);
     return fetch(FN, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token }, body: JSON.stringify({ text: text, kind: kind, lists: lists() }), signal: ctl ? ctl.signal : undefined })

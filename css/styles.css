@@ -2573,3 +2573,10 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
 .adm-stat-btn:hover { border-color: #94A3B8; }
 .adm-stat-btn.on { border-color: #0284C7; box-shadow: 0 0 0 2px #BAE6FD; }
 .adm-stats-sm { margin-bottom: 16px; }
+
+/* Admin > Job feeds (release 56) */
+.feed-tick { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 12px; max-height: 320px; overflow: auto; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-subtle); }
+.feed-row { display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.35; min-height: 32px; }
+.feed-row input { flex: none; }
+.feed-row span { min-width: 0; overflow-wrap: anywhere; }
+.feed-card .adm-actions { flex-wrap: wrap; }

@@ -203,6 +203,8 @@ function safeLookup(host, opts, cb) {
 function fetchPage(start, deps) {
   deps = deps || {};
   const request = deps.request || https.request, lookup = deps.lookup || safeLookup, budget = deps.ms || PAGE_MS, t0 = Date.now();
+  const okType = deps.types || /text\/html|application\/xhtml|text\/plain/; /* the job feed reader also accepts xml and json */
+  const accept = deps.accept || 'text/html,application/xhtml+xml,text/plain;q=0.8';
   const hop = (u, n) => new Promise((resolve, reject) => {
     const left = budget - (Date.now() - t0);
     if (left < 400) return reject({ code: 'link_unreachable' });
@@ -212,7 +214,7 @@ function fetchPage(start, deps) {
     try {
       req = request({
         protocol: 'https:', hostname: u.hostname, port: 443, path: u.pathname + u.search, method: 'GET', lookup, agent: false,
-        headers: { 'user-agent': 'Mozilla/5.0 (compatible; ArnourBot/1.0; +https://arnour.com/about/)', accept: 'text/html,application/xhtml+xml,text/plain;q=0.8', 'accept-language': 'en', 'accept-encoding': 'gzip, deflate, br' }
+        headers: { 'user-agent': 'Mozilla/5.0 (compatible; ArnourBot/1.0; +https://arnour.com/about/)', accept, 'accept-language': 'en', 'accept-encoding': 'gzip, deflate, br' }
       }, (res) => {
         const sc = res.statusCode, hd = res.headers || {};
         if (sc >= 300 && sc < 400 && hd.location) {
@@ -225,7 +227,7 @@ function fetchPage(start, deps) {
         if (sc === 401 || sc === 403 || sc === 429 || sc === 999) { res.resume(); return end(reject, { code: 'link_blocked' }); }
         if (sc !== 200) { res.resume(); return end(reject, { code: 'link_unreachable' }); }
         const ct = String(hd['content-type'] || '').toLowerCase();
-        if (ct && !/text\/html|application\/xhtml|text\/plain/.test(ct)) { res.resume(); return end(reject, { code: 'not_page' }); }
+        if (ct && !okType.test(ct)) { res.resume(); return end(reject, { code: 'not_page' }); }
         const enc = String(hd['content-encoding'] || '').toLowerCase();
         let stream = res;
         if (enc === 'gzip' || enc === 'x-gzip') stream = res.pipe(zlib.createGunzip());
@@ -336,6 +338,29 @@ function extractJob(html) {
   return { head: h1 ? 'Job title: ' + h1.slice(0, 140) : '', body };
 }
 
+/* one model call: the cleaned ad text in, a checked role out ({ job } or { error: 'ai' | 'not_a_job' }); also used by the job feed */
+async function readWithModel(text, L, key, ms) {
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), ms || 50000);
+  let r;
+  try {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: process.env.JD_MODEL || process.env.CV_MODEL || 'claude-haiku-5-5', max_tokens: 2500, system: system(L),
+        tools: [TOOL], tool_choice: { type: 'tool', name: 'save_job' },
+        messages: [{ role: 'user', content: '<job_ad>\n' + text + '\n</job_ad>' }]
+      })
+    });
+  } finally { clearTimeout(to); }
+  const data = await r.json().catch(() => null);
+  const call = r.ok && data && arr(data.content).find((c) => c.type === 'tool_use' && c.name === 'save_job');
+  if (!call || data.stop_reason === 'max_tokens') { console.log('jd-parse: model gave no usable answer, http ' + r.status); return { error: 'ai' }; }
+  const job = sanitize(call.input, L);
+  if (!job.title && !job.requires.length) return { error: 'not_a_job' };
+  return { job };
+}
+
 async function sb(fn, jwt, args) {
   const r = await fetch(SB_URL + '/rest/v1/rpc/' + fn, {
     method: 'POST', headers: { apikey: SB_KEY, authorization: 'Bearer ' + jwt, 'content-type': 'application/json' }, body: JSON.stringify(args || {})
@@ -389,24 +414,9 @@ exports.handler = async function (event) {
       adText = noContactKeep(str2(page.body)).replace(/\bhttps?:\/\/\S+/gi, ' ');
       if (text.length < 150) { await finish('failed'); return J(422, { error: 'unreadable' }); }
     }
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 50000);
-    let r;
-    try {
-      r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', signal: ctl.signal,
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model: process.env.JD_MODEL || process.env.CV_MODEL || 'claude-haiku-5-5', max_tokens: 2500, system: system(L),
-          tools: [TOOL], tool_choice: { type: 'tool', name: 'save_job' },
-          messages: [{ role: 'user', content: '<job_ad>\n' + text + '\n</job_ad>' }]
-        })
-      });
-    } finally { clearTimeout(to); }
-    const data = await r.json().catch(() => null);
-    const call = r.ok && data && arr(data.content).find((c) => c.type === 'tool_use' && c.name === 'save_job');
-    if (!call || data.stop_reason === 'max_tokens') { console.log('jd-parse: model gave no usable answer, http ' + r.status); await finish('failed'); return J(502, { error: 'ai' }); }
-    const job = sanitize(call.input, L);
-    if (!job.title && !job.requires.length) { await finish('failed'); return J(422, { error: 'not_a_job' }); }
+    const res = await readWithModel(text, L, key);
+    if (res.error) { await finish('failed'); return J(res.error === 'ai' ? 502 : 422, { error: res.error }); }
+    const job = res.job;
     await finish('ok', { skills: job.requires.length, specialties: job.specialties.length });
     return J(200, link ? { job, text: adText } : { job });
   } catch (e) {
@@ -419,4 +429,5 @@ exports.handler = async function (event) {
 function str2(v) { return String(v == null ? '' : v).replace(/\r/g, '').replace(/[^\S\n]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_TEXT); }
 /* a second contact-detail pass in case the page missed any (the page already did the first) */
 function noContactKeep(t) { return t.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, ' ').replace(/(\+|00)\d[\d\s().-]{7,}\d/g, ' '); }
+exports._shared = { readLists, readWithModel, extractJob, fetchPage, checkLink, htmlToText, ldBlocks, collectPostings, postingToText, tx, str, str2, noContactKeep, decodeEnt, stripBlock, innerBlock };
 exports._test = { sanitize, readLists, system, checkLink, isPublicIp, safeLookup, fetchPage, extractJob, htmlToText, setFetcher: (f) => { pageFetcher = f || ((u) => fetchPage(u)); } };

@@ -20,3 +20,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# the Job feed: every 5 minutes, check a careers page that is due and read waiting roles into drafts (does nothing until FEED_WORKER_SECRET is set)
+[functions."job-feed-cron"]
+  schedule = "*/5 * * * *"

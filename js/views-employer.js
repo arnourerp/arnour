@@ -775,6 +775,20 @@ APP.jobFormView = function (mode) {
     stepper + (step === 1 ? APP.jdSlotHtml('post') : '') + APP.jdBannerHtml(step) + '<form data-form="job-post" novalidate>' + steps + bar + '</form></div>';
 };
 
+/* the option lists the job reader (jd-parse, job feed) may choose from: one source of truth, taken from the page's own catalog */
+APP.jobReaderLists = function () {
+  var specs = [];
+  Object.keys(APP.SPECIAL_IDX || {}).forEach(function (id) { var s = APP.SPECIAL_IDX[id]; if (s && !s.hidden) specs.push({ id: id, name: s.name }); });
+  return {
+    products: CATALOG.products.map(function (p) { return { id: p.id, name: p.name, modules: p.modules.map(function (m) { return { id: m.id, name: m.name }; }) }; }),
+    specialties: specs,
+    roleTypes: APP.roleTypes.map(function (r) { return { id: r.id, name: r.name }; }),
+    countries: APP.countries.map(function (c) { return { id: c.id, name: c.name }; }),
+    industries: APP.industries.slice(), languages: APP.languages.slice(),
+    jobTypes: APP.jobTypes.slice(), durations: APP.durations.slice(), levels: APP.levels.slice()
+  };
+};
+
 /* "Start from a job description": the code (js/jd-import.js) is fetched only when Post a role (or Admin → Import jobs) opens on the live site.
    Until it has loaded, and whenever the feature is switched off, nothing shows. */
 APP.jdSlotHtml = function (kind) {
