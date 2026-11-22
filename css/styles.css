@@ -2533,3 +2533,17 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
   .rc-acts { margin-left: 0; width: 100%; }
   .rc-acts .btn { flex: 1 1 auto; }
 }
+
+/* Role page: Status switch and Reuse box */
+.st-switch { display: flex; gap: 2px; padding: 3px; margin: 8px 0 0; background: var(--bg-subtle, #f1f5f9); border-radius: 10px; }
+.st-opt { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 6px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13.5px; font-weight: 600; color: #475569; cursor: pointer; }
+.st-opt::before { content: ''; width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.st-opt.live::before { background: #16a34a; }
+.st-opt.draft::before { background: #f59e0b; }
+.st-opt.closed::before { background: #94a3b8; }
+.st-opt.on { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgb(0 0 0 / .12); cursor: default; }
+.st-opt:disabled { opacity: .45; cursor: not-allowed; }
+.st-opt:focus-visible { outline: 2px solid var(--ring, #2563eb); outline-offset: 2px; }
+.st-note { margin: 8px 0 0; }
+.jd-reuse p { margin: 6px 0 12px; }
+.jd-reuse .btn { width: 100%; }

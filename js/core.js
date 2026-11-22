@@ -2071,7 +2071,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
     '<div class="card-id">' +
     '<p class="card-sub">' + (coHref ? '<a class="co-link" href="' + APP.h(coHref) + '">' + APP.h(coName) + '</a>' : APP.h(coName)) + APP.coTypeBadgeOf(APP.jobPosterType(job)) + '</p>' +
     '<h3 class="card-title">' + (link ? '<a href="' + APP.h(link) + '">' : '') + APP.h(job.title) + (link ? '</a>' : '') + APP.samplePill(job) +
-    (job.status !== 'open' ? ' <span class="pill muted-pill">' + (job.status === 'draft' ? 'Draft' : 'Closed') + '</span>' : '') +
+    (job.status !== 'open' ? ' <span class="pill muted-pill">' + (job.status === 'draft' ? APP.draftWord() : 'Closed') + '</span>' : '') +
     (isExt ? ' <span class="pill ext-badge" title="Listed by Arnour. You apply on the employer\'s own site.">External listing</span>' : '') +
     (!isExt && co && co._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Confidential</span>' : '') +
     (invited ? ' <span class="pill inv">' + APP.icon('check', 12) + ' Invited</span>' : '') + '</h3>' +
@@ -3315,6 +3315,8 @@ APP.jobStepErrors = function (d, step) {
   }
   return e;
 };
+/* what a draft is called: the company calls it a draft; a professional who applied sees "On hold" */
+APP.draftWord = function () { return APP.db.session && APP.db.session.role === 'consultant' ? 'On hold' : 'Draft'; };
 APP.jobGoStep = function (n) {
   const d = APP.jobNewDraft;
   if (!d || d.editId) return;
@@ -3461,10 +3463,10 @@ APP.requireOwner = function (kind, id) {
   return false;
 };
 APP.ACTION_RULES = {
-  employer: ['job-post', 'job-draft', 'job-publish', 'job-delete', 'close-job', 'reopen-job', 'invite', 'app-stage', 'company-edit', 'co-edit-on', 'co-edit-off'],
+  employer: ['job-post', 'job-draft', 'job-publish', 'job-delete', 'close-job', 'reopen-job', 'job-status', 'job-duplicate', 'invite', 'app-stage', 'company-edit', 'co-edit-on', 'co-edit-off'],
   /* cert-toggle is shared by professionals' and SI/Partners' skill cards, so it has no role rule */
   consultant: ['apply', 'withdraw', 'attach-cv', 'send-cv', 'clear-cv', 'cv-clear', 'profile-edit'],
-  ownJob: { 'job-publish': 'id', 'job-delete': 'id', 'close-job': 'id', 'reopen-job': 'id', 'invite': 'jid', 'app-stage': 'jid' }
+  ownJob: { 'job-publish': 'id', 'job-delete': 'id', 'close-job': 'id', 'reopen-job': 'id', 'job-status': 'id', 'job-duplicate': 'id', 'invite': 'jid', 'app-stage': 'jid' }
 };
 APP.guardAction = function (name, d) {
   if (!name) return true;
@@ -4956,6 +4958,53 @@ APP.onClick = function (el, e) {
           APP.go('#/e/jobs');
         }
       });
+      break;
+    }
+
+    case 'job-status': { /* Status box on the role page: Live / Draft / Closed. Publish, Reopen and Close keep their own checks and dialogs. */
+      const j = APP.job(d.id);
+      if (!j || j.companyId !== APP.db.session.companyId) break;
+      const from = j.status === 'open' ? 'open' : j.status === 'draft' ? 'draft' : 'closed';
+      const to = d.to === 'open' ? 'open' : d.to === 'draft' ? 'draft' : 'closed';
+      if (to === from) break;
+      const run = act => APP.onClick({ dataset: { action: act, id: j.id } }, e);
+      if (to === 'open') { run(from === 'draft' ? 'job-publish' : 'reopen-job'); break; }
+      if (to === 'closed') { if (from === 'open') run('close-job'); else APP.toast('A draft was never live. Publish it first, or delete it.'); break; }
+      const nApp = (j.applicants || []).length;
+      APP.openDialog({
+        title: 'Move ' + APP.h(j.title || 'this role') + ' to drafts?',
+        sub: from === 'closed'
+          ? 'The role stays hidden from professionals. You can edit it and publish it again.'
+          : 'Professionals will no longer find this role, and only you can see it.' + (nApp ? ' Its ' + nApp + ' applicant' + (nApp > 1 ? 's' : '') + ' keep their application and see the role marked On hold. We do not send them a message.' : '') + ' Publish it again whenever you are ready.',
+        confirmLabel: 'Move to drafts',
+        onConfirm: function () { j.status = 'draft'; APP.save(); APP.render(); APP.toast('Role moved to drafts'); }
+      });
+      break;
+    }
+
+    case 'job-duplicate': { /* "Duplicate as new role": Post a role opens filled in with this role. Nothing is saved until Save as draft or Publish. */
+      const j = APP.job(d.id);
+      if (!j || j.companyId !== APP.db.session.companyId) break;
+      const make = function () {
+        const copy = JSON.parse(JSON.stringify(j));
+        ['id', 'editId', 'companyId', 'status', 'postedTs', 'editedTs', 'applicants', 'invited', 'appliedTs', 'applyNotes', 'hiredId', 'closedTs', 'external', 'extEmployer', 'extSource', 'expiresTs', 'sample', 'mine', 'maxExp', 'applyUrl'].forEach(k => { delete copy[k]; });
+        copy.title = 'Copy of ' + (j.title || 'role');
+        copy.roleType = APP.jobRoleType(j);
+        copy.requires = (copy.requires || []).map(r => Object.assign({ minProjects: 0, orPrev: false }, r));
+        if (!copy.requires.length) copy.requires = [{ productId: 's4onprem', moduleId: '', minProjects: 0, orPrev: false }];
+        copy.industries = copy.industries && copy.industries.length ? copy.industries : (copy.industry ? [copy.industry] : []);
+        copy.languages = copy.languages || []; copy.preferredLangs = copy.preferredLangs || []; copy.preferredSpecialties = copy.preferredSpecialties || [];
+        copy.rateMin = copy.rateMin || ''; copy.rateMax = copy.rateMax || ''; copy.minExp = copy.minExp || '';
+        copy.ratePeriod = copy.ratePeriod || 'day'; copy.currency = copy.currency || 'USD';
+        APP.jobNewDraft = Object.assign(APP.jobNewDefaults(), copy);
+        APP.jobCopyDraft = APP.jobNewDraft;
+        APP.state.jobStep = 1; APP.state.jobErr = null; APP.state.reqShut = {}; APP.state.jobDet = undefined;
+        APP.go('#/e/jobs/new');
+      };
+      const cur = APP.jobNewDraft;
+      if (cur && !cur.editId && String(cur.title || '').trim()) {
+        APP.openDialog({ title: 'Replace the role you were starting?', sub: 'You have a new role that is not saved yet. Duplicating this role replaces it.', confirmLabel: 'Replace', onConfirm: make });
+      } else make();
       break;
     }
 

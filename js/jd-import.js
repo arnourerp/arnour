@@ -34,7 +34,7 @@
     var admin = kind === 'admin', busy = S.state === 'reading';
     if (!admin) {
       var d = APP.jobNewDraft;
-      if (!d || d.editId || (APP.state.jobStep || 1) !== 1) return '';
+      if (!d || d.editId || APP.jobCopyDraft === d || (APP.state.jobStep || 1) !== 1) return '';
       if (S.done && S.done.draft === d) return foundHtml(S.done);
       if (S.dismissed) return '';
     }

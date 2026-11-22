@@ -899,6 +899,16 @@ APP.views['e-job-detail'] = function (ctx) {
       : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + job.id + '">Reopen role</button>') +
     (job.external ? '' : '<button type="button" class="btn btn-ghost btn-sm jd-del" data-action="job-delete" data-id="' + job.id + '">' + APP.icon('x', 14) + ' Delete</button>') +
     '</div>' +
+    (job.external ? '' : (() => {
+      const cur = open ? 'open' : isDraft ? 'draft' : 'closed';
+      const opt = (id, cls, label, off, tip) => '<button type="button" class="st-opt ' + cls + (cur === id ? ' on' : '') + '" data-action="job-status" data-id="' + job.id + '" data-to="' + id + '" aria-pressed="' + (cur === id) + '"' + (off ? ' disabled title="' + tip + '"' : '') + '>' + label + '</button>';
+      const note = open ? 'Live: professionals can see it and apply.' : isDraft ? 'Draft: only you can see it.' : 'Closed: no longer visible to professionals.';
+      return '<div class="card jd-status"><h2 class="jd-side-h">Status</h2><div class="st-switch" role="group" aria-label="Role status">' +
+        opt('open', 'live', 'Live', false, '') + opt('draft', 'draft', 'Draft', false, '') + opt('closed', 'closed', 'Closed', isDraft, 'A draft was never live. Publish it first, or delete it.') +
+        '</div><p class="muted small st-note">' + note + '</p></div>' +
+        '<div class="card jd-reuse"><h2 class="jd-side-h">Reuse this role</h2><p class="muted small">Start a new role with the same details. Nothing is saved until you click Save as draft or Publish.</p>' +
+        '<button type="button" class="btn btn-outline btn-sm" data-action="job-duplicate" data-id="' + job.id + '">' + APP.icon('plus', 14) + ' Duplicate as new role</button></div>';
+    })()) +
     '<div class="card"><h2 class="jd-side-h">At a glance</h2><div class="jd-stats">' +
     stat(applicants.length, 'Applicants') + stat(scored.filter(x => APP.appStage(job, x.c.id) === 'shortlisted').length, 'Shortlisted') + stat(nStrongApp(scored), 'Strong matches') + stat(invited.length, 'Invited') + (isDraft ? '' : stat(days != null ? days : '–', open ? 'Days open' : 'Days since posted')) + '</div></div>' + /* a draft has no posted date yet */
     '<div class="card"><h2 class="jd-side-h">Share this role</h2>' + APP.shareHtml({
