@@ -510,25 +510,28 @@ APP.views['e-jobs'] = function () {
   /* one badge per role: Live (green), Draft (amber), Closed (grey) */
   const badge = j => j.status === 'open' ? '<span class="pill inv role-st">Live</span>' : j.status === 'draft' ? '<span class="pill warn-pill role-st">Draft</span>' : '<span class="pill muted-pill role-st">Closed</span>';
 
+  const metaHtml = (j, extra) => '<p class="rc-meta">' + APP.icon('pin', 13) + ' ' + APP.h(APP.locText(j) || 'No location yet') + (j.remote ? '<span class="rc-dot">·</span>Remote-friendly' : '') + extra + '</p>';
   const draftCard = j =>
     '<div class="card job-card draft-card" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer"' + qAttr(j) + '>' +
     '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title || 'Untitled') + ' ' + badge(j) + '</h3>' +
-    '<p class="muted">' + APP.h(APP.locText(j) || 'No location yet') + ' · Saved ' + APP.timeAgo(j.editedTs || j.postedTs) + '</p></div></div>' +
-    '<div class="job-foot draft-acts"><button type="button" class="btn btn-primary btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Continue editing</button>' +
+    metaHtml(j, '<span class="rc-dot">·</span>Saved ' + APP.timeAgo(j.editedTs || j.postedTs)) + '</div></div>' +
+    '<div class="rc-bottom"><div class="rc-acts draft-acts"><button type="button" class="btn btn-primary btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Continue editing</button>' +
     '<button type="button" class="btn btn-outline btn-sm" data-action="job-publish" data-id="' + j.id + '">Publish</button>' +
-    '<button type="button" class="btn btn-ghost btn-sm" data-action="job-delete" data-id="' + j.id + '">Delete</button></div></div>';
-  const roleCard = j =>
-    '<div class="card job-card' + (j.status === 'open' ? '' : ' closed-card') + '" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer"' + qAttr(j) + '>' +
+    '<button type="button" class="btn btn-ghost btn-sm" data-action="job-delete" data-id="' + j.id + '">Delete</button></div></div></div>';
+  const roleCard = j => {
+    const nA = (j.applicants || []).length, nNew = APP.newApplicants1(co, j);
+    return '<div class="card job-card role-card ' + (j.status === 'open' ? 'is-live' : 'is-closed') + '" data-action="go" data-href="#/e/jobs/' + j.id + '" style="cursor:pointer"' + qAttr(j) + '>' +
     '<div class="job-top"><div class="job-tt"><h3>' + APP.h(j.title) + ' ' + badge(j) + '</h3>' +
-    '<p class="muted">' + APP.h(APP.locText(j)) + (j.remote ? ' · Remote-friendly' : '') + ' · Posted ' + APP.timeAgo(j.postedTs) + '</p></div>' +
-    '<span class="match m-mid">' + (j.applicants || []).length + ' applicant(s)</span>' + (APP.newApplicants1(co, j) ? '<span class="pill new-pill">' + APP.newApplicants1(co, j) + ' new</span>' : '') + (APP.safeApplyUrl(j) ? '<span class="pill ext-pill" title="Candidates apply on your career portal">' + APP.icon('ext', 12) + ' Applies on your site</span>' : '') + '</div>' +
+    metaHtml(j, '<span class="rc-dot">·</span>Posted ' + APP.timeAgo(j.postedTs) + (j.editedTs ? '<span class="rc-dot">·</span>Edited ' + APP.timeAgo(j.editedTs) : '')) + '</div>' +
+    '<div class="rc-stats"><span class="rc-ap' + (nA ? '' : ' none') + '">' + APP.icon('users', 14) + ' ' + nA + ' applicant' + (nA === 1 ? '' : 's') + '</span>' + (nNew ? '<span class="pill new-pill">' + nNew + ' new</span>' : '') + (APP.safeApplyUrl(j) ? '<span class="pill ext-pill" title="Candidates apply on your career portal">' + APP.icon('ext', 12) + ' Applies on your site</span>' : '') + '</div></div>' +
+    '<div class="rc-bottom">' +
     '<div class="job-reqs">' + APP.pillsHtml(APP.reqPillLabels(j), 4, '#/e/jobs/' + j.id) + (APP.jobIndustries(j).length ? '<span class="chip" title="' + APP.h(APP.jobIndustries(j).join(', ')) + '">' + APP.h(APP.jobIndustryLabel(j, 2)) + '</span>' : '') + (j.certification ? '<span class="chip">' + APP.h('Cert: ' + (j.certification === 'required' ? 'required' : 'preferred')) + '</span>' : '') + (j.preferredLangs && j.preferredLangs.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredLangs.join(', ')) + '</span>' : '') + (j.preferredSpecialties && j.preferredSpecialties.length ? '<span class="chip">' + APP.h('Preferred: ' + j.preferredSpecialties.map(id => APP.specialtyName(id)).join(', ')) + '</span>' : '') + '</div>' +
-    '<div class="job-foot"><span class="muted small">' + (j.editedTs ? 'Edited ' + APP.timeAgo(j.editedTs) : '') + '</span>' +
-    (j.status === 'open' ? '' : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + j.id + '">Reopen</button>') +
-    '<button class="btn btn-outline btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Edit</button></div>' +
+    '<div class="rc-acts">' + (j.status === 'open' ? '' : '<button type="button" class="btn btn-outline btn-sm" data-action="reopen-job" data-id="' + j.id + '">Reopen</button>') +
+    '<button class="btn btn-outline btn-sm" data-action="go" data-href="#/e/jobs/' + j.id + '/edit">Edit</button></div></div>' +
     '</div>';
+  };
 
-  const tabBtn = (id, label, n) => '<button type="button" role="tab" aria-selected="' + (tab === id) + '" class="seg-tab' + (tab === id ? ' on' : '') + '" data-action="roles-tab" data-tab="' + id + '">' + label + ' <span class="seg-n">' + n + '</span></button>';
+  const tabBtn = (id, label, n) => '<button type="button" role="tab" aria-selected="' + (tab === id) + '" class="seg-tab st-' + id + (tab === id ? ' on' : '') + '" data-action="roles-tab" data-tab="' + id + '">' + label + ' <span class="seg-n">' + n + '</span></button>';
   const nIntro = APP.pendingIntrosFor();
   const tabs = '<div class="seg-tabs jd-tabs roles-tabs" role="tablist" aria-label="My roles">' +
     tabBtn('live', 'Live', liveJobs.length) + tabBtn('drafts', 'Drafts', draftJobs.length) + tabBtn('closed', 'Closed', closedJobs.length) +
@@ -552,7 +555,7 @@ APP.views['e-jobs'] = function () {
   const cur = tab === 'live' ? liveJobs : tab === 'drafts' ? draftJobs : closedJobs;
   const list = tab === 'intros' ? '' : cur.map(tab === 'drafts' ? draftCard : roleCard).join('');
   const pane = tab === 'intros' ? APP.introsPageHtml(true)
-    : (allJobs.length ? '<div class="roles-tools"><input type="search" class="input roles-q" data-roles-q placeholder="Search your roles" aria-label="Search your roles" autocomplete="off" value="' + APP.h(APP.state.rolesQ || '') + '"><p class="muted small roles-lead">' + LEAD[tab] + '</p></div>' : '') +
+    : (allJobs.length ? '<div class="roles-tools"><div class="roles-sw">' + APP.icon('search', 16) + '<input type="search" class="input roles-q" data-roles-q placeholder="Search your roles" aria-label="Search your roles" autocomplete="off" value="' + APP.h(APP.state.rolesQ || '') + '"></div><p class="muted small roles-lead">' + LEAD[tab] + '</p></div>' : '') +
       '<div class="roles-list">' + (list || '<div class="card empty">' + (allJobs.length ? EMPTY[tab] : 'No roles posted yet — your first job takes about a minute.') + '</div>') +
       (cur.length ? '<div class="card empty roles-nomatch"' + (cur.some(hit) ? ' hidden' : '') + '>No roles match your search.</div>' : '') + '</div>';
   return '<div class="narrow">' +
