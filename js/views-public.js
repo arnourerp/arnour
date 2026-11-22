@@ -361,6 +361,7 @@ APP.views['wiz-c'] = function () {
     APP.wizBarHtml(vis.indexOf(step) + 1, vis.length, APP.wizStepTitle(step, d)) +
     '<h1 class="wiz-title">' + APP.wizStepTitle(step, d) + '</h1>' +
     '<p class="muted small wiz-time">About ' + Math.max(1, Math.ceil((vis.length - vis.indexOf(step)) * 0.4)) + ' min left · you can edit everything later</p>' +
+    (step === 1 ? APP.wizLaterNoteHtml() : '') +
     (step === 1 ? APP.cvSlotHtml() : '') + APP.cvBannerHtml(step) +
     body +
     '</div></div>';
@@ -401,11 +402,16 @@ APP.wizNav = function (step, total, last) {
   return '<div class="wiz-nav">' +
     (step > 1 ? '<button type="button" class="btn btn-ghost" data-action="wiz-back" data-target="wizC">← Back</button>' : '') +
     '<span class="grow"></span>' +
-    (!last && APP.wizVisible().indexOf(step) >= (APP.wizC && APP.isLeadRole(APP.wizC.data) ? 4 : 3) ? '<button type="button" class="btn btn-outline" data-action="wiz-skip">Skip the rest and create my profile</button>' : '') +
+    (!last && step !== 1 && APP.wizC ? '<button type="button" class="btn btn-outline" data-action="wiz-later">Save and finish later</button>' : '') +
     (last
       ? '<button type="submit" class="btn btn-primary btn-lg">' + APP.icon('check', 16) + ' Create my profile</button>'
       : '<button type="submit" class="btn btn-primary btn-lg">Continue →</button>') +
-    '</div>';
+    '</div>' +
+    (!last && step !== 1 && APP.wizC ? '<p class="muted small wiz-later-note">' + APP.icon('check', 13) + ' Short on time? Save your profile now and add your SAP skills later from your dashboard. Real match percentages start once you add them.</p>' : '');
+};
+/* step 1: a quiet note that the profile can be saved from the next step on */
+APP.wizLaterNoteHtml = function () {
+  return '<p class="wiz-later-hint">' + APP.icon('check', 14) + ' <span><b>No need to finish it all today.</b> After the next step you can save your profile and add the rest later.</span></p>';
 };
 
 /* ------------------------------ employer wizard ------------------------------ */
@@ -703,9 +709,9 @@ APP.views['job-detail'] = function (ctx) {
 
   /* a signed-in professional with a profile sees two tabs: "My match" (the role with the traffic lights) and "Job post" (the role as written, no matching) */
   APP.state.jdTab = APP.state.jdTab || {};
-  const hasTabs = !!(isC && me);
+  const hasTabs = !!(isC && me && APP.profileReady(me)); /* a profile without SAP skills has nothing to tick off: no match tab, the Example card instead */
   const jdTab = hasTabs && APP.state.jdTab[job.id] === 'post' ? 'post' : 'match';
-  const secs = APP.jobSections(job, jdTab === 'post' ? null : me);
+  const secs = APP.jobSections(job, jdTab === 'post' || !hasTabs ? null : me);
   const descHtml = secs.desc, reqSection = secs.req, factsHtml = secs.facts;
   const tabBtn = (id, label) => '<button type="button" role="tab" aria-selected="' + (jdTab === id) + '" class="seg-tab' + (jdTab === id ? ' on' : '') + '" data-action="jd-tab" data-jid="' + job.id + '" data-tab="' + id + '">' + label + '</button>';
   const tabsHtml = hasTabs ? '<div class="seg-tabs jd-tabs" role="tablist" aria-label="Role views">' + tabBtn('match', 'My match') + tabBtn('post', 'Job post') + '</div>' : '';
@@ -755,7 +761,7 @@ APP.views['job-detail'] = function (ctx) {
         (isExt ? '' : '<button class="btn btn-outline btn-sm" data-action="start-chat" data-eid="' + job.companyId + '" data-jid="' + job.id + '">' + APP.icon('clip', 14) + ' Message</button>') + '</div>';
     }
     side = '<aside class="jd-side"><div class="card jd-act">' + act + '</div>' +
-      (jdTab === 'post' ? '' : '<div class="card jd-match" id="jd-match"><h2>Your match</h2>' +
+      (jdTab === 'post' ? '' : !APP.profileReady(me) ? '<div class="card jd-match jd-match-incomplete" id="jd-match"><h2>Your match</h2><p class="muted">Add your SAP skills to see how well you fit this role, what matches and what to check, before you apply.</p>' + APP.exampleMatchCardHtml() + '<button type="button" class="btn btn-primary btn-block" data-action="finish-profile" data-where="job" data-sec="skills">' + APP.icon('spark', 15) + ' Add my SAP skills</button></div>' : '<div class="card jd-match" id="jd-match"><h2>Your match</h2>' +
       '<div class="mb-score"><strong>' + d.score + '%</strong><span class="match ' + b.cls + '">' + b.label + ' match</span></div>' +
       '<div class="jd-big-bar"><span class="' + b.cls + '" style="width:' + Math.max(2, Math.min(100, d.score)) + '%"></span></div>' +
       (why.length ? '<h4>Why it fits</h4><div class="chip-wrap">' + why.map(t => '<span class="chip">' + E(t) + '</span>').join('') + '</div>' : '') +

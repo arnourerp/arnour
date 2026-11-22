@@ -2076,7 +2076,7 @@ APP.jobCard = function (job, score, actionsHtml, link) {
     (!isExt && co && co._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Confidential</span>' : '') +
     (invited ? ' <span class="pill inv">' + APP.icon('check', 12) + ' Invited</span>' : '') + '</h3>' +
     '</div>' +
-    '<div class="card-side">' + APP.matchPillHtml(score, canBreak ? fitC.id : '', job.id) + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.h(APP.fmtRange(job)) + '</span>' : '') + '</div>' +
+    '<div class="card-side">' + (fitC && !APP.profileReady(fitC) ? APP.matchLockedHtml() : APP.matchPillHtml(score, canBreak ? fitC.id : '', job.id)) + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.h(APP.fmtRange(job)) + '</span>' : '') + '</div>' +
     '</div>' +
     meta +
     '<div class="card-pills">' + APP.pillsHtml(reqLabels, 4, link) + '</div>' +
@@ -2128,7 +2128,7 @@ APP.talentCard = function (c, opts) {
     '<div class="card-top">' +
     APP.avatarHtml(name, 'lg', c._anon, c.photo) +
     '<div class="card-id">' +
-    '<p class="card-name"><a class="person-link" href="' + profile + '">' + APP.h(name) + '</a>' + APP.certBadgeHtml(c) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Anonymous</span>' : '') + (opts.note || '') + '</p>' +
+    '<p class="card-name"><a class="person-link" href="' + profile + '">' + APP.h(name) + '</a>' + APP.certBadgeHtml(c) + APP.samplePill(c) + (c._anon ? ' <span class="pill anon-pill">' + APP.icon('lock', 11) + ' Anonymous</span>' : '') + (APP.profileReady(c) ? '' : ' <span class="pill muted-pill" title="This professional has not added SAP skills yet">Profile in progress</span>') + (opts.note || '') + '</p>' +
     '<h3 class="card-title">' + APP.h(c.headline || APP.roleTypeLabel(c.roleType) || c.level || '') + '</h3>' +
     '</div>' +
     '<div class="card-side">' + (hasScore ? APP.matchPillHtml(opts.score, c.id, opts.job.id) : '') + (APP.SHOW_RATES ? '<span class="card-rate">' + APP.rateHtml(c) + '</span>' : '') + '</div>' +
@@ -3765,6 +3765,62 @@ APP.profileSections = function (d, rp) {
   list.pct = need.length ? Math.round(done * 100 / need.length) : 100;
   return list;
 };
+/* ------------------------------ save now, finish later ------------------------------ */
+/* A profile is "ready" for matching once it has at least one SAP skill. Until then the person sees the Example match card
+   and a "Finish your profile" prompt instead of match percentages, and companies see "Profile in progress". */
+APP.profileReady = function (c) { return !!c && (c.skills || []).some(k => k && k.productId && k.moduleId); };
+APP.WIZ_POS = { 1: 'about', 7: 'privacy', 2: 'experience', 3: 'skills', 4: 'specialties', 5: 'rate', 6: 'finish' };
+APP.wizPos = (step) => APP.WIZ_POS[step] || '';
+
+/* Build the profile from the wizard answers and save it. `later` = the person pressed "Save and finish later": whatever is
+   missing gets a plain default and the SAP skills may be empty. */
+APP.wizFinishC = function (d, later) {
+  d.yearsExp = Math.max(1, +d.yearsExp || 1);
+  if (!d.availability) d.availability = APP.availability[0];
+  if (!d.level) d.level = APP.roleProfile(d).lvl ? 'Mid' : (d.roleType === 'junior' ? 'Junior' : APP.levelFromYears(d.yearsExp));
+  const c = Object.assign({}, d);
+  c.id = 'c' + Date.now();
+  delete c._rtFor;
+  if (!(c.programs > 0)) delete c.programs;
+  c.skills = (APP.needsModules(d) ? (d.skills || []).filter(APP.isRealSkill) : (d.skills || []).filter(k => k.productId && k.moduleId)).map(k => ({ productId: k.productId, moduleId: k.moduleId, projects: +k.projects || 0, certified: !!k.certified }));
+  c.industries = d.industries || [];
+  c.workPrefs = (Array.isArray(d.workPrefs) ? d.workPrefs : APP.tagList(d.workPrefs)).filter(Boolean);
+  c.specialties = (Array.isArray(d.specialties) ? d.specialties : APP.tagList(d.specialties)).filter(Boolean);
+  c.otherSkills = APP.tagList(d.otherSkills);
+  c.otherTools = APP.tagList(d.otherTools);
+  c.savedJobIds = [];
+  const note = later && !APP.profileReady(c) ? 'Profile saved. Add your SAP skills any time to see your matches.' : '';
+  if (APP.LIVE) { APP.backend.finishWizard('consultant', c, note); return; }
+  APP.db.consultants[c.id] = c;
+  APP.addNotif(c.id, 'job', 'Welcome to Arnour — your smart job feed is ready', '#/c/jobs');
+  APP.login('consultant', c.id);
+  APP.signupCommunityNotif(c.id);
+  APP.wizC = null;
+  APP.save();
+  { const back = APP.state.afterAuth || ''; APP.state.afterAuth = ''; APP.go(back || '#/c/dashboard'); }
+  APP.toast(note || (c.anon ? 'Welcome to Arnour — your identity is private 🔒' : 'Welcome to Arnour, ' + c.firstName + ' 🎉'));
+};
+
+/* the small grey pill that replaces the match percentage on role cards while the profile has no SAP skills */
+APP.matchLockedHtml = function () {
+  return '<button type="button" class="match match-locked" data-action="finish-profile" data-where="card" data-sec="skills" title="Add your SAP skills to see how well you match each role" aria-label="Add your SAP skills to see your match">Add skills to see match</button>';
+};
+
+/* "Finish your profile" box with the Example match card: dashboard, roles list and role page of a profile without SAP skills */
+APP.finishProfileHtml = function (c, where) {
+  const rp = APP.roleProfile(c), secs = APP.profileSections(c, rp);
+  const pct = secs.pct, sk = secs.find(x => x.id === 'skills');
+  const sec = sk && !sk.ok ? 'skills' : ((secs.find(x => x.req && !x.ok) || secs[0]).id);
+  const lead = APP.isLeadRole(c);
+  return '<div class="card finish-card" data-where="' + APP.h(where) + '">' +
+    '<div class="finish-top"><div class="finish-txt">' +
+    '<h2>Finish your profile to see your matches</h2>' +
+    '<p class="muted">Your profile is saved. Add your ' + (lead ? 'SAP landscape' : 'SAP products and modules') + ' and every role gets a match % from your real experience, with what fits and what to check. This is what it will look like:</p>' +
+    '<div class="finish-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '" aria-label="Profile complete"><span style="width:' + Math.max(4, pct) + '%"></span></div>' +
+    '<p class="muted small finish-pct">' + pct + '% of your profile is complete</p>' +
+    '<button type="button" class="btn btn-primary" data-action="finish-profile" data-where="' + APP.h(where) + '" data-sec="' + sec + '">' + APP.icon('spark', 15) + ' Add my SAP skills</button>' +
+    '</div>' + APP.exampleMatchCardHtml() + '</div></div>';
+};
 APP.peJump = function (id) { APP.state.profileSec = id; APP.render(); };
 APP.editBarHtml = function (title, formId) {
   return '<div class="edit-bar"><h2 class="page-title">' + APP.h(title) + '</h2><div class="edit-bar-acts">' +
@@ -5228,26 +5284,25 @@ APP.onClick = function (el, e) {
       break;
     }
 
-    case 'wiz-skip': {
-      /* finish early from step 3 on: validate the skills, then submit the last step with whatever is filled in */
+    case 'wiz-later': {
+      /* save what is filled in now (from step 2 on); the SAP skills and the rest are added later from the dashboard */
       if (!APP.wizC) return;
       APP.syncFormsToDrafts(null);
-      const w0 = APP.wizC.data, lead0 = APP.isLeadRole(w0);
-      if (lead0) w0.skills = APP.normalizeLandscape(w0.skills);
-      const back = (st, key, msg) => { APP.wizC.step = st; APP.wizC.err = { [key]: msg }; APP.toast(msg); APP._formSyncSkip = ['wiz-c']; APP.render(); };
-      if (lead0 && (w0.specialties || []).length < 2) { back(4, 'spec', 'Pick at least 2 specialties first'); return; }
-      if (APP.needsModules(w0)) w0.skills = APP.wildToPlaceholder(w0.skills);
-      const okSk = (w0.skills || []).some(k => k.productId && k.moduleId) && (!APP.needsModules(w0) || (w0.skills.some(APP.isRealSkill) && !APP.productsMissingModule(w0.skills).length));
-      if (!okSk) { if (lead0) back(3, 'skills', 'Pick at least one SAP product first'); else back(3, 'skills', APP.moduleMissingMsg(APP.productsMissingModule(w0.skills))); return; }
-      if (!APP.wizC.projChecked && APP.lowProjectRows(w0).length) {
-        APP.wizC.step = 3; APP._formSyncSkip = ['wiz-c']; APP.render();
-        APP.projectCheckDialog(function () { APP.wizC.projChecked = true; APP.wizC.step = 6; APP.render(); const fin = document.querySelector('form[data-form="wiz-c"]'); if (fin) fin.requestSubmit(); });
-        return;
-      }
-      APP.wizC.step = 6;
-      APP.render();
-      const fin = document.querySelector('form[data-form="wiz-c"]');
-      if (fin) fin.requestSubmit();
+      const wl = APP.wizC.data;
+      if (APP.trackEvent) APP.trackEvent('wz:later:' + (APP.wizPos(APP.wizC.step) || 'x'));
+      if (APP.isLeadRole(wl)) wl.skills = APP.normalizeLandscape(wl.skills);
+      if (APP.needsModules(wl)) wl.skills = APP.wildToPlaceholder(wl.skills);
+      APP.wizFinishC(wl, true);
+      break;
+    }
+
+    case 'finish-profile': {
+      /* from the "Finish your profile" cards: open Edit profile at the section that is missing */
+      const fme = APP.currentUser(); if (!fme || !APP.db.session || APP.db.session.role !== 'consultant') break;
+      if (APP.trackEvent) APP.trackEvent('fp:go:' + (d.where || 'dash'));
+      APP.state.profileEdit = true; APP.state.profileSec = d.sec || 'skills';
+      APP.profileDraft = APP.clone(fme);
+      APP.go('#/c/profile');
       break;
     }
 
@@ -5374,29 +5429,11 @@ APP.onSubmit = function (f) {
         d.dailyRate = +g('dailyRate') || 0; /* optional — profiles without a rate read "Rate on request" and the dashboard nudges to add one */
       } else if (step === 6) {
         d.summary = g('summary');
-        const c = Object.assign({}, d);
-        c.id = 'c' + Date.now();
-        delete c._rtFor;
-        if (!(c.programs > 0)) delete c.programs;
-        c.skills = (APP.needsModules(d) ? (d.skills || []).filter(APP.isRealSkill) : (d.skills || []).filter(k => k.productId && k.moduleId)).map(k => ({ productId: k.productId, moduleId: k.moduleId, projects: +k.projects || 0, certified: !!k.certified }));
-        c.industries = d.industries || [];
-        c.workPrefs = (Array.isArray(d.workPrefs) ? d.workPrefs : APP.tagList(d.workPrefs)).filter(Boolean);
-        c.specialties = (Array.isArray(d.specialties) ? d.specialties : APP.tagList(d.specialties)).filter(Boolean);
-        c.otherSkills = APP.tagList(d.otherSkills);
-        c.otherTools = APP.tagList(d.otherTools);
-        c.savedJobIds = [];
-        if (APP.LIVE) { APP.backend.finishWizard('consultant', c); return; }
-        APP.db.consultants[c.id] = c;
-        APP.addNotif(c.id, 'job', 'Welcome to Arnour — your smart job feed is ready', '#/c/jobs');
-        APP.login('consultant', c.id);
-        APP.signupCommunityNotif(c.id);
-        APP.wizC = null;
-        APP.save();
-        { const back = APP.state.afterAuth || ''; APP.state.afterAuth = ''; APP.go(back || '#/c/dashboard'); }
-        APP.toast(c.anon ? 'Welcome to Arnour — your identity is private 🔒' : 'Welcome to Arnour, ' + c.firstName + ' 🎉');
+        APP.wizFinishC(d, false);
         return;
       }
       APP.wizC.err = null;
+      if (APP.trackEvent) APP.trackEvent('wz:next:' + (APP.wizPos(step) || 'x'));
       APP.wizC.step = APP.wizNextStep(step);
       APP.render();
       break;

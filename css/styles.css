@@ -2547,3 +2547,29 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
 .st-note { margin: 8px 0 0; }
 .jd-reuse p { margin: 6px 0 12px; }
 .jd-reuse .btn { width: 100%; }
+/* save now, finish later: note on step 1, button note, grey match pill, "Finish your profile" box */
+.wiz-later-hint { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 16px; padding: 10px 12px; border-radius: 12px; background: #F0F9FF; border: 1px solid #BAE6FD; color: var(--text-primary); font-size: 13.5px; line-height: 1.4; }
+.wiz-later-hint svg { flex: none; margin-top: 2px; color: #0284C7; }
+.wiz-later-note { display: flex; gap: 6px; align-items: flex-start; margin: 10px 0 0; text-align: left; }
+.wiz-later-note svg { flex: none; margin-top: 2px; }
+.card .match.match-locked { border: 1px dashed var(--border, #CBD5E1); background: #F8FAFC; color: var(--text-muted); font-family: inherit; line-height: inherit; cursor: pointer; position: relative; }
+.match-locked::before { content: ''; position: absolute; inset: -9px -6px; }
+.match-locked:hover { border-style: solid; color: var(--text-primary); }
+.finish-card { padding: 22px; border: 1px solid #BAE6FD; background: linear-gradient(180deg, #F0F9FF 0%, #fff 60%); }
+.finish-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: center; }
+.finish-txt h2 { margin: 0 0 8px; font-size: 20px; }
+.finish-txt p { margin: 0 0 12px; font-size: 14px; }
+.finish-bar { height: 8px; border-radius: 99px; background: #E0F2FE; overflow: hidden; }
+.finish-bar span { display: block; height: 100%; border-radius: 99px; background: #0284C7; }
+.finish-pct { margin: 6px 0 14px !important; }
+.finish-card .sap-example { margin: 0; box-shadow: none; }
+.jd-match-incomplete > p { margin: 0 0 var(--space-3); font-size: 14px; }
+.jd-match-incomplete .sap-example { margin: 14px 0 16px; box-shadow: none; }
+@media (max-width: 760px) {
+  .finish-top { grid-template-columns: 1fr; gap: 16px; }
+  .finish-card { padding: 16px; }
+}
+.adm-stat-btn { font: inherit; text-align: left; cursor: pointer; }
+.adm-stat-btn:hover { border-color: #94A3B8; }
+.adm-stat-btn.on { border-color: #0284C7; box-shadow: 0 0 0 2px #BAE6FD; }
+.adm-stats-sm { margin-bottom: 16px; }

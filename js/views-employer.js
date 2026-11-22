@@ -315,7 +315,7 @@ APP.sortTalent = function (list, f) {
   const mode = f.sort || 'best';
   const idx = new Map(list.map((c, i) => [c.id, i]));
   const key = mode === 'years' ? (c => Number(c.yearsExp) || 0) : mode === 'active' ? (c => APP.lastActive(c)) : (c => APP.talentRelevance(c, f));
-  return list.slice().sort((a, b) => key(b) - key(a) || idx.get(a.id) - idx.get(b.id));
+  return list.slice().sort((a, b) => (APP.profileReady(b) - APP.profileReady(a)) || key(b) - key(a) || idx.get(a.id) - idx.get(b.id)); /* profiles still in progress (no SAP skills yet) come last */
 };
 APP.TF_SORTS = [['best', 'Best match'], ['years', 'Years of experience'], ['active', 'Recently active']];
 

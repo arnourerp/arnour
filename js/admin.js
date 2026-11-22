@@ -43,7 +43,7 @@
   /* sidebar groups: [group title, [[tab id, label, one-line hint], ...]] */
   var GROUPS = [
     ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['traffic', 'Traffic', 'Visitors, sign-ups and what people did'], ['health', 'Health', 'Errors and email delivery']]],
-    ['People & roles', [['people', 'People', 'Professionals and companies'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
+    ['People & roles', [['people', 'People', 'Professionals and companies'], ['unfinished', 'Unfinished', 'Accounts without a profile and professional profiles saved without SAP skills'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
     ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages']]],
     ['Communicate', [['messages', 'Messages', 'Write to people as the Arnour team, and read their replies'], ['reminders', 'Reminders', 'Follow-up e-mails to people who did not finish their profile, waiting for your approval'], ['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
     ['Settings', [['settings', 'Site settings', 'Sample content on or off'], ['log', 'Activity log', 'Everything admins did']]]
@@ -53,10 +53,11 @@
   function shell(tab, inner) {
     var open = A.data.overview ? A.data.overview.openReports : 0, fb = A.data.health && A.data.health.openFeedback ? A.data.health.openFeedback : 0;
     var mn = typeof A.data.staffN === 'number' ? A.data.staffN : 0, rn = typeof A.data.remN === 'number' ? A.data.remN : 0;
+    var un = A.data.unfN ? (Number(A.data.unfN.noProfile) || 0) + (Number(A.data.unfN.noSkills) || 0) : 0;
     var menuOpen = !!A.menuOpen; A.menuOpen = false; /* the phone menu closes on the next page or refresh */
     var cur = TABS.filter(function (t) { return t[0] === tab; })[0];
-    var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : id === 'messages' ? mn : id === 'reminders' ? rn : 0; return n ? ' <em>' + n + '</em>' : ''; };
-    var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : t[0] === 'messages' ? mn : t[0] === 'reminders' ? rn : 0; }); return n; };
+    var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : id === 'messages' ? mn : id === 'reminders' ? rn : id === 'unfinished' ? un : 0; return n ? ' <em>' + n + '</em>' : ''; };
+    var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : t[0] === 'messages' ? mn : t[0] === 'reminders' ? rn : t[0] === 'unfinished' ? un : 0; }); return n; };
     return '<div class="adm' + (menuOpen ? ' adm-menu-open' : '') + '"><header class="adm-top"><a class="brand-logo" href="#/admin" aria-label="Arnour admin">A</a><strong>Arnour admin</strong>' +
       '<button type="button" class="btn btn-outline btn-sm adm-menu-btn" data-action="adm-menu" aria-expanded="' + menuOpen + '">☰ ' + h(cur ? cur[1] : 'Menu') + '</button><span class="grow"></span>' +
       '<a class="btn btn-ghost btn-sm" href="#/home">← View the site</a></header>' +
@@ -86,6 +87,7 @@
       st(o.signups7, 'Sign-ups, 7 days') + st(o.signups30, 'Sign-ups, 30 days') + st(o.openRoles, 'Open roles', '#/admin/roles') +
       st(o.applications7, 'Applications, 7 days') + st(o.conversations, 'Conversations') + st(o.messages7, 'Messages, 7 days') +
       st(o.posts7, 'Community posts, 7 days', '#/admin/community') + st(o.suspended, 'Suspended', '#/admin/people') + st(o.selfCertified, 'Self-declared certified') +
+      (A.data.unfN ? st((Number(A.data.unfN.noProfile) || 0) + (Number(A.data.unfN.noSkills) || 0), 'Unfinished professionals', '#/admin/unfinished') : '') +
       '</div><h2>Sign-ups, last 14 days</h2><div class="adm-bars adm-bars-n">' + (o.series || []).map(function (s) {
         var p = typeof s.p === 'number' ? s.p : s.n, np = s.n - p;
         return '<div class="adm-bar" title="' + h(s.d) + ': ' + s.n + ' sign-up(s), ' + p + ' with a profile, ' + np + ' with no profile yet"><b>' + (s.n || '') + '</b><div class="adm-bar-col" style="height:' + (s.n ? Math.max(6, Math.round(s.n / max * 90)) : 0) + 'px">' +
@@ -326,6 +328,8 @@
     if (n === 'apply') return 'Applied to a role on Arnour';
     if (n === 'ext_apply') return 'Clicked an external apply link';
     if ((m = /^mn:(seen|go|no|open):(list|job|apply|save)$/.exec(n))) return 'Match prompt (visitors): ' + ({ seen: 'shown', go: 'tapped Create my profile', no: 'closed it (Not now)', open: 'tapped Open a role' })[m[1]] + ' — ' + ({ list: 'slide-up on the role list', job: 'slide-up on a role page', apply: 'popup after Apply', save: 'popup after Save' })[m[2]];
+    if ((m = /^wz:(next|later):(.+)$/.exec(n))) return 'Professional sign-up, ' + (m[1] === 'next' ? 'pressed Continue on' : 'pressed Save and finish later on') + ' step: ' + m[2];
+    if ((m = /^fp:go:(.+)$/.exec(n))) return 'Tapped Finish your profile (' + m[1] + ')';
     if ((m = /^lnd:(.+)$/.exec(n))) return 'New visitors from ' + m[1];
     if ((m = /^lc:(.+)$/.exec(n))) return 'New visitors from the campaign ' + m[1];
     if ((m = /^conv:c:(.+)$/.exec(n))) return 'Professional profiles completed, from ' + m[1];
@@ -400,6 +404,12 @@
       var sn = tot['mn:seen:' + r[0]] || 0, go = tot['mn:go:' + r[0]] || 0;
       return '<tr><td>' + h(r[1]) + '</td><td>' + (sn || '') + '</td><td>' + (go ? go + ' (' + pct(go, sn) + ')' : '') + '</td><td>' + (tot['mn:no:' + r[0]] || '') + '</td><td>' + (r[0] === 'list' ? (tot['mn:open:list'] || '') : '') + '</td></tr>';
     }).join('') + '</tbody></table><p class="muted small">The slide-up shows once per browser. Tapped Create my profile counts the tap, not a finished profile: compare with the funnel above and the campaign table.</p>' : '<div class="empty">No prompt shown yet.</div>';
+    /* professional sign-up: how many pressed Continue on each step, and how many saved early with "Save and finish later" */
+    var wzRows = [['about', 'About you'], ['privacy', 'Privacy'], ['experience', 'Experience'], ['skills', 'SAP skills'], ['specialties', 'Specialties']];
+    var wzAny = wzRows.some(function (r) { return tot['wz:next:' + r[0]] || tot['wz:later:' + r[0]]; });
+    var wzTable = wzAny ? '<table class="adm-table adm-table-num" id="adm-wizsteps"><thead><tr><th>Sign-up step</th><th>Pressed Continue</th><th>Pressed Save and finish later</th></tr></thead><tbody>' + wzRows.map(function (r) {
+      return '<tr><td>' + h(r[1]) + '</td><td>' + (tot['wz:next:' + r[0]] || '') + '</td><td>' + (tot['wz:later:' + r[0]] || '') + '</td></tr>';
+    }).join('') + '</tbody></table><p class="muted small">Counts taps, not people: someone who goes back and forth counts twice. “Save and finish later” is offered from the Privacy step on. The step after Specialties creates the profile, so it is counted in the funnel above. “Finish your profile” taps (dashboard, roles list, role page): ' + [['dash', 'dashboard'], ['jobs', 'roles list'], ['job', 'role page'], ['card', 'grey pill on a role card']].map(function (r) { return h(r[1]) + ' ' + (tot['fp:go:' + r[0]] || 0); }).join(', ') + '.</p>' : '<div class="empty">No sign-up step counted yet.</div>';
     var pv = Object.keys(tot).filter(function (k) { return /^v:/.test(k) && k !== 'v:admin'; }).sort(function (a, b) { return tot[b] - tot[a]; });
     var pvTable = pv.length ? '<table class="adm-table adm-table-num"><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody>' + pv.map(function (k) { return '<tr><td>' + h(usageLabel(k).replace(/ — views$/, '')) + '</td><td>' + tot[k] + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty">No data yet.</div>';
     return '<h1>Traffic</h1><div class="chip-wrap mb16">' + chips + '</div>' +
@@ -411,6 +421,7 @@
       '<h2>Where people came from</h2>' + srcTable +
       '<h2>By campaign</h2>' + cmpTable +
       '<h2>Match prompt for visitors</h2>' + mnTable +
+      '<h2>Professional sign-up steps</h2>' + wzTable +
       '<h2>Pages people opened</h2>' + pvTable +
       '<p class="muted small">For real visitor totals, search impressions and clicks, see Netlify Analytics and Google Search Console.</p>';
   }
@@ -419,18 +430,18 @@
   /* ---------- reminders: follow-up e-mails to people who did not finish their profile (you approve each one) ---------- */
   var REM_ROLE = { consultant: 'Professional', employer: 'Company', any: 'Not chosen yet' };
   var REM_STATUS = { sent: 'Sent', skipped: 'Skipped', expired: 'Expired (not approved in time)', done: 'Finished the profile first', failed: 'Failed to send', approved: 'Sending…' };
-  var REM_TEXT = { consultant1: 'Professional · 1st reminder', consultant2: 'Professional · 2nd (last) reminder', employer1: 'Company · 1st reminder', employer2: 'Company · 2nd (last) reminder', any1: 'Role not chosen · 1st reminder', any2: 'Role not chosen · 2nd (last) reminder' };
+  var REM_TEXT = { skills1: 'Saved without SAP skills · 1st reminder', skills2: 'Saved without SAP skills · 2nd (last) reminder', consultant1: 'Professional · 1st reminder', consultant2: 'Professional · 2nd (last) reminder', employer1: 'Company · 1st reminder', employer2: 'Company · 2nd (last) reminder', any1: 'Role not chosen · 1st reminder', any2: 'Role not chosen · 2nd (last) reminder' };
   function vReminders() {
     var w = need('reminders', 'admin_reminders'); if (w) return w;
     var R = A.data.reminders, pend = R.pending || [], rec = R.recent || [], texts = R.texts || [];
     var table = pend.length ? '<div class="adm-actions" style="margin-top:0"><button type="button" class="btn btn-primary btn-sm" data-action="adm-rem-all">Send all (' + pend.length + ')</button></div>' +
       '<div class="adm-scroll"><table class="adm-table"><thead><tr><th>E-mail</th><th>Signed up as</th><th>Came from</th><th>Confirmed</th><th>Reminder</th><th></th></tr></thead><tbody>' + pend.map(function (r) {
-        return '<tr><td>' + h(r.email) + '</td><td>' + h(REM_ROLE[r.role] || r.role) + '</td><td>' + h(r.src) + '</td><td>' + whenT(r.confirmedTs) + '</td><td>' + (r.step === 2 ? '2nd (last)' : '1st') + '</td>' +
+        return '<tr><td>' + h(r.email) + '</td><td>' + h(REM_ROLE[r.role] || r.role) + '</td><td>' + h(r.src) + '</td><td>' + whenT(r.confirmedTs) + '</td><td>' + (r.kind === 'skills' ? 'SAP skills · ' : '') + (r.step === 2 ? '2nd (last)' : '1st') + '</td>' +
           '<td class="adm-err-acts"><button type="button" class="btn btn-outline btn-sm" data-action="adm-rem-send" data-id="' + r.id + '">Send</button> <button type="button" class="btn btn-ghost btn-sm" data-action="adm-rem-skip" data-id="' + r.id + '">Skip</button></td></tr>';
       }).join('') + '</tbody></table></div>'
-      : '<div class="empty">Nobody is waiting. 🎉 People appear here about 2 hours after they confirm their e-mail, if they still have no profile.</div>';
+      : '<div class="empty">Nobody is waiting. 🎉 People appear here about 2 hours after they confirm their e-mail (or save a profile), if they still have no profile or no SAP skills.</div>';
     var hist = rec.length ? '<table class="adm-table"><thead><tr><th>E-mail</th><th>Reminder</th><th>What happened</th><th>When</th></tr></thead><tbody>' + rec.map(function (r) {
-      return '<tr><td>' + h(r.email) + '</td><td>' + (r.step === 2 ? '2nd' : '1st') + '</td><td>' + h(REM_STATUS[r.status] || r.status) + '</td><td>' + whenT(r.ts) + '</td></tr>';
+      return '<tr><td>' + h(r.email) + '</td><td>' + (r.kind === 'skills' ? 'SAP skills · ' : '') + (r.step === 2 ? '2nd' : '1st') + '</td><td>' + h(REM_STATUS[r.status] || r.status) + '</td><td>' + whenT(r.ts) + '</td></tr>';
     }).join('') + '</tbody></table>' : '<div class="empty">Nothing yet.</div>';
     var edit = texts.map(function (t) {
       return '<form class="adm-card" data-form="adm-rem-text" data-key="' + h(t.key) + '"><strong>' + h(REM_TEXT[t.key] || t.key) + '</strong>' +
@@ -438,11 +449,34 @@
         '<label class="field"><span class="label">Text <span class="muted">(blank line = new paragraph)</span></span><textarea class="input" name="body" rows="6" maxlength="1500">' + h(t.body) + '</textarea></label>' +
         '<div class="adm-actions"><button class="btn btn-outline btn-sm" type="submit">Save wording</button></div></form>';
     }).join('');
-    return '<h1>Reminders</h1><p class="muted small">People who confirmed their e-mail but have no profile after 2 hours. Nothing is sent until you press Send. Each person gets at most one reminder, plus one more about 3 days after the first (also needs your approval). Waiting items expire after 3 days. People who finished their profile or unsubscribed are never sent one.</p>' +
+    return '<h1>Reminders</h1><p class="muted small">People who confirmed their e-mail but have no profile after 2 hours, and professionals who saved a profile without SAP skills (marked “SAP skills”). Nothing is sent until you press Send. Each person gets at most one reminder, plus one more about 3 days after the first (also needs your approval). Waiting items expire after 3 days. People who finished their profile or unsubscribed are never sent one.</p>' +
       (R.ready ? '' : '<div class="adm-card sus"><strong>E-mail sending is not set up</strong><p class="muted small">The Resend key is missing, so approved reminders will wait.</p></div>') +
       '<h2>Waiting for your approval</h2>' + table +
       '<h2>Sent and decided</h2>' + hist +
-      '<h2>The wording</h2><p class="muted small">Every e-mail has an “Arnour” header, a button (“Finish my profile”) and an unsubscribe link added automatically. Check the text before you send the first one.</p>' + edit;
+      '<h2>The wording</h2><p class="muted small">Every e-mail has an “Arnour” header, a button (“Finish my profile” or “Add my SAP skills”) and an unsubscribe link added automatically. Check the text before you send the first one.</p>' + edit;
+  }
+
+  /* ---------- unfinished: accounts without a profile and profiles saved without SAP skills ---------- */
+  A.unfF = A.unfF || 'all';
+  function vUnfinished() {
+    var w = need('unfinished', 'admin_unfinished'); if (w) return w;
+    var U = A.data.unfinished, rows = U.rows || [];
+    var f = A.unfF, shown = rows.filter(function (r) { return f === 'all' ? true : f === 'noskills' ? r.stage === 'noskills' : f === 'noprofile' ? r.stage === 'noprofile' && r.who !== 'e' : r.stage === 'noprofile' && r.who === 'e'; });
+    function st(n, l, key) { return '<button type="button" class="adm-stat adm-stat-btn' + (f === key ? ' on' : '') + '" data-action="adm-unf-f" data-f="' + key + '"><strong>' + n + '</strong><span>' + l + '</span></button>'; }
+    var stats = '<div class="adm-stats adm-stats-sm" id="adm-unf-stats">' + st((Number(U.noProfile) || 0) + (Number(U.noSkills) || 0), 'Unfinished professionals', 'all') + st(U.noSkills || 0, 'Saved, no SAP skills yet', 'noskills') + st(U.noProfile || 0, 'Signed up, no profile yet', 'noprofile') + st(U.noProfileCompany || 0, 'Companies, no profile yet', 'company') + '</div>';
+    var remText = function (r) {
+      if (!r.rem) return '<span class="muted">None yet</span>';
+      var k = r.rem.kind === 'skills' ? 'SAP skills · ' : '', n = r.rem.step === 2 ? '2nd' : '1st';
+      return h(r.rem.status === 'pending' ? k + n + ': waiting for your approval' : k + n + ': ' + (REM_STATUS[r.rem.status] || r.rem.status));
+    };
+    var table = shown.length ? '<div class="adm-scroll"><table class="adm-table" id="adm-unf-table"><thead><tr><th>Who</th><th>Where they stopped</th><th>Still missing</th><th>Came from</th><th>When</th><th>Reminder</th><th></th></tr></thead><tbody>' + shown.map(function (r) {
+      var who = r.stage === 'noskills' ? '<strong>' + h(r.name || 'No name') + '</strong><br><span class="muted small">' + h(r.email) + (r.headline ? ' · ' + h(r.headline) : '') + '</span>' : '<strong>' + h(r.email) + '</strong>' + (r.who === 'e' ? '<br><span class="muted small">Company</span>' : r.who === 'c' ? '<br><span class="muted small">Professional</span>' : '');
+      var stage = r.stage === 'noskills' ? 'Profile saved, no SAP skills' : 'No profile yet';
+      var miss = r.stage === 'noskills' ? (r.missing || []).map(h).join(', ') : 'The whole profile';
+      return '<tr><td>' + who + '</td><td>' + h(stage) + (r.confirmed ? '' : '<br><span class="pill muted-pill">E-mail not confirmed</span>') + '</td><td>' + miss + '</td><td>' + h(r.src || '') + '</td><td>' + whenT(r.ts) + '</td><td>' + remText(r) + '</td>' +
+        '<td class="adm-err-acts">' + (r.id ? '<button type="button" class="btn btn-outline btn-sm" data-action="adm-message" data-id="' + h(r.id) + '" data-name="' + h(r.name || '') + '">Message as Arnour team</button> <a class="btn btn-ghost btn-sm" href="#/admin/people/' + h(r.id) + '">Open</a>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>' : '<div class="empty">Nobody here. ✓</div>';
+    return '<h1>Unfinished</h1><p class="muted small">Professionals who stopped before the profile was useful for matching. “Saved, no SAP skills yet” means the profile exists (companies can see it as “Profile in progress”) but has no SAP product with a module. Reminder e-mails for these people wait for your approval in <a class="link" href="#/admin/reminders">Reminders</a>; a person with an unconfirmed e-mail cannot be reminded. The newest 300 are shown.</p>' + stats + table;
   }
 
   function vCommunity() {
@@ -829,9 +863,9 @@
     return 'this person';
   }
   /* the Message button on any profile, company or role page opens this for the admin */
-  APP.adminMessage = function (target) {
+  APP.adminMessage = function (target, name) {
     if (!B.isAdmin || !target) return;
-    var nm = msgName(target);
+    var nm = msgName(target); if (nm === 'this person' && name) nm = name;
     APP.openDialog({
       title: 'Message ' + h(nm) + ' as Arnour team',
       sub: h(nm) + ' will see “Arnour team”, not your name or e-mail. They can reply, and you will read the reply under Admin → Messages.',
@@ -870,7 +904,8 @@
     if (A.data.health === undefined && tab !== 'health' && !A.err.health) load('health', 'admin_health');
     if (A.data.staffN === undefined && !A.err.staffN) load('staffN', 'admin_staff_unread');
     if (A.data.remN === undefined && !A.err.remN) load('remN', 'admin_reminders_count');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'reminders' ? vReminders() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
+    if (A.data.unfN === undefined && !A.err.unfN) load('unfN', 'admin_unfinished_count');
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'reminders' ? vReminders() : tab === 'unfinished' ? vUnfinished() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -893,11 +928,12 @@
     switch (a) {
       case 'adm-retry': delete A.err[d.key]; APP.render(); break;
       case 'adm-rstatus': A.rstatus = d.s; APP.render(); break;
-      case 'adm-rem-send': act('admin_reminder_decide', { p_ids: [Number(d.id)], p_action: 'approve' }, 'Sent ✓', ['reminders', 'remN']); break;
-      case 'adm-rem-skip': act('admin_reminder_decide', { p_ids: [Number(d.id)], p_action: 'skip' }, 'Skipped', ['reminders', 'remN']); break;
+      case 'adm-unf-f': A.unfF = d.f; APP.render(); break;
+      case 'adm-rem-send': act('admin_reminder_decide', { p_ids: [Number(d.id)], p_action: 'approve' }, 'Sent ✓', ['reminders', 'remN', 'unfinished']); break;
+      case 'adm-rem-skip': act('admin_reminder_decide', { p_ids: [Number(d.id)], p_action: 'skip' }, 'Skipped', ['reminders', 'remN', 'unfinished']); break;
       case 'adm-rem-all': {
         var ids = ((A.data.reminders && A.data.reminders.pending) || []).map(function (r) { return r.id; }); if (!ids.length) break;
-        APP.openDialog({ title: 'Send ' + ids.length + ' reminder' + (ids.length === 1 ? '' : 's') + '?', sub: 'Each person gets the reminder e-mail now.', confirmLabel: 'Send all', body: '', onConfirm: function () { act('admin_reminder_decide', { p_ids: ids, p_action: 'approve' }, 'Sent ✓', ['reminders', 'remN']); } });
+        APP.openDialog({ title: 'Send ' + ids.length + ' reminder' + (ids.length === 1 ? '' : 's') + '?', sub: 'Each person gets the reminder e-mail now.', confirmLabel: 'Send all', body: '', onConfirm: function () { act('admin_reminder_decide', { p_ids: ids, p_action: 'approve' }, 'Sent ✓', ['reminders', 'remN', 'unfinished']); } });
         break;
       }
       case 'adm-traffic-days': A.trafficDays = d.n === 'h24' ? 'h24' : (Number(d.n) || 14); if (d.n === 'h24') reload('traffic:h24'); APP.render(); break;
@@ -994,7 +1030,7 @@
         }, annErr);
         break;
       }
-      case 'adm-message': APP.adminMessage(d.id); break;
+      case 'adm-message': APP.adminMessage(d.id, d.name); break;
       case 'adm-menu': A.menuOpen = true; APP.render(); break;
       case 'adm-msg-open':
         A.msg.id = d.id; A.msg.thread = null; APP.render();

@@ -1022,7 +1022,7 @@
     } catch (e) { /* never block the profile */ }
   };
 
-  B.finishWizard = function (role, obj) {
+  B.finishWizard = function (role, obj, note) {
     var btn = document.querySelector('form button[type="submit"]'); if (btn) { btn.disabled = true; btn.textContent = 'Creating your profile…'; }
     var fail = function (e) {
       if (btn) { btn.disabled = false; btn.textContent = 'Finish'; }
@@ -1041,7 +1041,7 @@
       APP.wizC = null; APP.wizE = null;
       var back = APP.state.afterAuth || ''; APP.state.afterAuth = '';
       APP.go(back || (role === 'consultant' ? '#/c/dashboard' : '#/e/dashboard'));
-      APP.toast(role === 'consultant' ? 'Welcome to Arnour 🎉' : 'Company profile created 🎉');
+      APP.toast(note || (role === 'consultant' ? 'Welcome to Arnour 🎉' : 'Company profile created 🎉'));
     }).catch(fail);
   };
 
