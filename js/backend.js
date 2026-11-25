@@ -20,7 +20,7 @@
   var POLL_MS = 15000;
 
   /* ------------------------------ helpers ------------------------------ */
-  function clean(o) { var c = JSON.parse(JSON.stringify(o)); delete c._anon; delete c.sample; delete c.mine; delete c.certRevoked; return c; }
+  function clean(o) { var c = JSON.parse(JSON.stringify(o)); delete c._anon; delete c.sample; delete c.mine; delete c.certRevoked; delete c.creds; return c; }
   function jobSig(j) {
     var c = JSON.parse(JSON.stringify(j));
     ['applicants', 'appliedTs', 'applyNotes', 'invited', 'postedTs', 'sample', 'mine', 'appStage', 'appViewed', 'hiredId'].forEach(function (k) { delete c[k]; });

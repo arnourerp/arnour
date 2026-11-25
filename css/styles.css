@@ -2622,4 +2622,58 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
   .adm-more.on .adm-more-body { display: flex; flex-wrap: wrap; gap: 8px; position: absolute; left: 12px; right: 12px; margin-top: 4px; padding: 10px; z-index: 5; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; box-shadow: 0 8px 24px rgba(15, 23, 42, .16); }
   .adm-actions { position: relative; align-items: center; }
   .adm-card { position: relative; }
+
+/* certs */
+.cr-add{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cr-add .input{flex:1 1 260px;min-width:0}
+.cr-msg{margin:8px 0 0;min-height:1.3em;font-size:.875rem;color:var(--text-secondary)}
+.cr-msg.err{color:var(--danger,#B91C1C)}
+.cr-msg.ok{color:var(--green-ink,#047857)}
+.cr-help{margin-top:8px;font-size:.875rem;color:var(--text-secondary)}
+.cr-help summary{cursor:pointer;color:var(--accent,#1D4ED8)}
+.cr-help ol{margin:8px 0 6px 18px;padding:0}
+.cr-list{display:grid;gap:10px;margin-top:14px}
+.cr-row{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border-subtle,#E5E7EB);border-radius:12px;background:#fff}
+.cr-row.is-exp{background:var(--bg-subtle,#F8FAFC)}
+.cr-badge{position:relative;flex:0 0 auto;width:64px;height:64px}
+.cr-badge img{width:64px;height:64px;object-fit:contain;display:block;border-radius:8px}
+.cr-badge .cr-tick{position:absolute;right:-6px;bottom:-6px;width:22px;height:22px;border:2px solid #fff;margin:0}
+.cr-row.is-exp .cr-badge img{opacity:.6;filter:grayscale(.5)}
+.cr-tick{flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:var(--green-bg,#ECFDF5);color:var(--green-ink,#047857);display:flex;align-items:center;justify-content:center;margin-top:1px}
+.cr-row.is-exp .cr-tick{background:#FEF3C7;color:#92400E}
+.cr-body{flex:1 1 auto;min-width:0}
+.cr-name{font-weight:600;overflow-wrap:anywhere}
+.cr-meta{color:var(--text-secondary);font-size:.85rem;margin-top:2px}
+.cr-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.cr-chip{font-size:.75rem;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid transparent}
+.cr-chip.ok{background:var(--green-bg,#ECFDF5);color:var(--green-ink,#047857);border-color:#A7F3D0}
+.cr-chip.exp{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
+.cr-own{margin-top:8px;font-size:.8125rem}
+.cr-warn{color:#92400E}
+.cr-card .cr-list{margin-top:10px}
+.cr-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.cr-count{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;background:var(--bg-subtle,#F1F5F9);color:var(--text-secondary);font-size:.75rem;font-weight:600;vertical-align:middle}
+@media (max-width:560px){.cr-row{flex-wrap:wrap}.cr-row>.btn,.cr-row>.cr-act{margin-left:76px}.cr-badge,.cr-badge img{width:52px;height:52px}.cr-row>.cr-act{margin-left:64px}}
+
+
+/* profile page rhythm: even gaps, roomier cards, clearer headings (Ahmed, 2026-11-26) */
+.pf-stack { display: grid; gap: 16px; min-width: 0; }
+.pf-stack > .card, .pf-stack > .grid-2 > .card { margin: 0; padding: 20px 24px; min-width: 0; }
+.pf-stack .card-h { font-size: 15px; font-weight: var(--fw-bold); color: var(--text-primary); margin-bottom: 14px; letter-spacing: -0.01em; }
+.pf-stack .profile-head-card { align-items: flex-start; gap: 20px; padding: 24px; }
+.pf-stack .profile-head-card .grow h2 { font-size: 22px; letter-spacing: -0.02em; }
+.pf-stack .profile-head-card .grow > .muted { font-size: 14px; margin-bottom: 4px; }
+.pf-stack .profile-meta { margin-top: 12px; gap: 7px; }
+.pf-stack .skill-table th { padding: 8px 10px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
+.pf-stack .skill-table th:first-child { border-radius: 8px 0 0 8px; }
+.pf-stack .skill-table th:last-child { border-radius: 0 8px 8px 0; }
+.pf-stack .skill-table td { padding: 11px 10px; border-bottom: 1px solid var(--border-subtle); }
+.pf-stack .skill-table td svg { color: #15803D; }
+.pf-stack .grid-2 { gap: 16px; }
+@media (min-width: 641px) { .pf-stack .skill-table td:first-child { white-space: nowrap; } }
+.pf-stack .card > p { margin: 0; line-height: 1.6; }
+@media (max-width: 640px) {
+  .pf-stack { gap: 12px; }
+  .pf-stack > .card, .pf-stack > .grid-2 > .card { padding: 16px; }
+  .pf-stack .profile-head-card { padding: 18px 16px; gap: 14px; }
 }

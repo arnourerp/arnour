@@ -29,12 +29,11 @@ await p.evaluate(()=>{ APP.wizC.step=2; APP._formSyncSkip=['wiz-c']; APP.render(
 await p.click('[data-action=wiz-back]'); await p.waitForTimeout(200);
 t('Back from Experience returns to Privacy',await p.evaluate(()=>APP.wizC.step===7));
 
-/* ---- an existing professional: Privacy tab in Edit profile and the card on the profile page ---- */
+/* ---- an existing professional: Privacy tab in Edit profile (the card is no longer on the profile page) ---- */
 await p.evaluate(()=>{ const id=Object.keys(APP.db.consultants)[0]; APP.login('consultant',id); APP.db.consultants[id].anon=true; });
 await go('#/c/profile');
-t('the profile page shows the same card',await p.evaluate(()=>!!document.querySelector('.vis-card')));
-await p.click('.vis-tile[data-v=public]'); await p.waitForTimeout(250);
-t('a click saves at once',await p.evaluate(()=>APP.consultant(APP.db.session.consultantId).anon===false));
+t('the profile page itself no longer shows the card (it lives in Edit profile > Privacy)',await p.evaluate(()=>!document.querySelector('.vis-card')));
+await p.evaluate(()=>{ APP.consultant(APP.db.session.consultantId).anon=false; });
 await p.click('[data-action=profile-edit-on]'); await p.waitForTimeout(300);
 t('Edit profile has a Privacy tab',await p.evaluate(()=>[...document.querySelectorAll('.pe-tab')].some(x=>/Privacy/.test(x.textContent))));
 await p.click('.pe-tab[data-s=privacy]'); await p.waitForTimeout(250);

@@ -43,7 +43,7 @@
   /* sidebar groups: [group title, [[tab id, label, one-line hint], ...]] */
   var GROUPS = [
     ['Overview', [['overview', 'Dashboard', 'Numbers at a glance'], ['traffic', 'Traffic', 'Visitors, sign-ups and what people did'], ['health', 'Health', 'Errors and email delivery']]],
-    ['People & roles', [['people', 'People', 'Professionals and companies'], ['unfinished', 'Unfinished', 'Accounts without a profile and professional profiles saved without SAP skills'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
+    ['People & roles', [['people', 'People', 'Professionals and companies'], ['unfinished', 'Unfinished', 'Accounts without a profile and professional profiles saved without SAP skills'], ['certs', 'Certifications', 'Badges professionals added from Credly: open them, and remove one if it is wrong'], ['roles', 'Roles', 'Posted and imported roles'], ['reports', 'Reports', 'Content people reported'], ['community', 'Community', 'Questions, answers, articles']]],
     ['Content', [['catalog', 'SAP catalog', 'Products, modules, specialties'], ['lists', 'Countries & languages', 'Countries, cities, regions, nationalities, languages'], ['import', 'Import jobs', 'Add roles from company career pages'], ['feeds', 'Job feeds', 'Check a company careers page every day and bring its SAP roles in as drafts']]],
     ['Communicate', [['messages', 'Messages', 'Write to people as the Arnour team, and read their replies'], ['reminders', 'Reminders', 'Follow-up e-mails to people who did not finish their profile, waiting for your approval'], ['announce', 'Announcements', 'Banner, bell and email to users'], ['feedback', 'Feedback', 'What people sent you']]],
     ['Settings', [['settings', 'Site settings', 'Sample content on or off'], ['log', 'Activity log', 'Everything admins did']]]
@@ -590,6 +590,22 @@
 
   /* ---------- unfinished: accounts without a profile and profiles saved without SAP skills ---------- */
   A.unfF = A.unfF || 'all';
+  /* Certifications: every badge a professional added (the database checked it with Credly); name differences first */
+  function vCerts() {
+    var w = need('certs', 'admin_credentials'); if (w) return w;
+    var rows = A.data.certs || [], odd = rows.filter(function (r) { return r.nameMatch === false; }).length;
+    var table = rows.length ? '<div class="adm-scroll"><table class="adm-table" id="adm-cert-table"><thead><tr><th>Professional</th><th>Badge</th><th>Dates</th><th>Name on badge</th><th>Checked</th><th></th></tr></thead><tbody>' + rows.map(function (r) {
+      var nm = r.nameMatch === false ? '<span class="pill" style="background:#FEF3C7;color:#92400E">Different from profile</span>' : r.nameMatch === true ? '<span class="muted">Matches</span>' : '<span class="muted">Not known</span>';
+      return '<tr data-cred="' + h(r.id) + '"><td><strong>' + h(r.who || 'No name') + '</strong><br><span class="muted small">' + h(r.headline || '') + '</span></td>' +
+        '<td>' + h(r.title) + '<br><span class="muted small">' + h([r.issuer, r.kind].filter(Boolean).join(' · ')) + '</span></td>' +
+        '<td class="small">' + h(r.issued || '') + (r.expires ? '<br>to ' + h(r.expires) : '') + '</td><td>' + nm + '</td><td class="small">' + whenT(r.checked) + '</td>' +
+        '<td><a class="btn btn-ghost btn-sm" href="' + h(r.url) + '" target="_blank" rel="noopener">Open on Credly</a> <a class="btn btn-ghost btn-sm" href="#/talent/' + h(r.entity) + '">Profile</a> ' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="adm-cred-remove" data-id="' + h(r.id) + '" data-n="' + h(r.title) + '">Remove</button></td></tr>';
+    }).join('') + '</tbody></table></div>' : '<div class="empty">No certifications added yet.</div>';
+    return '<h1>Certifications</h1><p class="muted">Badges that professionals added with a Credly link. The database asked Credly and saved what Credly said; the person cannot change it. Open the badge on Credly to compare it with the profile. A badge whose name is different from the profile name is listed first.</p>' +
+      '<div class="adm-stats adm-stats-sm"><div class="adm-stat"><strong>' + rows.length + '</strong><span>Badges</span></div><div class="adm-stat"><strong>' + odd + '</strong><span>Name is different</span></div></div>' + table;
+  }
+
   function vUnfinished() {
     var w = need('unfinished', 'admin_unfinished'); if (w) return w;
     var U = A.data.unfinished, rows = U.rows || [];
@@ -1037,7 +1053,7 @@
     if (A.data.staffN === undefined && !A.err.staffN) load('staffN', 'admin_staff_unread');
     if (A.data.remN === undefined && !A.err.remN) load('remN', 'admin_reminders_count');
     if (A.data.unfN === undefined && !A.err.unfN) load('unfN', 'admin_unfinished_count');
-    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'feeds' ? vFeeds() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'reminders' ? vReminders() : tab === 'unfinished' ? vUnfinished() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
+    var body = tab === 'reports' ? vReports() : tab === 'people' ? vPeople(rest) : tab === 'roles' ? vRoles() : tab === 'import' ? vImport() : tab === 'feeds' ? vFeeds() : tab === 'catalog' ? vCatalog() : tab === 'lists' ? vLists() : tab === 'messages' ? vMessages() : tab === 'announce' ? vAnnounce() : tab === 'feedback' ? vFeedback() : tab === 'health' ? vHealth() : tab === 'traffic' ? vTraffic() : tab === 'reminders' ? vReminders() : tab === 'unfinished' ? vUnfinished() : tab === 'certs' ? vCerts() : tab === 'community' ? vCommunity() : tab === 'settings' ? vSettings() : tab === 'log' ? vLog() : (tab = 'overview', vOverview());
     return shell(tab, body);
   };
 
@@ -1171,6 +1187,10 @@
         B.rpc('admin_feed_update', { p_id: d.id, p_enabled: d.on === '1', p_auto_close: tf.autoClose, p_filter: tf.filter }).then(function () { A.feed.note[d.id] = d.on === '1' ? 'Switched on.' : 'Switched off. It will not be checked or read until you switch it on.'; feedRefresh(d.id); }, function (e) { APP.toast('Could not do that: ' + String((e && e.message) || 'error')); });
         break;
       }
+      case 'adm-cred-remove':
+        APP.openDialog({ title: 'Remove this badge?', sub: h(d.n) + ' is taken off the profile. The professional can add it again with the same link.', danger: true, confirmLabel: 'Remove',
+          onConfirm: function () { act('admin_cred_remove', { p_id: d.id }, 'Badge removed', ['certs']); } });
+        break;
       case 'adm-feed-remove':
         APP.openDialog({ title: 'Disconnect ' + h(d.n) + '?', sub: 'Arnour stops checking this page. Drafts and roles already made stay with the company.', danger: true, confirmLabel: 'Disconnect',
           onConfirm: function () { B.rpc('admin_feed_remove', { p_id: d.id }).then(function () { delete A.data['feeditems:' + d.id]; APP.toast('Disconnected'); feedRefresh(); }, function (e) { APP.toast('Could not do that: ' + String((e && e.message) || 'error')); }); } });

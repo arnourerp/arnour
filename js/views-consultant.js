@@ -122,7 +122,7 @@ APP.consultantProfileHtml = function (c, o) {
     ? '<span>' + APP.icon('file', 14) + ' Rate: on request</span>'
     : '<span>' + APP.icon('file', 14) + ' ' + APP.rateHtml(c) + '</span>';
 
-  return '<div class="card profile-head-card">' +
+  return '<div class="pf-stack"><div class="card profile-head-card">' +
     APP.avatarHtml(name, 'xl') +
     '<div class="grow"><h2>' + APP.h(name) + '</h2>' +
     '<p class="muted">' + APP.h(c.headline) + '</p>' +
@@ -163,7 +163,8 @@ APP.consultantProfileHtml = function (c, o) {
       : '<div class="empty small">No CV uploaded yet.</div>') +
     '</div>') +
     '</div>' +
-    commProfileCard;
+    commProfileCard +
+    '</div>';
 };
 
 APP.views['c-profile'] = function () {
@@ -175,7 +176,8 @@ APP.views['c-profile'] = function () {
 
   let body;
   if (!editing) {
-    body = APP.privacyCardHtml() + APP.consultantProfileHtml(c, {
+    /* the "Who can see your name?" card lives in Edit profile > Privacy only (Ahmed, 2026-11-26) */
+    body = APP.consultantProfileHtml(c, {
       public: false,
       headActions: '<button class="btn btn-outline btn-sm" data-action="profile-edit-on">Edit profile</button>'
     }) +
@@ -224,6 +226,7 @@ APP.views['c-profile'] = function () {
         (APP.SHOW_RATES ? '<div class="form-grid"><div class="field"><span class="label">Your rate</span>' + APP.rateInputHtml(d, true) + '</div></div>' : ''),
       skills: '<h3 class="pe-h">SAP skills</h3>' + skillsF +
         '<label class="field"><span class="label">Other tools &amp; third-party solutions <span class="muted">(optional)</span></span><input name="otherTools" class="input" value="' + APP.h(Array.isArray(d.otherTools) ? d.otherTools.join(', ') : (d.otherTools || '')) + '" placeholder="e.g. Vertex, Blackline, Kinaxis, Celonis — comma separated" aria-label="Other tools and third-party solutions"></label>',
+      certs: APP.certsPaneHtml ? APP.certsPaneHtml(d) : '',
       specialties: '<h3 class="pe-h">Specialties</h3>' + specF +
         '<label class="field"><span class="label">Your own specialties (free text)</span><input name="otherSkills" class="input" value="' + APP.h(Array.isArray(d.otherSkills) ? d.otherSkills.join(', ') : (d.otherSkills || '')) + '" placeholder="e.g. ECC to S/4HANA conversion, HGB to IFRS — comma separated"></label>',
       about: '<h3 class="pe-h">About &amp; CV</h3>' +
