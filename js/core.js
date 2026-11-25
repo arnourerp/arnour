@@ -3480,6 +3480,15 @@ APP.guardAction = function (name, d) {
   return true;
 };
 
+/* leave a form (Edit role, Post a role) for `target`: the form must not stay in the browser history, so Back never returns to it.
+   Back to the page we came from when that is the target; otherwise replace the form's entry. */
+APP.goAfterForm = function (path) {
+  const target = path.startsWith('#') ? path : '#' + path;
+  const st = APP._nav || [], ok = APP._navOk || [];
+  if (location.hash === target) { APP.render(); return; }
+  if (st.length > 1 && st[st.length - 2] === target && ok[st.length - 2] !== false && window.history.length > 1) { window.history.back(); return; }
+  try { location.replace(location.pathname + location.search + target); } catch (e) { location.hash = target; }
+};
 APP.go = function (path) {
   const target = path.startsWith('#') ? path : '#' + path;
   if (location.hash === target) APP.render();
@@ -3643,12 +3652,18 @@ APP.render = function () {
   /* in-app history: lets "Back" return to the page the person came from, at the same scroll position */
   let navBackY = null;
   {
-    const hh = location.hash || '#/', st = APP._nav || (APP._nav = []);
+    const hh = location.hash || '#/', st = APP._nav || (APP._nav = []), ok = APP._navOk || (APP._navOk = []);
     if (st[st.length - 1] !== hh) {
-      if (st.length > 1 && st[st.length - 2] === hh) { st.pop(); navBackY = (APP._scrollMem || {})[hh] || 0; }
-      else { st.push(hh); if (st.length > 60) st.shift(); }
+      if (st.length > 1 && st[st.length - 2] === hh) {
+        /* a real browser Back keeps the stack and the browser history in step; opening an earlier page again by a link does not (the browser added a new entry), so browser-Back from here must not be trusted */
+        const viaBack = !!(history.state && history.state.nv); /* an entry the browser already had carries our mark; a new one does not */
+        st.pop(); ok.length = st.length; if (!viaBack && st.length > 1) ok[st.length - 2] = false;
+        navBackY = (APP._scrollMem || {})[hh] || 0;
+      }
+      else { st.push(hh); ok.length = st.length - 1; ok[st.length - 2] = true; if (st.length > 60) { st.shift(); ok.shift(); } }
     }
   }
+  try { if (!history.state) history.replaceState({ nv: 1 }, ''); } catch (e) { } /* mark this history entry, so a later visit to it can be told from a new one */
   const view = APP.views[route.view] || APP.views.landing;
   const body = view({ p: route.p });
   const noChrome = ['landing', 'login', 'register', 'forgot', 'reset', 'check-email', 'wiz-c', 'wiz-e', 'notfound', 'admin', 'suspended'];
@@ -3889,7 +3904,7 @@ APP._navSkip = /^#\/(login|register|forgot|reset|check-email|onboard|unsubscribe
 APP.navPrev = function () {
   const st = APP._nav || [];
   const cur = st[st.length - 1];
-  for (let i = st.length - 2; i >= 0; i--) { if (st[i] !== cur && !APP._navSkip.test(st[i])) return { hash: st[i], direct: i === st.length - 2 }; }
+  for (let i = st.length - 2; i >= 0; i--) { if (st[i] !== cur && !APP._navSkip.test(st[i])) return { hash: st[i], direct: i === st.length - 2 && (APP._navOk || [])[i] !== false }; }
   return null;
 };
 APP.navLabel = function (hash) {
@@ -5177,7 +5192,7 @@ APP.onClick = function (el, e) {
 
     case 'edit-cancel': {
       const info = APP.editInfo();
-      const leave = function () { if (info && info.exit) APP.go(info.exit); else APP.render(); };
+      const leave = function () { if (info && info.exit) APP.goAfterForm(info.exit); else APP.render(); };
       if (!info) { APP.render(); break; }
       if (APP.editDirty()) { APP.discardDialog(info, leave); break; }
       info.off(); APP._editBase = null; leave();
@@ -5664,7 +5679,7 @@ APP.onSubmit = function (f) {
         APP.jobNewDraft = null; APP.state.jobStep = 1; APP.state.jobErr = null;
         APP.save();
         APP.toast('Draft saved ✓ — it is only visible to you');
-        APP.go('#/e/jobs/' + dj.id);
+        APP.goAfterForm('#/e/jobs/' + dj.id);
         break;
       }
       if (!d.editId || editingDraft) {
@@ -5703,7 +5718,7 @@ APP.onSubmit = function (f) {
         APP.jobNewDraft = null;
         APP.save();
         APP.toast(msg);
-        APP.go('#/e/jobs/' + orig.id);
+        APP.goAfterForm('#/e/jobs/' + orig.id);
         break;
       }
       const job = Object.assign({}, d, {
@@ -5720,7 +5735,7 @@ APP.onSubmit = function (f) {
       APP.jobNewDraft = null; /* the next "Post a job" starts from a clean form */
       APP.save();
       APP.toast('Job posted ✓');
-      APP.go('#/e/jobs/' + job.id);
+      APP.goAfterForm('#/e/jobs/' + job.id);
       break;
     }
 
