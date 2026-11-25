@@ -58,15 +58,24 @@
     var cur = TABS.filter(function (t) { return t[0] === tab; })[0];
     var badge = function (id) { var n = id === 'reports' ? open : id === 'feedback' ? fb : id === 'messages' ? mn : id === 'reminders' ? rn : id === 'unfinished' ? un : 0; return n ? ' <em>' + n + '</em>' : ''; };
     var groupBadge = function (g) { var n = 0; g[1].forEach(function (t) { n += t[0] === 'reports' ? open : t[0] === 'feedback' ? fb : t[0] === 'messages' ? mn : t[0] === 'reminders' ? rn : t[0] === 'unfinished' ? un : 0; }); return n; };
+    /* phones: the grey page intro folds behind an (i) button next to the title */
+    inner = String(inner).replace(/^(<h1>[^<]*<\/h1>)(<p class="muted[^"]*">[\s\S]*?<\/p>)/, function (m, t, p) {
+      return '<div class="adm-togg"><div class="adm-head">' + t + '<button type="button" class="adm-i" data-action="adm-tog" aria-label="About this page">i</button></div>' + p.replace('<p class="', '<p class="adm-intro ') + '</div>';
+    });
+    var bnav = [['overview', 'Dashboard', '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'], ['people', 'People', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.4c2 .8 3.5 2.6 3.5 5.6"/>'], ['roles', 'Roles', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'], ['messages', 'Messages', '<path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9l-5 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>']];
+    var bar = '<nav class="adm-bottom" aria-label="Main admin sections">' + bnav.map(function (b) {
+      return '<a class="adm-bt' + (b[0] === tab ? ' on' : '') + '" href="#/admin/' + b[0] + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + b[2] + '</svg><span>' + b[1] + badge(b[0]) + '</span></a>';
+    }).join('') + '<button type="button" class="adm-bt adm-menu-btn' + (bnav.some(function (b) { return b[0] === tab; }) ? '' : ' on') + '" data-action="adm-menu" aria-expanded="' + menuOpen + '"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More' + (open + fb + rn + un ? ' <em>' + (open + fb + rn + un) + '</em>' : '') + '</span></button></nav>';
     return '<div class="adm' + (menuOpen ? ' adm-menu-open' : '') + '"><header class="adm-top"><a class="brand-logo" href="#/admin" aria-label="Arnour admin">A</a><strong>Arnour admin</strong>' +
-      '<button type="button" class="btn btn-outline btn-sm adm-menu-btn" data-action="adm-menu" aria-expanded="' + menuOpen + '">☰ ' + h(cur ? cur[1] : 'Menu') + '</button><span class="grow"></span>' +
+      '<span class="adm-title">' + h(cur ? cur[1] : '') + '</span><span class="grow"></span>' +
       '<a class="btn btn-ghost btn-sm" href="#/home">← View the site</a></header>' +
+      '<div class="adm-backdrop" data-action="adm-menu-close"></div>' +
       '<div class="adm-body"><nav class="adm-tabs" aria-label="Admin sections">' + GROUPS.map(function (g) {
         var gb = groupBadge(g);
         return '<div class="adm-group"><div class="adm-group-t">' + h(g[0]) + (gb ? ' <em>' + gb + '</em>' : '') + '</div>' + g[1].map(function (t) {
           return '<a class="adm-tab' + (t[0] === tab ? ' on' : '') + '" href="#/admin/' + t[0] + '" title="' + h(t[2]) + '">' + h(t[1]) + badge(t[0]) + '</a>';
         }).join('') + '</div>';
-      }).join('') + '</nav><main class="adm-main">' + inner + '</main></div></div>';
+      }).join('') + '</nav><main class="adm-main">' + inner + '</main></div>' + bar + '</div>';
   }
   function need(key, fn, args) {
     if (A.data[key] !== undefined) return null;
@@ -148,10 +157,11 @@
           '<div class="adm-actions">' +
           (p.entityId ? '<a class="btn btn-outline btn-sm" href="' + (p.role === 'consultant' ? '#/talent/' : '#/company/') + h(p.entityId) + '">View public page</a>' : '') +
           (p.entityId && !p.suspended ? '<button class="btn btn-outline btn-sm" data-action="adm-message" data-id="' + h(p.entityId) + '">Message as Arnour team</button>' : '') +
+          '<span class="adm-more"><button type="button" class="btn btn-ghost btn-sm adm-more-btn" data-action="adm-tog" aria-label="More actions">⋯ More</button><span class="adm-more-body">' +
           (p.suspended ? '<button class="btn btn-outline btn-sm" data-action="adm-unsuspend" data-u="' + p.userId + '">Reinstate</button>'
             : '<button class="btn btn-outline btn-sm" data-action="adm-suspend" data-u="' + p.userId + '" data-n="' + h(p.email) + '">Suspend</button>') +
           (p.role === 'consultant' && p.selfCertified ? (p.certRevoked ? '<button class="btn btn-ghost btn-sm" data-action="adm-cert" data-e="' + h(p.entityId) + '" data-on="0">Restore badge</button>' : '<button class="btn btn-ghost btn-sm" data-action="adm-cert" data-e="' + h(p.entityId) + '" data-on="1">Remove badge</button>') : '') +
-          '<button class="btn btn-danger btn-sm" data-action="adm-delete-user" data-u="' + p.userId + '" data-n="' + h(p.email) + '">Delete account</button></div></article>';
+          '<button class="btn btn-danger btn-sm" data-action="adm-delete-user" data-u="' + p.userId + '" data-n="' + h(p.email) + '">Delete account</button></span></span></div></article>';
       }).join('') : '<div class="empty">No one found.</div>');
   }
 
@@ -162,9 +172,9 @@
     return '<h1>Roles</h1>' + searchBar('roles', 'Search title, company, email…') + (list.length ? list.map(function (j) {
       return '<article class="adm-card"><div class="adm-row"><strong>' + h(j.title) + '</strong> <span class="pill muted-pill">' + h(j.status) + '</span>' + (j.sample ? ' <span class="pill muted-pill">Sample</span>' : '') + (j.external ? ' <span class="pill ext-badge">External · ' + h(j.extEmployer || '') + '</span>' : '') + (j.confidential ? ' <span class="pill muted-pill">Confidential</span>' : '') + '</div>' +
         '<p class="muted small">' + h(j.company || '') + ' · ' + h(j.email || '') + ' · posted ' + whenT(j.postedTs) + ' · ' + j.applicants + ' applicants</p>' +
-        '<div class="adm-actions"><a class="btn btn-outline btn-sm" href="#/job/' + h(j.id) + '">Open</a>' +
+        '<div class="adm-actions"><a class="btn btn-outline btn-sm" href="#/job/' + h(j.id) + '">Open</a><span class="adm-more"><button type="button" class="btn btn-ghost btn-sm adm-more-btn" data-action="adm-tog" aria-label="More actions">⋯ More</button><span class="adm-more-body">' +
         (j.status === 'open' ? '<button class="btn btn-outline btn-sm" data-action="adm-job-status" data-id="' + h(j.id) + '" data-s="closed">Close role</button>' : '<button class="btn btn-outline btn-sm" data-action="adm-job-status" data-id="' + h(j.id) + '" data-s="open">Reopen</button>') +
-        '<button class="btn btn-danger btn-sm" data-action="adm-job-delete" data-id="' + h(j.id) + '">Delete</button></div></article>';
+        '<button class="btn btn-danger btn-sm" data-action="adm-job-delete" data-id="' + h(j.id) + '">Delete</button></span></span></div></article>';
     }).join('') : '<div class="empty">No roles found.</div>');
   }
 
@@ -1220,6 +1230,8 @@
       }
       case 'adm-message': APP.adminMessage(d.id, d.name); break;
       case 'adm-menu': A.menuOpen = true; APP.render(); break;
+      case 'adm-menu-close': A.menuOpen = false; APP.render(); break;
+      case 'adm-tog': { var tg = el.closest('.adm-togg, .adm-more'); if (tg) tg.classList.toggle('on'); break; }
       case 'adm-msg-open':
         A.msg.id = d.id; A.msg.thread = null; APP.render();
         B.rpc('admin_staff_thread', { p_conv: d.id }).then(function (t) {
