@@ -164,6 +164,20 @@ $$ select public._email_card(
      'Posted ' || public._email_esc(p->>'posted') || ' &nbsp; <a href="' || p_url || '" style="color:#0369A1;font-weight:700;text-decoration:none;white-space:nowrap">View role →</a></div></td></tr></table>',
      '#FFFFFF', '16px', 10) $$;
 
+-- the job title for the subject line: no brackets, about 28 characters, cut between words
+create or replace function public._email_short_title(p_title text) returns text
+language plpgsql immutable as
+$$
+declare t text; s text;
+begin
+  t := btrim(regexp_replace(regexp_replace(coalesce(p_title, ''), '\([^)]*\)?', ' ', 'g'), '\s+', ' ', 'g'));
+  if length(t) <= 28 then s := t;
+  elsif position(' ' in left(t, 29)) = 0 then s := left(t, 28);
+  else s := regexp_replace(left(t, 29), '\s+\S*$', ''); end if;
+  s := regexp_replace(s, '((\s+(with|and|for|of|in|at|or|to|the))|(\s*[-–—&/|,:+·.]))+$', '', 'i');
+  return coalesce(nullif(s, ''), left(coalesce(p_title, ''), 28));
+end $$;
+
 -- one email from a person's due items: [{kind, text, link}]. null = nothing left worth sending
 create or replace function public._email_render(p_user uuid, p_items jsonb, p_token uuid) returns jsonb
 language plpgsql security definer set search_path = public as
@@ -172,7 +186,7 @@ declare
   site text := 'https://arnour.com/'; tag text := '?utm_source=email&amp;utm_medium=notification';
   it jsonb; ent text; jid text; info jsonb; jobs jsonb := '[]'::jsonb; seen text[] := '{}'; kinds text[] := '{}';
   rows text := ''; n_other int := 0; n_jobs int := 0; first_text text; first_link text; first_kind text;
-  top jsonb; r record; body text; subj text; preview text; ttl text; title_line text; footer text;
+  top jsonb; r record; body text; subj text; preview text; footer text;
 begin
   select pr.entity_id into ent from public.profiles pr where pr.user_id = p_user;
   for it in select x from jsonb_array_elements(p_items) x loop
@@ -227,13 +241,8 @@ begin
   end if;
 
   if n_jobs > 0 and n_other = 0 then
-    ttl := top->>'title';
-    if length(ttl) > 60 then ttl := rtrim(left(ttl, 59)) || '…'; end if;
-    title_line := ttl || case when top->>'employer' = '' then '' when top->>'employer' = 'A confidential company' then ' at a confidential company' else ' at ' || (top->>'employer') end ||
-      case when top->>'place' <> '' then ', ' || (top->>'place') else '' end;
     subj := case when (top->>'is_new')::boolean then 'New role' else 'New match' end ||
-      coalesce(', ' || (top->>'score') || '% match', '') || ': ' || title_line || ' · posted ' || (top->>'posted') ||
-      case when n_jobs > 1 then ' (+' || (n_jobs - 1) || ' more)' else '' end;
+      coalesce(', ' || (top->>'score') || '% match', '') || ': ' || public._email_short_title(top->>'title');
     preview := concat_ws(' · ', 'Posted ' || (top->>'posted'), nullif(top->>'type', ''), nullif(top->>'exp', ''),
       nullif((select string_agg(v, ', ') from jsonb_array_elements_text(top->'skills') v), ''));
   elsif n_other + n_jobs = 1 then
@@ -288,7 +297,7 @@ end $$;
 
 revoke all on function public._email_btn(text, text, text, text), public._email_logo(), public._email_card(text, text, text, int), public._email_shell(text, text),
   public._email_mod_short(text), public._email_skills(jsonb), public._email_job(text, text), public._email_chips(jsonb, text, text),
-  public._email_hero(jsonb, text, boolean), public._email_row(jsonb, text), public._email_render(uuid, jsonb, uuid), public.email_test(text)
+  public._email_hero(jsonb, text, boolean), public._email_row(jsonb, text), public._email_short_title(text), public._email_render(uuid, jsonb, uuid), public.email_test(text)
   from public, anon, authenticated;
 
 select 'ok' as release58;

@@ -35,8 +35,12 @@ await load('039_email_design_on'); await load('039_email_design_on');
 // ---------- one new role ----------
 await notify('#/job/x-1');
 b=await build(); let m=b[0];
-const day=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',timeZone:'Asia/Dubai'}).format(new Date(now-DAY)).replace('Sept','Sep');
-t('subject: new role, score, employer, place, date',m.subject.startsWith('New role, 92% match: SAP SD (Sales & Distribution) Manager at Deloitte, Cairo · posted '+day)&&!/more\)/.test(m.subject),m.subject);
+t('subject is short: new role, score, short title only',m.subject==='New role, 92% match: SAP SD Manager',m.subject);
+t('date, employer and place are inside the email',/Posted \d{1,2} \w{3}/.test(m.html)&&/Deloitte/.test(m.html)&&/Cairo, Egypt/.test(m.html));
+const short=async(v)=>(await q('select _email_short_title($1) x',[v]))[0].x;
+for(const [full,want] of [['SAP S/4HANA Service Functional Consultant (Remote, Middle East)','SAP S/4HANA Service'],['SAP SD Consultant with Vehicle Sales','SAP SD Consultant'],
+  ['SAP SuccessFactors Learning (LMS) Consultant','SAP SuccessFactors Learning'],['SAP FICO Consultant - SME Level','SAP FICO Consultant - SME'],['SAP MM Consultant','SAP MM Consultant'],['A'.repeat(50),'A'.repeat(28)]])
+  t('short title: '+full.slice(0,40),(await short(full))===want,await short(full));
 t('hero with details',/YOUR TOP MATCH/.test(m.html)&&/NEW ROLE/.test(m.html)&&/92%/.test(m.html)&&/Cairo, Egypt/.test(m.html)&&/Full-time · Senior/.test(m.html)&&/10\+ yrs/.test(m.html)&&/Languages: English/.test(m.html));
 t('chips use the site labels, nice-to-have left out',m.html.includes('S/4 Private · SD + MM')&&m.html.includes('ECC 6.0 · SD')&&!/Sales Cloud/.test(m.html),m.html.match(/S\/4[^<]*/g));
 t('no site name in place of the employer',!/Jobs on Arnour/.test(m.html));
@@ -51,8 +55,7 @@ for(let i=2;i<=7;i++) await job('x-'+i,ext('Role number '+i,{extEmployer:'Co '+i
 for(let i=2;i<=7;i++) await notify('#/job/x-'+i);
 await notify('#/job/x-2');
 b=await build(); m=b[0];
-t('best score on top, older role is a "match" not "new role"',m.subject.startsWith('New match, 87% match: Role number 7'.replace('New match, 87% match','New match, 87% match'))&&/NEW MATCH/.test(m.html),m.subject);
-t('count in subject ignores duplicates',m.subject.endsWith('(+5 more)'),m.subject);
+t('best score on top, older role is a "match" not "new role"',m.subject==='New match, 87% match: Role number 7'&&/NEW MATCH/.test(m.html),m.subject);
 t('five roles shown, rest counted',(m.html.match(/View role →/g)||[]).length===4&&/\+1 more matching role</.test(m.html)&&!/Role number 2</.test(m.html));
 t('size well under the Gmail cut',m.html.length<60000,m.html.length);
 
@@ -64,10 +67,10 @@ await job('j-applied',ext('Applied one'),99);
 await q(`insert into applications(job_id,consultant_id) values ('j-applied',$1)`,[ce]);
 for(const id of ['j-conf','j-closed','j-applied']) await notify('#/job/'+id);
 b=await build(); m=b[0];
-t('confidential company stays hidden',!/Hidden Holding/.test(m.html+m.subject)&&/at a confidential company/.test(m.subject),m.subject);
+t('confidential company stays hidden',!/Hidden Holding/.test(m.html+m.subject)&&/A confidential company/.test(m.html),m.subject);
 t('titles are escaped',!/<script/.test(m.html)&&/&lt;script&gt;/.test(m.html));
 t('any-of group',/Any of: S\/4 Private · SD \/ ECC 6\.0 · SD/.test(m.html));
-t('closed and already-applied roles left out',!/Closed one|Applied one/.test(m.html)&&!/more\)/.test(m.subject),m.subject);
+t('closed and already-applied roles left out',!/Closed one|Applied one/.test(m.html)&&!/Also matching you/.test(m.html),m.subject);
 await db.exec('delete from email_queue');
 await notify('#/job/j-closed');
 b=await build();
