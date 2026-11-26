@@ -8,6 +8,10 @@ await p.route('**/fonts.googleapis.com/**',r=>r.abort());
 const FAKE_BACKEND=`APP.backend=APP.backend||{isAdmin:true,profile:{},rpc:function(fn,a){window.__calls=(window.__calls||[]);window.__calls.push([fn,a]);
  if(fn==='admin_import_known'){ if(window.__known==='fail') return Promise.reject(new Error('function admin_import_known does not exist'));
    var K={'https://careers.acme.com/j/1':'open','https://careers.acme.com/j/2':'closed'}; return Promise.resolve(a.p_urls.filter(function(u){return K[u];}).map(function(u){return {url:u,status:K[u]};})); }
+ if(fn==='admin_roles_by_links'){ if(window.__known==='fail') return Promise.reject(new Error('function admin_roles_by_links does not exist'));
+   var R={'https://careers.acme.com/j/1':{id:'x-1',title:'Open role',extEmployer:'Acme',country:'ae',city:'Dubai',status:'open'},'https://careers.acme.com/j/2':{id:'x-2',title:'Shut role',extEmployer:'Acme',country:'ae',city:'Dubai',status:'closed'}};
+   return Promise.resolve(a.p_urls.filter(function(u){return R[u];}).map(function(u){return Object.assign({url:u},R[u]);})); }
+ if(fn==='admin_close_by_links') return Promise.resolve({closed:a.p_urls.length,titles:a.p_urls.map(function(u){return 'T '+u;})});
  if(fn==='admin_import_external_jobs')return Promise.resolve({imported:a.p_jobs.length,skipped:[]});if(fn==='admin_overview')return Promise.resolve({openReports:0});if(fn==='admin_jobs')return Promise.resolve([]);return Promise.resolve({});}};`;
 let f=0; const t=(n,ok,x)=>{console.log(ok?'ok  ':'FAIL',n,ok?'':JSON.stringify(x||'')); if(!ok)f++;};
 const errs=[]; p.on('pageerror',e=>errs.push(e.message));
@@ -59,5 +63,24 @@ await p.evaluate(()=>{window.__known='';});
 await check([J('First','https://careers.acme.com/j/6')]);
 await p.evaluate(()=>APP.adminImpAdd({title:'Added',extEmployer:'Acme',extSource:'Company career page',applyUrl:'https://careers.acme.com/j/1',country:'ae',roleType:'functional',employmentType:'Full-time',description:'x',requires:[{productId:window.__pid.id,moduleId:window.__pid.mod}]})); await p.waitForTimeout(400);
 m=await main(); t('a role added from a pasted posting is looked up too',/Added[\s\S]{0,40}Already on Arnour/.test(m)&&/First[\s\S]{0,20}OK/.test(m),m);
+
+/* ---- F: close roles that left the career site ---- */
+await p.evaluate(()=>{window.__calls=[];});
+t('close box is on the Import page',await p.locator('#cls-text').count()===1&&/Close roles that left the career site/.test(await main()));
+await p.click('[data-action=adm-cls-check]'); t('empty box: asks for a link',/Paste at least one apply link/.test(await main())&&await p.locator('[data-action=adm-cls-run]').count()===0);
+await p.fill('#cls-text','Gone roles:\n1) HTTPS://Careers.Acme.com/J/1/\nhttps://careers.acme.com/j/2.\nhttps://careers.acme.com/j/77\nhttps://careers.acme.com/j/1\nno link here'); await p.click('[data-action=adm-cls-check]'); await p.waitForTimeout(400);
+m=await main();
+t('links are picked out of the text, cleaned, each once',await p.evaluate(()=>{const c=window.__calls.filter(x=>x[0]==='admin_roles_by_links');return c.length===1&&c[0][1].p_urls.join('|')==='https://careers.acme.com/j/1|https://careers.acme.com/j/2|https://careers.acme.com/j/77';}));
+t('open role: title and Will close',/Open role[\s\S]{0,30}Will close/.test(m)&&/Acme · United Arab Emirates, Dubai/.test(m),m);
+t('closed role: Already closed',/Shut role[\s\S]{0,40}Already closed/.test(m),m);
+t('unknown link: not an imported role',/j\/77[\s\S]{0,80}Not an imported role on Arnour/.test(m),m);
+t('summary line',/3 links · 1 will close, 1 already closed, 1 not found/.test(m),m);
+t('button counts only open roles',/Close 1 role\b/.test(await p.locator('[data-action=adm-cls-run]').innerText()));
+await p.click('[data-action=adm-cls-run]'); await p.waitForTimeout(400);
+t('only the open role link is sent to close',await p.evaluate(()=>{const c=window.__calls.filter(x=>x[0]==='admin_close_by_links');return c.length===1&&c[0][1].p_urls.join('|')==='https://careers.acme.com/j/1';}));
+m=await main(); t('result shown, box cleared',/Closed 1/.test(m)&&await p.locator('#cls-text').inputValue()===''&&await p.locator('[data-action=adm-cls-run]').count()===0,m);
+await p.evaluate(()=>{window.__known='fail';}); await p.fill('#cls-text','https://careers.acme.com/j/1'); await p.click('[data-action=adm-cls-check]'); await p.waitForTimeout(400);
+t('check fails (SQL 58 not run): clear message, no close button',/SQL release 58 has not been run/.test(await main())&&await p.locator('[data-action=adm-cls-run]').count()===0);
+await p.evaluate(()=>{window.__known='';});
 console.log(errs.length?'PAGEERR '+errs.join(' | '):'no page errors');
 console.log(f?f+' FAILED':'all passed'); await b.close(); process.exit(f||errs.length?1:0);

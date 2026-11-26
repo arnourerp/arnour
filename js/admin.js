@@ -4,7 +4,7 @@
   var B = APP.backend, h = APP.h;
   if (!B) return;
 
-  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, msg: { id: null, thread: null, busy: false }, imp: { text: '', rows: null, error: '', result: null, busy: false, known: null }, feed: { busy: {}, reading: {}, note: {}, unticked: {}, open: {}, listsSaved: false, secretBusy: false } };
+  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, msg: { id: null, thread: null, busy: false }, imp: { text: '', rows: null, error: '', result: null, busy: false, known: null }, cls: { text: '', rows: null, error: '', result: null, busy: false }, feed: { busy: {}, reading: {}, note: {}, unticked: {}, open: {}, listsSaved: false, secretBusy: false } };
   var RM = APP.reportMeta, REASONS = RM.REASONS, REASON_LABEL = RM.REASON_LABEL, KIND_LABEL = RM.KIND_LABEL, REMOVABLE = RM.REMOVABLE; /* shared with js/report.js */
   function when(ts) { var d = new Date(typeof ts === 'number' ? ts : ts); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
   function whenT(ts) { return APP.timeAgo ? APP.timeAgo(typeof ts === 'number' ? ts : new Date(ts).getTime()) : when(ts); }
@@ -257,6 +257,35 @@
       return { kind: '' };
     });
   }
+  /* release 58: close imported roles that left the company's career site, from a pasted list of apply links */
+  function clsUrls(text) {
+    var out = [], seen = {};
+    (String(text || '').match(/https:\/\/[^\s"'<>,\[\]]+/gi) || []).forEach(function (u) {
+      var n = normLink(u.replace(/[.,;:)]+$/, '')); if (n && !seen[n]) { seen[n] = true; out.push(n); }
+    });
+    return out;
+  }
+  function vClose() {
+    var C = A.cls, rows = C.rows || [], nOpen = rows.filter(function (r) { return r.m && r.m.status === 'open'; }).length,
+        nShut = rows.filter(function (r) { return r.m && r.m.status !== 'open'; }).length, nNone = rows.filter(function (r) { return !r.m; }).length;
+    var html = '<h2 style="margin-top:32px">Close roles that left the career site</h2><p class="muted">Paste the apply links of roles that are no longer on the company’s career site, one per line. <strong>Check links</strong> shows which imported roles they are. <strong>Close</strong> marks them closed: nothing is deleted, people who applied are told, and a closed role can be reopened from the Roles tab.</p>' +
+      '<label class="field"><span class="label">Apply links</span><textarea id="cls-text" class="input" rows="5" spellcheck="false" placeholder="https://careers.example.com/job/123">' + h(C.text) + '</textarea></label>' +
+      '<div class="adm-actions"><button class="btn btn-outline btn-sm" data-action="adm-cls-check">Check links</button>' +
+      (nOpen ? '<button class="btn btn-primary btn-sm" data-action="adm-cls-run"' + (C.busy ? ' disabled' : '') + '>Close ' + nOpen + ' role' + (nOpen === 1 ? '' : 's') + '</button>' : '') + '</div>';
+    if (C.error) html += '<p class="field-error" role="alert">' + h(C.error) + '</p>';
+    if (C.rows) {
+      html += '<h3 style="margin-top:18px">' + rows.length + ' link' + (rows.length === 1 ? '' : 's') + ' · ' + nOpen + ' will close' + (nShut ? ', ' + nShut + ' already closed' : '') + (nNone ? ', ' + nNone + ' not found' : '') + '</h3>' + rows.map(function (r) {
+        var m = r.m;
+        if (!m) return '<article class="adm-card"><div class="adm-row"><strong class="small" style="word-break:break-all">' + h(r.url) + '</strong> <span class="pill muted-pill">Not an imported role on Arnour</span></div></article>';
+        return '<article class="adm-card"><div class="adm-row"><strong>' + h(m.title || '(no title)') + '</strong> ' + (m.status === 'open' ? '<span class="pill">Will close</span>' : '<span class="pill muted-pill">Already ' + h(m.status) + '</span>') + '</div>' +
+          '<p class="muted small">' + h(m.extEmployer || '') + ' · ' + h((APP.countriesById[m.country] || {}).name || m.country || '') + (m.city ? ', ' + h(m.city) : '') + '</p></article>';
+      }).join('');
+    }
+    if (C.result) {
+      html += '<article class="adm-card"><strong>Closed ' + C.result.closed + '</strong>' + (C.result.titles && C.result.titles.length ? '<ul class="small">' + C.result.titles.map(function (t) { return '<li>' + h(t) + '</li>'; }).join('') + '</ul>' : '') + '</article>';
+    }
+    return html;
+  }
   /* used by js/jd-import.js: appends one role read from a pasted posting to the list, then runs the usual check */
   APP.adminImpAdd = function (row) {
     var ta = document.getElementById('imp-text'), cur = String(ta ? ta.value : A.imp.text).trim(), list = [];
@@ -294,7 +323,7 @@
       html += '<article class="adm-card"><strong>Imported ' + I.result.imported + '</strong>' + (I.result.skipped.length ? '<ul class="small">' + I.result.skipped.map(function (s) { return '<li>' + h(s.title || '(no title)') + ': ' + h(s.reason) + '</li>'; }).join('') + '</ul>' : '') +
         '<div class="adm-actions"><a class="btn btn-outline btn-sm" href="#/admin/roles">See in Roles</a></div></article>';
     }
-    return html;
+    return html + vClose();
   }
 
 
@@ -1172,6 +1201,27 @@
           allKeys().forEach(reload); reload('overview'); reload('log');
           if (B.fetchCommunity) B.fetchCommunity().then(function (cm) { if (cm && !B.commBusy) B.applyCommunity(APP.db, cm); APP.render(); }, function () { APP.render(); }); else APP.render();
         }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
+        break;
+      }
+      case 'adm-cls-check': {
+        var tc = document.getElementById('cls-text'); A.cls.text = tc ? tc.value : A.cls.text; A.cls.result = null; A.cls.error = '';
+        var cu = clsUrls(A.cls.text);
+        if (!cu.length) { A.cls.rows = null; A.cls.error = 'Paste at least one apply link (it starts with https://).'; APP.render(); break; }
+        if (cu.length > 200) { A.cls.rows = null; A.cls.error = 'Paste at most 200 links at a time.'; APP.render(); break; }
+        B.rpc('admin_roles_by_links', { p_urls: cu }).then(function (res) {
+          var by = {}; (Array.isArray(res) ? res : []).forEach(function (x) { if (x && x.url) by[x.url] = x; });
+          A.cls.rows = cu.map(function (u) { return { url: u, m: by[u] || null }; }); APP.render();
+        }, function (e) { A.cls.rows = null; A.cls.error = 'Could not check the links: ' + String((e && e.message) || 'try again') + ' (if it says the function does not exist, SQL release 58 has not been run yet).'; APP.render(); });
+        break;
+      }
+      case 'adm-cls-run': {
+        var cr = A.cls.rows || [], cl = cr.filter(function (r) { return r.m && r.m.status === 'open'; }).map(function (r) { return r.url; });
+        if (!cl.length || A.cls.busy) break; A.cls.busy = true; APP.render();
+        B.rpc('admin_close_by_links', { p_urls: cl }).then(function (res) {
+          A.cls.busy = false; A.cls.result = res; A.cls.rows = null; A.cls.text = ''; A.cls.error = '';
+          allKeys().forEach(reload); reload('overview'); reload('log');
+          if (B.fetchCommunity) B.fetchCommunity().then(function (cm) { if (cm && !B.commBusy) B.applyCommunity(APP.db, cm); APP.render(); }, function () { APP.render(); }); else APP.render();
+        }, function (e) { A.cls.busy = false; A.cls.error = String((e && e.message) || 'Could not close the roles'); APP.render(); });
         break;
       }
       case 'adm-feed-add': {

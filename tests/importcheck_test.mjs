@@ -55,4 +55,32 @@ r=await as('a',`select admin_import_known($1::jsonb) x`,[JSON.stringify(Array.fr
 r=await known([]); t('empty list gives empty list',r[0].x.length===0,r);
 const before=(await db.query(`select count(*)::int n from jobs`)).rows[0].n; await known(['https://c.com/path']);
 t('it changes nothing',(await db.query(`select count(*)::int n from jobs`)).rows[0].n===before);
+
+/* ---- (2) close roles from a list of apply links ---- */
+const prev=async(u,who)=>(await as(who===undefined?'a':who,`select admin_roles_by_links($1::jsonb) x`,[JSON.stringify(u)]));
+const cls=async(u,who)=>(await as(who===undefined?'a':who,`select admin_close_by_links($1::jsonb) x`,[JSON.stringify(u)]));
+const boardCo=(await db.query(`select _board_company() c`)).rows[0].c;
+await db.query(`update jobs set status='open' where id=$1`,[id]);   // the acme /j/1 role is open again for these checks
+await db.query(`insert into jobs(id,company_id,owner,status,confidential,data,posted_ts) values ('own-1',$1,(select owner from companies where id=$1),'open',false,'{"title":"Posted by the company","applyUrl":"https://own.com/1"}'::jsonb,1)`,[boardCo]);
+r=await prev(['HTTPS://Careers.Acme.com/J/1/','https://nowhere.com/x','https://own.com/1']); let pv=r[0].x;
+t('preview: finds the imported role with title, employer, status; unknown and non-imported links are not listed',pv.length===1&&pv[0].title==='SAP FICO Lead'&&pv[0].extEmployer==='Acme Corp'&&pv[0].status==='open'&&pv[0].id===id,pv);
+t('preview changes nothing',(await db.query(`select status from jobs where id=$1`,[id])).rows[0].status==='open');
+r=await prev(['https://careers.acme.com/j/1'],'e'); t('preview: non-admin blocked',r.err&&/not allowed/.test(r.err),r);
+r=await prev(['https://careers.acme.com/j/1'],null); t('preview: visitor blocked',!!r.err,r);
+
+r=await cls(['https://careers.acme.com/j/1','https://own.com/1','https://nowhere.com/x']); let c=r[0].x;
+t('close: only the open imported role is closed',c.closed===1&&c.titles[0]==='SAP FICO Lead',c);
+t('close: it is closed and has a closing time (the usual trigger ran)',(await db.query(`select status, closed_ts is not null as ts from jobs where id=$1`,[id])).rows[0].status==='closed'&&(await db.query(`select closed_ts is not null as ts from jobs where id=$1`,[id])).rows[0].ts);
+t('close: a role the company posted itself is untouched',(await db.query(`select status from jobs where id='own-1'`)).rows[0].status==='open');
+t('close: nothing deleted',(await db.query(`select count(*)::int n from jobs where id=$1`,[id])).rows[0].n===1);
+r=await cls(['https://careers.acme.com/j/1']); t('close twice: second time closes nothing',r[0].x.closed===0,r);
+r=await prev(['https://careers.acme.com/j/1']); t('preview shows the closed status',r[0].x[0]&&r[0].x[0].status==='closed',r);
+t('the action is in the activity log',(await db.query(`select count(*)::int n from admin_log where action='close imported roles'`)).rows[0].n>=2);
+r=await cls(['https://careers.ibm.com/en_US/careers/JobDetail?jobId=132911']); t('close by a link with a query part',r[0].x.closed===1,r);
+r=await cls(['https://c.com/path'],'e'); t('close: non-admin blocked',r.err&&/not allowed/.test(r.err),r);
+t('close: blocked attempt closed nothing',(await db.query(`select status from jobs where data->>'applyUrl'='https://c.com/Path#frag'`)).rows[0].status==='open');
+r=await cls(['https://c.com/path'],null); t('close: visitor blocked',!!r.err,r);
+r=await as('a',`select admin_close_by_links('{}'::jsonb) x`); t('close: not a list refused',!!r.err,r);
+r=await as('a',`select admin_close_by_links($1::jsonb) x`,[JSON.stringify(Array.from({length:201},(_,i)=>'https://z.com/'+i))]); t('close: more than 200 links refused',!!r.err,r);
+r=await cls([]); t('close: empty list closes nothing',r[0].x.closed===0,r);
 console.log(fails?fails+' FAILED':'all passed'); process.exit(fails?1:0);

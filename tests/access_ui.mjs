@@ -58,7 +58,7 @@ for(const [n,pg] of [['visitor',V],['professional',P],['company',C]]){
   t(n+': no admin links or admin buttons anywhere in the page',n1===0&&n2===0,[n1,n2]); }
 // ---- action guards (clicks fired straight from the console)
 const fire=(pg,action,extra)=>pg.evaluate(([a,x])=>{ window.__rpc=[]; APP.onClick({dataset:Object.assign({action:a},x||{})},{preventDefault(){}}); return window.__rpc.slice(); },[action,extra]);
-for(const a of ['adm-job-status','adm-cert','adm-job-delete','adm-remove-post','adm-imp-run']){
+for(const a of ['adm-job-status','adm-cert','adm-job-delete','adm-remove-post','adm-imp-run','adm-cls-run','adm-cls-check']){
   const r=await fire(P,a,{id:'x-1',s:'closed',e:'c1',on:'1',kind:'job'}); t('professional console click '+a+' sends nothing to the server',!r.some(n=>/^admin_/.test(n)),r);
   const r2=await fire(V,a,{id:'x-1',s:'closed'}); t('visitor console click '+a+' sends nothing',!r2.some(n=>/^admin_/.test(n)),r2);
   const r3=await fire(C,a,{id:'x-1',s:'closed'}); t('company console click '+a+' sends nothing',!r3.some(n=>/^admin_/.test(n)),r3); }
