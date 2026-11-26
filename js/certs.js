@@ -66,7 +66,7 @@
     if (S.ready || S.starting) return; S.starting = true;
     Promise.resolve(APP.certApi.configured()).then(function (on) { S.on = !!on; }, function () { S.on = false; }).then(function () {
       S.ready = true;
-      if (S.on && /\/profile|\/edit/.test(location.hash || '')) { try { APP.render(); } catch (e) { /* ignore */ } }
+      if (S.on && /\/profile|\/edit|\/dashboard/.test(location.hash || '')) { try { APP.render(); } catch (e) { /* ignore */ } }
     });
   }
   function ownerReady() { var s = APP.db && APP.db.session; return !!(S.on && s && s.role === 'consultant'); }
@@ -158,6 +158,26 @@
     return i < 0 ? html + card : html.slice(0, i) + card + html.slice(i);
   };
 
+  /* a short prompt on the dashboard (where sign-up ends): shown to a professional whose profile has SAP skills and no badge yet, only when Credly checks are switched on.
+     "Not now" hides it in this browser. The place to add and maintain badges stays Edit profile > Certifications. */
+  var PROMPT_KEY = 'arnour_cert_prompt_off';
+  function promptOff() { try { return localStorage.getItem(PROMPT_KEY) === '1'; } catch (e) { return false; } }
+  APP.certsPromptHtml = function (c) {
+    if (!c || !ownerReady() || promptOff() || !APP.profileReady(c) || (S.list || c.creds || []).length) return '';
+    return '<div class="card cr-prompt"><span class="cr-prompt-ico">' + APP.icon('check', 18) + '</span>' +
+      '<div class="cr-prompt-txt"><strong>Prove your SAP certifications</strong>' +
+      '<p class="muted small">Paste the public link of a Credly badge and it gets a <b>Verified</b> tick. Companies see the badge, never your link or the name on it. It takes a minute.</p></div>' +
+      '<div class="cr-prompt-act"><button type="button" class="btn btn-primary btn-sm" data-action="cert-prompt-go">Add a badge</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-action="cert-prompt-off">Not now</button></div></div>';
+  };
+  var baseDash = APP.views && APP.views['c-dash'];
+  if (baseDash) APP.views['c-dash'] = function () {
+    var html = baseDash.apply(this, arguments), card = APP.certsPromptHtml(me());
+    if (!card) return html;
+    var i = html.indexOf('<div class="dash-grid">');
+    return i < 0 ? html : html.slice(0, i) + card + html.slice(i);
+  };
+
   function pane() { return document.querySelector('[data-pane="certs"]'); }
   function say(text, kind) { var m = pane() && pane().querySelector('.cr-msg'); if (m) { m.textContent = text || ''; m.className = 'cr-msg' + (kind ? ' ' + kind : ''); } }
   function refresh(text, kind) {
@@ -210,6 +230,13 @@
   }
   /* own handlers (capture phase): Enter in the box must not save the whole profile form */
   document.addEventListener('click', function (e) {
+    var pt = e.target && e.target.closest && e.target.closest('[data-action="cert-prompt-go"],[data-action="cert-prompt-off"]');
+    if (pt) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (pt.getAttribute('data-action') === 'cert-prompt-off') { try { localStorage.setItem(PROMPT_KEY, '1'); } catch (x) { /* it comes back next visit */ } APP.render(); return; }
+      var m = me(); if (!m) return;
+      APP.state.profileEdit = true; APP.state.profileSec = 'certs'; APP.profileDraft = APP.clone(m); APP.go('#/c/profile'); return;
+    }
     var t = e.target && e.target.closest && e.target.closest('[data-action="cert-add"],[data-action="cert-remove"],[data-action="cert-check"]');
     if (!t) return;
     e.preventDefault(); e.stopImmediatePropagation();

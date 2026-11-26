@@ -37,6 +37,7 @@ async function page(who,w=1280,h=900){
   await p.route('**/.netlify/functions/cred-verify',async r=>{ const rq=r.request(); if(rq.method()==='GET') return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:CFG.on})}); CFG.who=who; const out=await fn.handler({httpMethod:'POST',headers:rq.headers(),body:rq.postData()||''}); r.fulfill({status:out.statusCode,headers:out.headers,body:out.body}); });
   await p.goto(BASE); await p.waitForFunction(()=>window.APP&&APP.backend&&APP.backend.ready,null,{timeout:10000}); return p;
 }
+const location_ok=(h)=>/#\/c\/profile/.test(h);
 const go=async(p,h)=>{ await p.evaluate(x=>{location.hash=x},h); await p.waitForTimeout(400); };
 const sql=async(s,a)=>(await be.db.query(s,a)).rows;
 await be.db.query(`update job_feed_worker set secret_hash=$1 where id=1`,[crypto.createHash('sha256').update(secret).digest('hex')]);
@@ -51,6 +52,22 @@ t('Certifications is optional: the completeness figure is unchanged by it',/\d+%
 await P.click('.pe-tab[data-s=certs]');
 t('the pane has the box, the button and the help',await P.locator('.cr-input').isVisible()&&await P.locator('[data-action=cert-add]').isVisible()&&await P.locator('.cr-help').count()===1);
 t('empty at first',/No certifications added yet/.test(await P.textContent('.cr-list')));
+
+/* the prompt after sign-up: on the dashboard, once, for a professional with SAP skills and no badge */
+const D=await page('pro'); await go(D,'#/c/dashboard'); await D.waitForTimeout(600);
+t('dashboard: a professional with skills and no badge sees the certification prompt',await D.locator('.cr-prompt').count()===1&&/Prove your SAP certifications/.test(await D.textContent('.cr-prompt')));
+t('dashboard: the prompt sits above the cards and says what companies see',/never your link/.test(await D.textContent('.cr-prompt')));
+await D.click('[data-action=cert-prompt-go]'); await D.waitForSelector('.cr-input',{timeout:4000}).catch(()=>{});
+t('"Add a badge" opens Edit profile on the Certifications tab',await D.locator('.cr-input').isVisible().catch(()=>false)&&location_ok(await D.evaluate(()=>location.hash)));
+const D2=await page('pro'); await go(D2,'#/c/dashboard'); await D2.waitForTimeout(600); await D2.click('[data-action=cert-prompt-off]'); await D2.waitForTimeout(300);
+t('"Not now" hides the prompt',await D2.locator('.cr-prompt').count()===0);
+await D2.reload(); await D2.waitForTimeout(1200); await go(D2,'#/c/dashboard'); await D2.waitForTimeout(600);
+t('"Not now" stays hidden after a reload',await D2.locator('.cr-prompt').count()===0);
+const D3=await page('pro'); await go(D3,'#/c/dashboard'); await D3.waitForTimeout(600);
+await D3.evaluate(()=>{ const m=APP.db.consultants[APP.db.session.consultantId]; m.creds=[{id:'x',title:'T',issuer:'SAP',kind:'Certification',issued:'2025-01-01',expires:''}]; APP.render(); });
+t('with a badge the prompt is gone',await D3.locator('.cr-prompt').count()===0);
+const DM=await page('pro',390,800); await go(DM,'#/c/dashboard'); await DM.waitForTimeout(600);
+t('phone: the prompt fits without sideways scroll',await DM.locator('.cr-prompt').count()===1&&await DM.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
 
 /* a wrong link never reaches Credly and saves nothing */
 await P.fill('.cr-input','https://example.com/badges/'+B1); await P.click('[data-action=cert-add]'); await P.waitForTimeout(500);
@@ -142,6 +159,8 @@ t('anonymous profile seen by another professional: the badge box is there, no na
 /* not switched on: no tab at all */
 CFG.on=false; const Q=await page('pro'); await go(Q,'#/c/profile'); await Q.click('[data-action=profile-edit-on]'); await Q.waitForSelector('.pe-nav');
 t('when the function is not switched on there is no Certifications tab',await Q.locator('.pe-tab').count()===6&&await Q.locator('.pe-tab[data-s=certs]').count()===0);
+const Q2=await page('pro'); await go(Q2,'#/c/dashboard'); await Q2.waitForTimeout(600);
+t('when the function is not switched on there is no prompt',await Q2.locator('.cr-prompt').count()===0);
 CFG.on=true;
 
 /* phone */
