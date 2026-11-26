@@ -91,6 +91,10 @@ t('under 50%: role shown, no score',/YOU&#39;RE INVITED/.test(m.html)&&/Weak fit
 await q(`update match_scores set score=50 where job_id='x-low'`); await db.exec('delete from email_queue'); await invite('x-low','Lowco','Weak fit');
 t('50% is shown',/50%/.test((await build())[0].html));
 await db.exec('delete from email_queue');
+await invite('x-low','A company','SAP S/4HANA Service Functional Consultant (Remote, Middle East)');
+m=(await build())[0];
+t('invite subject: job title shortened',m.subject==='A company invited you to apply for "SAP S/4HANA Service"',m.subject);
+await db.exec('delete from email_queue');
 await invite('j-closed','Acme','Closed one');
 m=(await build())[0];
 t('closed role: the plain line',/Acme invited you to apply for &quot;Closed one&quot;/.test(m.html)&&/Open Arnour/.test(m.html)&&!/RE INVITED/.test(m.html),m);

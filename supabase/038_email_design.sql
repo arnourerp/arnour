@@ -269,6 +269,15 @@ begin
       nullif((select string_agg(v, ', ') from jsonb_array_elements_text(top->'skills') v), ''));
   elsif n_other + n_jobs = 1 then
     subj := left(split_part(first_text, E'\n', 1), 120); preview := first_text;
+    -- an invitation: the job title in the subject is shortened like the match subject
+    if position(' invited you to apply for "' in first_text) > 0 then
+      subj := split_part(first_text, ' invited you to apply for "', 1) || ' invited you to apply for "' ||
+        public._email_short_title(regexp_replace(substr(first_text, position(' invited you to apply for "' in first_text) + length(' invited you to apply for "')), '"\s*$', '')) || '"';
+      if jsonb_array_length(invites) = 1 then   -- the inbox preview shows details, not the long title again
+        preview := concat_ws(' · ', 'Posted ' || (invites->0->>'posted'), nullif(invites->0->>'type', ''), nullif(invites->0->>'exp', ''),
+          nullif((select string_agg(v, ', ') from jsonb_array_elements_text(invites->0->'skills') v), ''));
+      end if;
+    end if;
   else
     subj := 'You have ' || (n_other + n_jobs) || ' updates on Arnour'; preview := first_text;
   end if;
