@@ -4,7 +4,7 @@
   var B = APP.backend, h = APP.h;
   if (!B) return;
 
-  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, msg: { id: null, thread: null, busy: false }, imp: { text: '', rows: null, error: '', result: null, busy: false }, feed: { busy: {}, reading: {}, note: {}, unticked: {}, open: {}, listsSaved: false, secretBusy: false } };
+  var A = { data: {}, loading: {}, err: {}, q: { people: '', roles: '', community: '' }, rstatus: 'open', fstatus: 'open', conv: null, msg: { id: null, thread: null, busy: false }, imp: { text: '', rows: null, error: '', result: null, busy: false, known: null }, feed: { busy: {}, reading: {}, note: {}, unticked: {}, open: {}, listsSaved: false, secretBusy: false } };
   var RM = APP.reportMeta, REASONS = RM.REASONS, REASON_LABEL = RM.REASON_LABEL, KIND_LABEL = RM.KIND_LABEL, REMOVABLE = RM.REMOVABLE; /* shared with js/report.js */
   function when(ts) { var d = new Date(typeof ts === 'number' ? ts : ts); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
   function whenT(ts) { return APP.timeAgo ? APP.timeAgo(typeof ts === 'number' ? ts : new Date(ts).getTime()) : when(ts); }
@@ -232,6 +232,31 @@
     });
     return { rows: out };
   }
+  /* release 58: which of the checked roles are already on Arnour (same rule as the import: lower case, one trailing / or #… ignored, closed roles count) */
+  function normLink(u) { return String(u || '').trim().toLowerCase().replace(/(\/|#.*)$/, ''); }
+  function impLookup() {
+    var I = A.imp, token = I.text; I.known = null;
+    if (!I.rows || !I.rows.length) return;
+    var urls = [];
+    I.rows.forEach(function (r) { var u = normLink(r.job && r.job.applyUrl); if (/^https:\/\/[^ ]+\.[^ ]+$/.test(u) && urls.indexOf(u) === -1) urls.push(u); });
+    if (!urls.length) return;
+    B.rpc('admin_import_known', { p_urls: urls }).then(function (r) {
+      if (A.imp.text !== token || !A.imp.rows) return; /* the list changed meanwhile */
+      var m = {}; (Array.isArray(r) ? r : []).forEach(function (x) { if (x && x.url) m[x.url] = String(x.status || 'open'); });
+      A.imp.known = m; APP.render();
+    }, function () { /* the labels are a help only: without them the import still skips repeats itself */ });
+  }
+  /* each checked row: 'known' (already on Arnour), 'repeat' (same link twice in this list) or '' */
+  function impDup(rows) {
+    var seen = {};
+    return rows.map(function (r) {
+      var u = normLink(r.job && r.job.applyUrl), st = A.imp.known && A.imp.known[u];
+      if (st) return { kind: 'known', status: st };
+      if (u && seen[u]) return { kind: 'repeat' };
+      if (u) seen[u] = true;
+      return { kind: '' };
+    });
+  }
   /* used by js/jd-import.js: appends one role read from a pasted posting to the list, then runs the usual check */
   APP.adminImpAdd = function (row) {
     var ta = document.getElementById('imp-text'), cur = String(ta ? ta.value : A.imp.text).trim(), list = [];
@@ -243,24 +268,26 @@
     if (list.length >= 50) return { ok: false, msg: 'The list already has 50 roles. Import them first.' };
     list.push(row);
     A.imp.text = JSON.stringify(list, null, 2); A.imp.result = null; A.imp.error = '';
-    var c = checkImport(A.imp.text); A.imp.rows = c.rows || null;
+    var c = checkImport(A.imp.text); A.imp.rows = c.rows || null; impLookup();
     APP.render();
     return { ok: true };
   };
   function vImport() {
-    var I = A.imp, bad = I.rows ? I.rows.filter(function (r) { return r.warn.length; }).length : 0;
+    var I = A.imp, dups = I.rows ? impDup(I.rows) : [], bad = I.rows ? I.rows.filter(function (r, i) { return r.warn.length && !dups[i].kind; }).length : 0,
+      nDup = dups.filter(function (d) { return d.kind; }).length, nNew = I.rows ? I.rows.length - nDup : 0;
     var html = '<h1>Import jobs</h1><p class="muted">Paste a posting below to have it read into the list, or paste the JSON produced by the “arnour-external-jobs” skill. Roles appear under <strong>Jobs on Arnour</strong>, labelled “External listing”, and expire after 60 days. Close or delete any of them anytime from the Roles tab.</p>' +
       (APP.jdSlotHtml ? APP.jdSlotHtml('admin') : '') +
       '<label class="field"><span class="label">Roles (JSON)</span><textarea id="imp-text" class="input" rows="10" spellcheck="false" placeholder="[ { &quot;title&quot;: &quot;…&quot;, … } ]">' + h(I.text) + '</textarea></label>' +
       '<div class="adm-actions"><label class="btn btn-ghost btn-sm" for="imp-file" style="cursor:pointer">Open a .json file…</label><input id="imp-file" type="file" accept=".json,.txt,application/json,text/plain" style="display:none"><button class="btn btn-outline btn-sm" data-action="adm-imp-check">Check</button>' +
-      (I.rows && !bad ? '<button class="btn btn-primary btn-sm" data-action="adm-imp-run"' + (I.busy ? ' disabled' : '') + '>Import ' + I.rows.length + ' role' + (I.rows.length === 1 ? '' : 's') + '</button>' : '') + '</div>';
+      (I.rows && !bad && nNew ? '<button class="btn btn-primary btn-sm" data-action="adm-imp-run"' + (I.busy ? ' disabled' : '') + '>Import ' + (nDup ? nNew + ' new' : nNew) + ' role' + (nNew === 1 ? '' : 's') + '</button>' : '') + '</div>';
     if (I.error) html += '<p class="field-error" role="alert">' + h(I.error) + '</p>';
     if (I.rows) {
-      html += '<h2>' + I.rows.length + ' role' + (I.rows.length === 1 ? '' : 's') + (bad ? ' · ' + bad + ' need fixing' : ' · ready to import') + '</h2>' + I.rows.map(function (r) {
-        var j = r.job;
-        return '<article class="adm-card"><div class="adm-row"><strong>' + h(j.title || '(no title)') + '</strong> ' + (r.warn.length ? '<span class="pill muted-pill">Fix</span>' : '<span class="pill">OK</span>') + '</div>' +
+      html += '<h2>' + I.rows.length + ' role' + (I.rows.length === 1 ? '' : 's') + (bad ? ' · ' + bad + ' need fixing' : nDup ? ' · ' + nNew + ' new, ' + nDup + ' already on Arnour (skipped)' : ' · ready to import') + '</h2>' +
+        (!bad && nDup && !nNew ? '<p class="muted">Nothing new to import: every role in this list is already on Arnour.</p>' : '') + I.rows.map(function (r, i) {
+        var j = r.job, dk = dups[i];
+        return '<article class="adm-card"><div class="adm-row"><strong>' + h(j.title || '(no title)') + '</strong> ' + (dk.kind ? '<span class="pill muted-pill">' + (dk.kind === 'repeat' ? 'Repeated in this list' : 'Already on Arnour' + (dk.status && dk.status !== 'open' ? ' (' + h(dk.status) + ')' : '')) + '</span>' : r.warn.length ? '<span class="pill muted-pill">Fix</span>' : '<span class="pill">OK</span>') + '</div>' +
           '<p class="muted small">' + h(j.extEmployer || '') + ' · ' + h(j.extSource || '') + ' · ' + h((APP.countriesById[j.country] || {}).name || j.country || '') + (j.city ? ', ' + h(j.city) : '') + ' · ' + (Array.isArray(j.requires) ? j.requires.length : 0) + ' skill(s)</p>' +
-          (r.warn.length ? '<ul class="small">' + r.warn.map(function (w) { return '<li>' + h(w) + '</li>'; }).join('') + '</ul>' : '') + (r.note && r.note.length ? '<ul class="small muted">' + r.note.map(function (w) { return '<li>Note: ' + h(w) + '</li>'; }).join('') + '</ul>' : '') + '</article>';
+          (dk.kind ? '<p class="small muted">Will be skipped: ' + (dk.kind === 'repeat' ? 'the same apply link comes earlier in this list.' : 'this apply link is already on Arnour.') + '</p>' : r.warn.length ? '<ul class="small">' + r.warn.map(function (w) { return '<li>' + h(w) + '</li>'; }).join('') + '</ul>' : '') + (!dk.kind && r.note && r.note.length ? '<ul class="small muted">' + r.note.map(function (w) { return '<li>Note: ' + h(w) + '</li>'; }).join('') + '</ul>' : '') + '</article>';
       }).join('');
     }
     if (I.result) {
@@ -1134,14 +1161,14 @@
         break;
       case 'adm-imp-check': {
         var ta = document.getElementById('imp-text'); A.imp.text = ta ? ta.value : A.imp.text; A.imp.result = null;
-        var c = checkImport(A.imp.text); A.imp.error = c.error || ''; A.imp.rows = c.rows || null; APP.render(); break;
+        var c = checkImport(A.imp.text); A.imp.error = c.error || ''; A.imp.rows = c.rows || null; impLookup(); APP.render(); break;
       }
       case 'adm-imp-run': {
         var ta2 = document.getElementById('imp-text'); if (ta2) A.imp.text = ta2.value;
-        var c2 = checkImport(A.imp.text); if (c2.error || c2.rows.some(function (r) { return r.warn.length; })) { A.imp.error = c2.error || 'Fix the flagged roles first'; A.imp.rows = c2.rows || null; APP.render(); break; }
+        var c2 = checkImport(A.imp.text), d2 = c2.error ? [] : impDup(c2.rows); if (c2.error || c2.rows.some(function (r, i) { return r.warn.length && !d2[i].kind; })) { A.imp.error = c2.error || 'Fix the flagged roles first'; A.imp.rows = c2.rows || null; APP.render(); break; }
         if (A.imp.busy) break; A.imp.busy = true; APP.render();
         B.rpc('admin_import_external_jobs', { p_jobs: JSON.parse(A.imp.text) }).then(function (r) {
-          A.imp.busy = false; A.imp.result = r; A.imp.rows = null; A.imp.text = ''; A.imp.error = '';
+          A.imp.busy = false; A.imp.result = r; A.imp.rows = null; A.imp.known = null; A.imp.text = ''; A.imp.error = '';
           allKeys().forEach(reload); reload('overview'); reload('log');
           if (B.fetchCommunity) B.fetchCommunity().then(function (cm) { if (cm && !B.commBusy) B.applyCommunity(APP.db, cm); APP.render(); }, function () { APP.render(); }); else APP.render();
         }, function (e) { A.imp.busy = false; A.imp.error = String((e && e.message) || 'Could not import'); APP.render(); });
@@ -1370,7 +1397,7 @@
     var rd = new FileReader();
     rd.onload = function () {
       A.imp.text = String(rd.result || ''); A.imp.result = null;
-      var c = checkImport(A.imp.text); A.imp.error = c.error || ''; A.imp.rows = c.rows || null; APP.render();
+      var c = checkImport(A.imp.text); A.imp.error = c.error || ''; A.imp.rows = c.rows || null; impLookup(); APP.render();
     };
     rd.readAsText(t.files[0]); t.value = '';
   });
