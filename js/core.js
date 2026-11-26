@@ -5190,6 +5190,14 @@ APP.onClick = function (el, e) {
       APP.render();
       break;
 
+    case 'profile-privacy': { /* own profile page: open Edit profile at the Privacy section */
+      const pme = APP.currentUser(); if (!pme || !APP.db.session || APP.db.session.role !== 'consultant') break;
+      APP.state.profileEdit = true; APP.state.profileSec = 'privacy';
+      APP.profileDraft = APP.clone(pme);
+      APP.render();
+      break;
+    }
+
     case 'edit-cancel': {
       const info = APP.editInfo();
       const leave = function () { if (info && info.exit) APP.goAfterForm(info.exit); else APP.render(); };

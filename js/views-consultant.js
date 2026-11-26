@@ -98,6 +98,16 @@ APP.views['c-dash'] = function () {
 /* Read-only profile body, shared by the consultant's own page (c-profile) and the
    public, shareable talent page (#/talent/:id). o.public hides the rate + CV card and
    switches to neutral copy; o.headActions replaces the "Edit profile" button. */
+/* own profile page: says plainly whether companies see the name (Public) or only the headline (Hidden); tap to change in Privacy */
+APP.privacyChipHtml = function (c) {
+  const hid = !!c.anon;
+  return '<button type="button" class="priv-chip ' + (hid ? 'is-hidden' : 'is-public') + '" data-action="profile-privacy" title="Change this in Edit profile, Privacy">' +
+    '<span class="priv-ico" aria-hidden="true">' + APP.icon(hid ? 'lock' : 'users', 14) + '</span>' +
+    '<span class="priv-txt"><b>' + (hid ? 'Hidden' : 'Public') + '</b> · ' +
+    (hid ? 'companies see you as “' + APP.h(APP.anonLabel(c)) + '”, not your name, until you accept an introduction'
+         : 'companies see your name, photo and LinkedIn') + '</span>' +
+    '<span class="priv-chg">Change</span></button>';
+};
 APP.consultantProfileHtml = function (c, o) {
   o = o || {};
   const pub = !!o.public;
@@ -126,6 +136,7 @@ APP.consultantProfileHtml = function (c, o) {
     APP.avatarHtml(name, 'xl') +
     '<div class="grow"><h2>' + APP.h(name) + '</h2>' +
     '<p class="muted">' + APP.h(c.headline) + '</p>' +
+    (o.privacyLabel ? APP.privacyChipHtml(c) : '') +
     '<div class="profile-meta mt8">' +
     '<span>' + APP.icon('pin', 14) + ' ' + APP.h(APP.locText(c)) + '</span>' +
     APP.metaSpan('users', [c.nationality, APP.genderLabel(c.gender), c.level, c.yearsExp ? c.yearsExp + ' yrs exp' : '', (c.programs > 0 && APP.roleProfile(c).prog) ? c.programs + ' ' + APP.roleProfile(c).prog.toLowerCase() : '']) +
@@ -179,6 +190,7 @@ APP.views['c-profile'] = function () {
     /* the "Who can see your name?" card lives in Edit profile > Privacy only (Ahmed, 2026-11-26) */
     body = APP.consultantProfileHtml(c, {
       public: false,
+      privacyLabel: true,
       headActions: '<button class="btn btn-outline btn-sm" data-action="profile-edit-on">Edit profile</button>'
     }) +
       '<div class="mt16">' + APP.shareHtml({

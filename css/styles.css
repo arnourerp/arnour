@@ -2683,3 +2683,16 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
   .pf-stack > .card, .pf-stack > .grid-2 > .card { padding: 16px; }
   .pf-stack .profile-head-card { padding: 18px 16px; gap: 14px; }
 }
+
+/* own profile: Public / Hidden label under the headline */
+.priv-chip { display: flex; align-items: center; gap: 8px; max-width: 100%; margin: 8px 0 2px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--bg-subtle); color: var(--text-primary); font: inherit; font-size: 13px; line-height: 1.4; text-align: left; cursor: pointer; }
+.priv-chip:hover { border-color: var(--accent, #0A6CFF); }
+.priv-chip:focus-visible { outline: 2px solid var(--accent, #0A6CFF); outline-offset: 2px; }
+.priv-chip .priv-ico { flex: none; display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border-radius: 50%; background: #fff; }
+.priv-chip.is-hidden { background: #F0F9FF; border-color: #BAE6FD; }
+.priv-chip.is-hidden .priv-ico { color: #0369A1; }
+.priv-chip.is-public { background: #FFFBEB; border-color: #FDE68A; }
+.priv-chip.is-public .priv-ico { color: #92400E; }
+.priv-chip .priv-txt { min-width: 0; overflow-wrap: anywhere; }
+.priv-chip .priv-chg { flex: none; margin-left: auto; padding-left: 8px; font-weight: 600; color: var(--accent, #0A6CFF); }
+@media (max-width: 560px) { .priv-chip { flex-wrap: wrap; } .priv-chip .priv-chg { margin-left: 32px; padding-left: 0; } }
