@@ -1,4 +1,4 @@
-/* Release 58: Admin > Import jobs > Check: admin_import_known tells which apply links the board already has (same rule as the import) */
+/* Release 60: Admin > Import jobs > Check: admin_import_known tells which apply links the board already has (same rule as the import) */
 import {PGlite} from '@electric-sql/pglite';
 import fs from 'fs';
 const db=new PGlite();
@@ -12,7 +12,7 @@ alter default privileges in schema public grant execute on functions to anon, au
 create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]); create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text, owner uuid); alter table storage.objects enable row level security; grant usage on schema storage to anon, authenticated; grant all on storage.objects to authenticated;
 create function storage.foldername(name text) returns text[] language sql as $$ select string_to_array(name,'/') $$;`);
 for(const f of ['001_schema','002_seed_samples','003_community','004_seed_community','005_admin']) await db.exec(fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/'+f+'.sql','utf8'));
-const REL=fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/038_import_check.sql','utf8');
+const REL=fs.readFileSync(process.env.ARNOUR_ROOT+'/supabase/040_import_check.sql','utf8');
 await db.exec(REL); await db.exec(REL);   // safe to run twice
 const U={e:'11111111-1111-1111-1111-111111111111',a:'99999999-9999-9999-9999-999999999999',b:'88888888-8888-8888-8888-888888888888'};
 await db.query(`insert into auth.users(id,email) values ($1,'e@x.com'),($2,'boss@arnour.test'),($3,'jobs@arnour.com')`,[U.e,U.a,U.b]);

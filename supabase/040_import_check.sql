@@ -1,4 +1,4 @@
--- Release 58: Admin > Import jobs. (1) Check says which roles are already on Arnour. (2) "Close roles that left the career site": paste apply links, see which
+-- Release 60: Admin > Import jobs. (1) Check says which roles are already on Arnour. (2) "Close roles that left the career site": paste apply links, see which
 -- imported roles they are, close them in one go (nothing is deleted; applicants are told by the usual closing trigger).
 -- admin_import_known(p_urls) takes the apply links of the pasted roles and returns the ones the board ("Jobs on Arnour") already has,
 -- with the status of that role (open, closed, draft...). It uses exactly the same rule as the import itself (admin_import_external_jobs):
@@ -67,4 +67,4 @@ end $$;
 revoke execute on function public.admin_import_known(jsonb), public.admin_roles_by_links(jsonb), public.admin_close_by_links(jsonb) from public, anon;
 grant execute on function public.admin_import_known(jsonb), public.admin_roles_by_links(jsonb), public.admin_close_by_links(jsonb) to authenticated;
 
-select 'ok' as release58;
+select 'ok' as release60;

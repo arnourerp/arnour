@@ -1,10 +1,10 @@
-/* Release 58: Import jobs > Check marks roles that are already on Arnour (or repeated in the list) and imports only the new ones */
+/* Release 60: Import jobs > Check marks roles that are already on Arnour (or repeated in the list) and imports only the new ones */
 import {createRequire} from 'module'; import fs from 'fs';
 const require=createRequire(import.meta.url);
 const {chromium}=require('playwright');
 const b=await chromium.launch(); const p=await b.newPage({viewport:{width:1200,height:900}});
 await p.route('**/fonts.googleapis.com/**',r=>r.abort());
-/* the pretend backend knows two links: one open role and one closed role; window.__known = 'fail' makes the lookup fail (SQL 58 not run yet) */
+/* the pretend backend knows two links: one open role and one closed role; window.__known = 'fail' makes the lookup fail (SQL 60 not run yet) */
 const FAKE_BACKEND=`APP.backend=APP.backend||{isAdmin:true,profile:{},rpc:function(fn,a){window.__calls=(window.__calls||[]);window.__calls.push([fn,a]);
  if(fn==='admin_import_known'){ if(window.__known==='fail') return Promise.reject(new Error('function admin_import_known does not exist'));
    var K={'https://careers.acme.com/j/1':'open','https://careers.acme.com/j/2':'closed'}; return Promise.resolve(a.p_urls.filter(function(u){return K[u];}).map(function(u){return {url:u,status:K[u]};})); }
@@ -52,7 +52,7 @@ m=await main();
 t('flagged duplicate does not need fixing',!/need fixing/.test(m)&&/Import 1 new role\b/.test(await p.locator('[data-action=adm-imp-run]').innerText()),m);
 t('a flagged new role still blocks',await (async()=>{await check([J('Bad new','https://careers.acme.com/j/8',{country:'zz'})]);return /1 need fixing/.test(await main())&&await p.locator('[data-action=adm-imp-run]').count()===0;})());
 
-/* D: the lookup fails (SQL 58 not run yet): no labels, import works as before */
+/* D: the lookup fails (SQL 60 not run yet): no labels, import works as before */
 await p.evaluate(()=>{window.__known='fail';});
 await check([J('Anything','https://careers.acme.com/j/1'),J('Other','https://careers.acme.com/j/5')]);
 m=await main();
@@ -80,7 +80,7 @@ await p.click('[data-action=adm-cls-run]'); await p.waitForTimeout(400);
 t('only the open role link is sent to close',await p.evaluate(()=>{const c=window.__calls.filter(x=>x[0]==='admin_close_by_links');return c.length===1&&c[0][1].p_urls.join('|')==='https://careers.acme.com/j/1';}));
 m=await main(); t('result shown, box cleared',/Closed 1/.test(m)&&await p.locator('#cls-text').inputValue()===''&&await p.locator('[data-action=adm-cls-run]').count()===0,m);
 await p.evaluate(()=>{window.__known='fail';}); await p.fill('#cls-text','https://careers.acme.com/j/1'); await p.click('[data-action=adm-cls-check]'); await p.waitForTimeout(400);
-t('check fails (SQL 58 not run): clear message, no close button',/SQL release 58 has not been run/.test(await main())&&await p.locator('[data-action=adm-cls-run]').count()===0);
+t('check fails (SQL 60 not run): clear message, no close button',/SQL release 60 has not been run/.test(await main())&&await p.locator('[data-action=adm-cls-run]').count()===0);
 await p.evaluate(()=>{window.__known='';});
 console.log(errs.length?'PAGEERR '+errs.join(' | '):'no page errors');
 console.log(f?f+' FAILED':'all passed'); await b.close(); process.exit(f||errs.length?1:0);

@@ -232,7 +232,7 @@
     });
     return { rows: out };
   }
-  /* release 58: which of the checked roles are already on Arnour (same rule as the import: lower case, one trailing / or #… ignored, closed roles count) */
+  /* release 60: which of the checked roles are already on Arnour (same rule as the import: lower case, one trailing / or #… ignored, closed roles count) */
   function normLink(u) { return String(u || '').trim().toLowerCase().replace(/(\/|#.*)$/, ''); }
   function impLookup() {
     var I = A.imp, token = I.text; I.known = null;
@@ -257,7 +257,7 @@
       return { kind: '' };
     });
   }
-  /* release 58: close imported roles that left the company's career site, from a pasted list of apply links */
+  /* release 60: close imported roles that left the company's career site, from a pasted list of apply links */
   function clsUrls(text) {
     var out = [], seen = {};
     (String(text || '').match(/https:\/\/[^\s"'<>,\[\]]+/gi) || []).forEach(function (u) {
@@ -1211,7 +1211,7 @@
         B.rpc('admin_roles_by_links', { p_urls: cu }).then(function (res) {
           var by = {}; (Array.isArray(res) ? res : []).forEach(function (x) { if (x && x.url) by[x.url] = x; });
           A.cls.rows = cu.map(function (u) { return { url: u, m: by[u] || null }; }); APP.render();
-        }, function (e) { A.cls.rows = null; A.cls.error = 'Could not check the links: ' + String((e && e.message) || 'try again') + ' (if it says the function does not exist, SQL release 58 has not been run yet).'; APP.render(); });
+        }, function (e) { A.cls.rows = null; A.cls.error = 'Could not check the links: ' + String((e && e.message) || 'try again') + ' (if it says the function does not exist, SQL release 60 has not been run yet).'; APP.render(); });
         break;
       }
       case 'adm-cls-run': {
