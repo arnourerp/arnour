@@ -127,19 +127,25 @@ $$ select coalesce(string_agg('<span style="display:inline-block;background:' ||
 create or replace function public._email_hero(p jsonb, p_url text, p_logo boolean) returns text
 language plpgsql stable security definer set search_path = public as
 $$
-declare h text := ''; facts text := ''; f record; w int;
+declare h text := ''; facts text := ''; f record; w int; inv boolean := p ? 'invite_by';
+  show_score boolean := p->>'score' is not null and (not (p ? 'invite_by') or (p->>'score')::int >= 50);  -- an invitation never leads with a weak score
 begin
   if p_logo then h := public._email_logo() || '<div style="height:20px;line-height:20px">&nbsp;</div>'; end if;
-  h := h || '<div style="font-size:12px;font-weight:700;letter-spacing:1px;color:#38BDF8;margin:0 0 10px">YOUR TOP MATCH</div>' ||
-    '<div style="margin:0 0 14px"><span style="display:inline-block;background:#38BDF8;color:#0F172A;font-size:11px;font-weight:800;padding:4px 9px;border-radius:10px">' ||
-      case when (p->>'is_new')::boolean then 'NEW ROLE' else 'NEW MATCH' end || '</span>' ||
-      '<span style="font-size:12px;color:#CBD5E1;padding-left:8px">Posted ' || public._email_esc(p->>'posted') || '</span></div>' ||
+  h := h || '<div style="font-size:12px;font-weight:700;letter-spacing:1px;color:#38BDF8;margin:0 0 10px">' || case when inv then 'YOU&#39;RE INVITED' else 'YOUR TOP MATCH' end || '</div>' ||
+    case when inv then
+      '<div style="font-size:16px;font-weight:700;line-height:1.45;color:#FFFFFF;margin:0 0 6px">' || public._email_esc(p->>'invite_by') || ' invited you to apply</div>' ||
+      '<div style="font-size:12px;color:#CBD5E1;margin:0 0 16px">Role posted ' || public._email_esc(p->>'posted') || '</div>'
+    else
+      '<div style="margin:0 0 14px"><span style="display:inline-block;background:#38BDF8;color:#0F172A;font-size:11px;font-weight:800;padding:4px 9px;border-radius:10px">' ||
+        case when (p->>'is_new')::boolean then 'NEW ROLE' else 'NEW MATCH' end || '</span>' ||
+        '<span style="font-size:12px;color:#CBD5E1;padding-left:8px">Posted ' || public._email_esc(p->>'posted') || '</span></div>'
+    end ||
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' ||
-    case when p->>'score' is not null then
+    case when show_score then
       '<td width="96" valign="middle" style="width:96px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="72" height="72" align="center" valign="middle" style="width:72px;height:72px;border:5px solid #38BDF8;border-radius:50px;color:#FFFFFF">' ||
       '<div style="font-size:22px;font-weight:800;line-height:1.1">' || (p->>'score') || '%</div><div style="font-size:11px;color:#CBD5E1">match</div></td></tr></table></td>' else '' end ||
     '<td valign="middle"><a href="' || p_url || '" style="font-size:20px;font-weight:800;line-height:1.3;color:#FFFFFF;text-decoration:none">' || public._email_esc(p->>'title') || '</a>' ||
-    case when p->>'employer' <> '' then '<div style="font-size:15px;font-weight:600;color:#CBD5E1;padding-top:6px">' || public._email_esc(p->>'employer') || '</div>' else '' end ||
+    case when p->>'employer' <> '' and not inv then '<div style="font-size:15px;font-weight:600;color:#CBD5E1;padding-top:6px">' || public._email_esc(p->>'employer') || '</div>' else '' end ||
     '</td></tr></table>';
   w := (select count(*) from (values (p->>'loc'), (p->>'type'), (p->>'exp')) v(x) where x <> '');
   for f in select * from (values (1, 'Location', p->>'loc'), (2, 'Type', p->>'type'), (3, 'Experience', p->>'exp')) v(n, k, x) where x <> '' order by n loop
@@ -148,7 +154,7 @@ begin
   end loop;
   if facts <> '' then h := h || '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 0"><tr>' || facts || '</tr></table>'; end if;
   if p->>'langs' <> '' then h := h || '<div style="font-size:12px;color:#CBD5E1;padding-top:10px">Languages: ' || public._email_esc(p->>'langs') || '</div>'; end if;
-  h := h || '<div style="padding:14px 0 8px">' || public._email_chips(p->'skills', '#1E3A5F', '#E0F2FE') || '</div>' || public._email_btn('View this role', p_url, '#38BDF8', '#0F172A');
+  h := h || '<div style="padding:14px 0 8px">' || public._email_chips(p->'skills', '#1E3A5F', '#E0F2FE') || '</div>' || public._email_btn(case when inv then 'View role and apply' else 'View this role' end, p_url, '#38BDF8', '#0F172A');
   return public._email_card(h, '#0F172A', '24px');
 end $$;
 
@@ -186,7 +192,7 @@ declare
   site text := 'https://arnour.com/'; tag text := '?utm_source=email&amp;utm_medium=notification';
   it jsonb; ent text; jid text; info jsonb; jobs jsonb := '[]'::jsonb; seen text[] := '{}'; kinds text[] := '{}';
   rows text := ''; n_other int := 0; n_jobs int := 0; first_text text; first_link text; first_kind text;
-  top jsonb; r record; body text; subj text; preview text; footer text;
+  top jsonb; r record; body text; invites jsonb := '[]'::jsonb; n_rows int := 0; row_link text; row_kind text; subj text; preview text; footer text;
 begin
   select pr.entity_id into ent from public.profiles pr where pr.user_id = p_user;
   for it in select x from jsonb_array_elements(p_items) x loop
@@ -200,7 +206,19 @@ begin
     else
       n_other := n_other + 1;
       if n_other = 1 then first_text := it->>'text'; first_link := coalesce(it->>'link', ''); first_kind := it->>'kind'; end if;
-      rows := rows || '<tr><td style="padding:12px 0;' || case when n_other > 1 then 'border-top:1px solid #E2E8F0;' else '' end || 'font-size:14px;line-height:1.5;color:#0F172A">' ||
+      -- an invitation to a role that is still open gets the role block (at most 3; the rest stay as lines)
+      info := null;
+      if it->>'kind' = 'invites' and it->>'text' like '%invited you to apply%' and jid is not null and jsonb_array_length(invites) < 3 and not (jid = any(seen)) then
+        info := public._email_job(ent, jid);
+      end if;
+      if info is not null then
+        seen := seen || jid;   -- the same role is not repeated as a match further down
+        invites := invites || jsonb_build_array(info || jsonb_build_object('invite_by', coalesce(nullif(it->>'by', ''), nullif(info->>'employer', ''), 'A company')));
+        continue;
+      end if;
+      n_rows := n_rows + 1;
+      if n_rows = 1 then row_link := coalesce(it->>'link', ''); row_kind := it->>'kind'; end if;
+      rows := rows || '<tr><td style="padding:12px 0;' || case when n_rows > 1 then 'border-top:1px solid #E2E8F0;' else '' end || 'font-size:14px;line-height:1.5;color:#0F172A">' ||
         case when it->>'kind' = 'announcements' then '<b>' || public._email_esc(split_part(it->>'text', E'\n', 1)) || '</b><br>' || public._email_esc(substr(it->>'text', length(split_part(it->>'text', E'\n', 1)) + 2))
              else public._email_esc(it->>'text') end ||
         case when coalesce(it->>'link', '') <> '' then ' <a href="' || site || tag || public._email_esc(it->>'link') || '" style="color:#0369A1;font-weight:700;text-decoration:none;white-space:nowrap">Open →</a>' else '' end || '</td></tr>';
@@ -215,13 +233,17 @@ begin
     '<a href="' || site || '#/unsubscribe?t=' || p_token || '&amp;k=all" style="color:#475569">Unsubscribe from all</a></div>';
 
   body := '';
-  -- the dark header, unless the top-match block carries the logo itself
-  if n_other > 0 then
-    body := public._email_card(public._email_logo(), '#0F172A', '18px 20px') ||
+  -- the dark header, unless a dark block carries the logo itself
+  if n_rows > 0 then body := public._email_card(public._email_logo(), '#0F172A', '18px 20px'); end if;
+  for r in select x, o from jsonb_array_elements(invites) with ordinality z(x, o) order by o loop
+    body := body || public._email_hero(r.x, site || tag || '#/job/' || (r.x->>'id'), n_rows = 0 and r.o = 1);
+  end loop;
+  if n_rows > 0 then
+    body := body ||
       public._email_card('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">' || rows || '</table>' ||
         '<div style="padding-top:14px">' || public._email_btn(
-          case when n_other = 1 and first_kind = 'messages' then 'Open chat' else 'Open Arnour' end,
-          site || tag || case when n_other = 1 and first_link <> '' then public._email_esc(first_link) else '' end) || '</div>', '#FFFFFF', '10px 20px 20px');
+          case when n_rows = 1 and row_kind = 'messages' then 'Open chat' else 'Open Arnour' end,
+          site || tag || case when n_rows = 1 and row_link <> '' then public._email_esc(row_link) else '' end) || '</div>', '#FFFFFF', '10px 20px 20px');
   end if;
 
   if n_jobs > 0 then
@@ -259,7 +281,7 @@ create or replace function public.email_test(p_email text) returns text
 language plpgsql security definer set search_path = public, auth as
 $$
 declare
-  uid uuid; addr text; ent text; key text; tok uuid; items jsonb; e jsonb; rid bigint; n int := 0; note text := '';
+  inv jsonb; uid uuid; addr text; ent text; key text; tok uuid; items jsonb; e jsonb; rid bigint; n int := 0; note text := '';
 begin
   select u.id, u.email into uid, addr from auth.users u where lower(u.email) = lower(btrim(p_email)) limit 1;
   if uid is null then return 'No Arnour account signs in with that email. Nothing was sent.'; end if;
@@ -280,9 +302,16 @@ begin
   end if;
   if items is null then note := ' (no match email: this account is not a professional with matching roles)'; end if;
 
+  -- a sample invitation, for your best open role (no company really invited you)
+  select jsonb_build_array(jsonb_build_object('kind', 'invites', 'by', 'Example company',
+           'text', 'Example only: A company invited you to apply for "' || coalesce(j.data->>'title', 'a role') || '"', 'link', '#/job/' || j.id)) into inv
+    from public.match_scores s join public.jobs j on j.id = s.job_id and j.status = 'open'
+   where s.consultant_id = ent and not exists (select 1 from public.applications a where a.job_id = j.id and a.consultant_id = ent)
+   order by s.score desc, j.posted_ts desc limit 1;
+  inv := coalesce(inv, '[{"kind":"invites","text":"Example only: A company invited you to apply for \"SAP FI Consultant\"","link":"#/c/applied"}]'::jsonb);
+
   for e in
-    select public._email_render(uid, x, tok) from (values
-      (items), ('[{"kind":"invites","text":"Example only: A company invited you to apply for \"SAP FI Consultant\"","link":"#/c/applied"}]'::jsonb)) v(x)
+    select public._email_render(uid, x, tok) from (values (items), (inv)) v(x)
     where x is not null
   loop
     if e is null then continue; end if;

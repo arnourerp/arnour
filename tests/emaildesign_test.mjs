@@ -76,11 +76,29 @@ await notify('#/job/j-closed');
 b=await build();
 t('nothing left to show: no email, row dropped',b.length===0&&(await q('select dropped from email_queue'))[0].dropped===true,b);
 
-// ---------- other emails get the shared look ----------
+// ---------- invitations carry the role ----------
 await db.exec('delete from email_queue');
-await notify('#/job/j-conf','A confidential company invited you to apply for "Quiet role"');
+const invite=(id,who='A confidential company',title='Quiet role')=>notify('#/job/'+id,who+' invited you to apply for "'+title+'"');
+await invite('j-conf');
 b=await build(); m=b[0];
-t('invite: same subject, new look',m.subject==='A confidential company invited you to apply for "Quiet role"'&&/bgcolor="#0F172A"/.test(m.html)&&/Open Arnour/.test(m.html)&&!/TOP MATCH/.test(m.html)&&/k=invites/.test(m.html),m);
+if(process.env.EMAIL_SAMPLE_INVITE) fs.writeFileSync(process.env.EMAIL_SAMPLE_INVITE,m.html);
+t('invite: same subject, role block, one button',m.subject==='A confidential company invited you to apply for "Quiet role"'&&/YOU&#39;RE INVITED/.test(m.html)&&/A confidential company invited you to apply</.test(m.html)&&(m.html.match(/View role and apply/g)||[]).length===1&&!/Open Arnour|Open →|TOP MATCH/.test(m.html)&&/k=invites/.test(m.html),m);
+t('invite: details and score, company still hidden',/90%/.test(m.html)&&/Role posted \d/.test(m.html)&&/S\/4 Private/.test(m.html)&&!/Hidden Holding/.test(m.html));
+await db.exec('delete from email_queue');
+await job('x-low',ext('Weak fit',{extEmployer:'Lowco'}),49); await invite('x-low','Lowco','Weak fit');
+m=(await build())[0];
+t('under 50%: role shown, no score',/YOU&#39;RE INVITED/.test(m.html)&&/Weak fit/.test(m.html)&&!/49%/.test(m.html),m.html.slice(0,200));
+await q(`update match_scores set score=50 where job_id='x-low'`); await db.exec('delete from email_queue'); await invite('x-low','Lowco','Weak fit');
+t('50% is shown',/50%/.test((await build())[0].html));
+await db.exec('delete from email_queue');
+await invite('j-closed','Acme','Closed one');
+m=(await build())[0];
+t('closed role: the plain line',/Acme invited you to apply for &quot;Closed one&quot;/.test(m.html)&&/Open Arnour/.test(m.html)&&!/RE INVITED/.test(m.html),m);
+await db.exec('delete from email_queue');
+await invite('x-1','Deloitte','SD Manager'); await notify('#/job/x-1'); await notify('#/job/x-2'); await notify('#/c/intros','Acme would like to connect');
+m=(await build())[0];
+t('mixed: invitation first, then updates, then matches without repeating the invited role',m.html.indexOf('RE INVITED')<m.html.indexOf('would like to connect')&&m.html.indexOf('would like to connect')<m.html.indexOf('YOUR TOP MATCH')&&(m.html.match(/#\/job\/x-1"/g)||[]).length===2&&m.subject==='You have 3 updates on Arnour',m.subject);
+
 await db.exec('delete from email_queue');
 await notify('#/c/messages/cv9','Hidden Holding sent you a message');
 b=await build();
@@ -100,7 +118,7 @@ await db.exec(`create schema vault; create table vault.decrypted_secrets(name te
 const before=(await q('select count(*)::int n from email_queue'))[0].n;
 t('two test emails',(await test(' C@T.com '))==='Sent 2 test email(s) to c@t.com');
 const calls=await q('select body from net.calls order by id');
-t('only to that account, marked [Test]',calls.length===2&&calls.every(c=>c.body.to.length===1&&c.body.to[0]==='c@t.com'&&c.body.subject.startsWith('[Test] '))&&/YOUR TOP MATCH/.test(calls[0].body.html)&&/Example only/.test(calls[1].body.html),calls.map(c=>c.body.subject));
+t('only to that account, marked [Test]',calls.length===2&&calls.every(c=>c.body.to.length===1&&c.body.to[0]==='c@t.com'&&c.body.subject.startsWith('[Test] '))&&/YOUR TOP MATCH/.test(calls[0].body.html)&&/Example only/.test(calls[1].body.subject)&&/Example company invited you to apply/.test(calls[1].body.html),calls.map(c=>c.body.subject));
 t('test does not touch the queue',(await q('select count(*)::int n from email_queue'))[0].n===before);
 t('company account gets only the shared-look sample',/Sent 1 test email/.test(await test('e@t.com')));
 
