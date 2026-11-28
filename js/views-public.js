@@ -998,3 +998,35 @@ APP.views['company-public'] = function (ctx) {
     else if (name === 'nudge-open') { var a = document.querySelector('#main a[href^="#/job/"]'); track('mn:open:list'); if (a) APP.go(a.getAttribute('href')); }
   };
 })();
+
+
+/* ------------------------------ ad landing page (#/welcome) ------------------------------ */
+/* The page the Facebook (and later Google) ads open: for SAP professionals only. It says what Arnour is in one line, shows how it works,
+   shows what a match % looks like (the labelled Example card) and has one main button. No numbers from the database and no role counts
+   (Ahmed, 2026-11-25: no role numbers in public text), so it draws at once on a first visit. It is an app page, so every visit is counted
+   (v:welcome, and the source and campaign counters) and the ?utm_ tags on the address are kept (js/attribution.js). */
+APP.views.welcome = function () {
+  const prods = CATALOG.products.length;
+  const steps = [
+    ['Add your SAP skills', 'Upload your CV and the wizard fills in your products, modules and projects, or add them by hand. You check every step.'],
+    ['See a match % on every role', 'Each open role shows how well it fits your exact modules, what matches and what is missing.'],
+    ['Say yes only when you want to', 'Companies see your skills, not your name. Your name and CV are shared only after you accept an introduction.']
+  ].map((s, i) => '<div class="wl-step"><span class="step-num">' + (i + 1) + '</span><div><h3>' + APP.h(s[0]) + '</h3><p class="muted">' + APP.h(s[1]) + '</p></div></div>').join('');
+  const button = (cls) => '<a class="' + cls + '" href="#/jobs" data-wl="roles"><span class="hjl-dot" aria-hidden="true"></span><span class="hjl-text"><strong>See roles that fit me</strong><small>Free to browse · no login needed</small></span><span class="hjl-arrow" aria-hidden="true">→</span></a>';
+  return (APP.LIVE ? '' : '<div class="proto-banner" role="note">Prototype for customer validation: every company, profile and role is sample data.</div>') +
+    '<section class="hero wl-hero"><div class="hero-inner">' +
+    '<span class="mr-kicker">' + APP.icon('spark', 14) + ' What is Arnour?</span>' +
+    '<h1>Arnour matches SAP professionals to roles by <span class="hl">exact module.</span></h1>' +
+    '<p class="hero-sub">The SAP-only network for the Middle East. Add your skills once and every open role shows a match %. You stay anonymous until you say yes.</p>' +
+    button('hero-jobs-link wl-main') +
+    '<p class="wl-or"><a href="#/onboard" data-wl="profile">or create my free profile →</a></p>' +
+    '<p class="hero-proof"><span>SAP only</span><span>' + prods + ' SAP products</span><span>Built for Egypt, the GCC and MENA talent</span></p>' +
+    '</div></section>' +
+    '<section class="section wl-how"><div class="section-head center"><h2>How it works</h2></div><div class="wl-steps">' + steps + '</div></section>' +
+    '<section class="section sap-section wl-match" id="match-example"><div class="section-head center"><span class="mr-kicker">' + APP.icon('spark', 14) + ' Smart matching</span>' +
+    '<h2>This is what a match looks like</h2><p class="muted">Matched on SAP product and module, not on keywords. A missed must-have is flagged; nice-to-haves only add to the score and never hide a role.</p></div>' +
+    '<div class="wl-example">' + APP.exampleMatchCardHtml() + '</div></section>' +
+    '<section class="section wl-final"><h2>See which roles fit your modules</h2><p class="muted">Free. No login needed to browse. Your name stays hidden until you say yes.</p>' +
+    '<a class="btn btn-sky btn-lg" href="#/jobs" data-wl="roles-bottom">See roles that fit me →</a>' +
+    '<p class="wl-or wl-or-dark"><a href="#/onboard" data-wl="profile-bottom">or create my free profile →</a></p></section>';
+};

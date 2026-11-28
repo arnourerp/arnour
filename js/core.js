@@ -3363,6 +3363,7 @@ APP.views = {};
 APP.routes = [
   { re: /^#?\/?$/, view: 'landing', auth: null },
   { re: /^#\/home$/, view: 'landing', auth: null },
+  { re: /^#\/welcome$/, view: 'welcome', auth: null },
   { re: /^#\/login$/, view: 'login', auth: null },
   { re: /^#\/register(?:\/([ce]))?$/, view: 'register', auth: null },
   { re: /^#\/forgot$/, view: 'forgot', auth: null },
@@ -3594,7 +3595,7 @@ APP.syncFormsToDrafts = function (skip) {
 };
 
 APP.pageTitle = function (view) {
-  const T = { landing: 'Arnour — The SAP Talent Network', login: 'Sign in', register: 'Join Arnour', forgot: 'Reset your password', reset: 'Choose a new password', 'check-email': 'Check your email', account: 'Account',
+  const T = { landing: 'Arnour — The SAP Talent Network', welcome: 'SAP roles matched to your modules', login: 'Sign in', register: 'Join Arnour', forgot: 'Reset your password', reset: 'Choose a new password', 'check-email': 'Check your email', account: 'Account',
     community: 'Community', 'community-q': 'Question', 'community-a': 'Article', 'community-ask': 'Ask a question', 'community-share': 'Share an article', 'community-people': 'People', jobs: 'Open SAP roles', 'job-detail': 'Role', 'talent-public': 'Professional profile', 'company-public': 'Company',
     'wiz-c': 'Create your profile', 'wiz-e': 'Create your company profile', 'c-dash': 'Home', 'c-profile': 'My profile', 'c-jobs': 'Jobs', 'c-saved': 'My jobs', 'c-preview': 'Profile preview', 'c-msgs': 'Messages', 'c-msg': 'Messages',
     'e-dash': 'Home', 'e-company': 'Company profile', 'e-talent': 'Talent', 'a-talent': 'Talent', 'e-talent-detail': 'Talent', 'e-jobs': 'My roles', 'e-job-new': 'Post a job', 'e-job-edit': 'Edit role', 'e-job-detail': 'Role', 'e-msgs': 'Messages', 'e-msg': 'Messages', terms: 'Terms of Use', privacy: 'Privacy Policy', admin: 'Admin', suspended: 'Account suspended' };

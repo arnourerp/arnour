@@ -2696,3 +2696,33 @@ body:has(.publish-bar) .consent-bar { bottom: auto; top: 12px; }
 .priv-chip .priv-txt { min-width: 0; overflow-wrap: anywhere; }
 .priv-chip .priv-chg { flex: none; margin-left: auto; padding-left: 8px; font-weight: 600; color: var(--accent, #0A6CFF); }
 @media (max-width: 560px) { .priv-chip { flex-wrap: wrap; } .priv-chip .priv-chg { margin-left: 32px; padding-left: 0; } }
+
+/* ad landing page (#/welcome): what Arnour is, how it works, the match example, one main button */
+.wl-hero { padding: 56px 24px 52px; text-align: center; }
+.wl-hero h1 { font-size: 40px; letter-spacing: -1px; line-height: 1.12; max-width: 700px; margin-left: auto; margin-right: auto; }
+.wl-hero .hero-sub { margin-left: auto; margin-right: auto; }
+.wl-hero .mr-kicker { margin-bottom: 18px; }
+.wl-hero .hero-jobs-link.wl-main { margin-top: 6px; text-align: left; }
+.wl-or { margin: 16px 0 0; font-size: 15px; }
+.wl-or a { color: #BAE6FD; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.wl-or a:hover { color: #fff; }
+.wl-or.wl-or-dark a { color: var(--accent, #0A6CFF); }
+.wl-hero .hero-proof { margin-top: 24px; }
+.wl-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 980px; margin: 0 auto; }
+.wl-step { display: flex; gap: 14px; align-items: flex-start; padding: 18px; border-radius: 16px; background: #fff; border: 1px solid var(--border-subtle); box-shadow: var(--shadow-card); }
+.wl-step h3 { font-size: 16px; margin: 0 0 4px; }
+.wl-step p { margin: 0; font-size: 14px; line-height: 1.5; }
+.wl-match .section-head p { max-width: 560px; margin: 8px auto 0; }
+.wl-example { max-width: 520px; margin: 0 auto; }
+.wl-final { margin-top: 20px; text-align: center; padding: 30px 20px; border-radius: 22px; background: #F0F9FF; border: 1px solid #BAE6FD; }
+.wl-final h2 { font-size: 26px; letter-spacing: -.4px; margin: 0 0 8px; }
+.wl-final > p.muted { margin: 0 auto 18px; max-width: 460px; }
+@media (max-width: 760px) {
+  .wl-hero { padding: 36px 16px 34px; }
+  .wl-hero h1 { font-size: 29px; letter-spacing: -.6px; }
+  .wl-hero .hero-sub { font-size: 15.5px; margin-bottom: 22px; }
+  .wl-steps { grid-template-columns: 1fr; gap: 10px; }
+  .wl-final { padding: 24px 16px; }
+  .wl-final h2 { font-size: 22px; }
+  .wl-final .btn-lg { width: 100%; }
+}

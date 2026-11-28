@@ -1478,7 +1478,7 @@
       if (localStorage.getItem('arnour-oauth-pending')) return false;
       for (var i = 0; i < localStorage.length; i++) { if (/^sb-.*-auth-token/.test(localStorage.key(i) || '')) return false; }
     } catch (e) { /* storage blocked: no saved sign-in can exist */ }
-    return APP.parseRoute().view === 'landing';
+    var v0 = APP.parseRoute().view; return v0 === 'landing' || v0 === 'welcome'; /* the ad page needs no data either */
   };
 
   APP.start = function () {
